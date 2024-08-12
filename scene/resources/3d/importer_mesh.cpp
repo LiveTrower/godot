@@ -842,6 +842,10 @@ void ImporterMesh::create_shadow_mesh() {
 				SurfaceTool::optimize_vertex_cache_func((unsigned int *)index_wptr, (const unsigned int *)index_wptr, index_count, new_vertices.size());
 			}
 
+			if (SurfaceTool::optimize_vertex_cache_func) {
+				SurfaceTool::optimize_vertex_cache_func((unsigned int *)index_wptr, (const unsigned int *)index_wptr, index_count, new_vertices.size());
+			}
+
 			new_surface[RS::ARRAY_INDEX] = new_indices;
 
 			// Make sure the same LODs as the full version are used.
