@@ -31,9 +31,11 @@
 @file:JvmName("VkRenderer")
 package org.godotengine.godot.vulkan
 
-import android.util.Log
 import android.view.Surface
+
+import org.godotengine.godot.Godot
 import org.godotengine.godot.GodotLib
+import org.godotengine.godot.plugin.GodotPlugin
 import org.godotengine.godot.plugin.GodotPluginRegistry
 
 /**
@@ -50,11 +52,6 @@ import org.godotengine.godot.plugin.GodotPluginRegistry
  * @see [VkSurfaceView.startRenderer]
  */
 internal class VkRenderer {
-
-	companion object {
-		private val TAG = VkRenderer::class.java.simpleName
-	}
-
 	private val pluginRegistry: GodotPluginRegistry = GodotPluginRegistry.getPluginRegistry()
 
 	/**
@@ -104,10 +101,8 @@ internal class VkRenderer {
 	}
 
 	/**
-	 * Invoked when the render thread is in the process of shutting down.
+	 * Called when the rendering thread is destroyed and used as signal to tear down the Vulkan logic.
 	 */
-	fun onRenderThreadExiting() {
-		Log.d(TAG, "Destroying Godot Engine")
-		GodotLib.ondestroy()
+	fun onVkDestroy() {
 	}
 }

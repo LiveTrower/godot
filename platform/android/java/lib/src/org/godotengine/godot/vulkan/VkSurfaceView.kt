@@ -113,10 +113,12 @@ open internal class VkSurfaceView(context: Context) : SurfaceView(context), Surf
 	}
 
 	/**
-	 * Requests the render thread to exit and block until it does.
+	 * Tear down the rendering thread.
+	 *
+	 * Must not be called before a [VkRenderer] has been set.
 	 */
-	fun requestRenderThreadExitAndWait() {
-		vkThread.requestExitAndWait()
+	fun onDestroy() {
+		vkThread.blockingExit()
 	}
 
 	override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {

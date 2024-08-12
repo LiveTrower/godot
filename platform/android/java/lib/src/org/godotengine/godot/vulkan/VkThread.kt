@@ -75,9 +75,6 @@ internal class VkThread(private val vkSurfaceView: VkSurfaceView, private val vk
 
 	private fun threadExiting() {
 		lock.withLock {
-			Log.d(TAG, "Exiting render thread")
-			vkRenderer.onRenderThreadExiting()
-
 			exited = true
 			lockCondition.signalAll()
 		}
@@ -96,7 +93,7 @@ internal class VkThread(private val vkSurfaceView: VkSurfaceView, private val vk
 	/**
 	 * Request the thread to exit and block until it's done.
 	 */
-	fun requestExitAndWait() {
+	fun blockingExit() {
 		lock.withLock {
 			shouldExit = true
 			lockCondition.signalAll()
@@ -174,6 +171,7 @@ internal class VkThread(private val vkSurfaceView: VkSurfaceView, private val vk
 					while (true) {
 						// Code path for exiting the thread loop.
 						if (shouldExit) {
+							vkRenderer.onVkDestroy()
 							return
 						}
 

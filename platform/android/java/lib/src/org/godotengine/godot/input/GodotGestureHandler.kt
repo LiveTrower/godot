@@ -76,10 +76,7 @@ internal class GodotGestureHandler(private val inputHandler: GodotInputHandler) 
 	}
 
 	override fun onLongPress(event: MotionEvent) {
-		val toolType = GodotInputHandler.getEventToolType(event)
-		if (toolType != MotionEvent.TOOL_TYPE_MOUSE) {
-			contextClickRouter(event)
-		}
+		contextClickRouter(event)
 	}
 
 	private fun contextClickRouter(event: MotionEvent) {

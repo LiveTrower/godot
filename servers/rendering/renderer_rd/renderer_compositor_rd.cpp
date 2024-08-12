@@ -299,7 +299,6 @@ RendererCompositorRD::RendererCompositorRD() {
 		}
 	}
 
-	ERR_FAIL_COND_MSG(singleton != nullptr, "A RendererCompositorRD singleton already exists.");
 	singleton = this;
 
 	utilities = memnew(RendererRD::Utilities);
@@ -331,7 +330,6 @@ RendererCompositorRD::RendererCompositorRD() {
 }
 
 RendererCompositorRD::~RendererCompositorRD() {
-	singleton = nullptr;
 	memdelete(uniform_set_cache);
 	memdelete(framebuffer_cache);
 	ShaderRD::set_shader_cache_dir(String());

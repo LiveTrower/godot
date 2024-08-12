@@ -441,7 +441,6 @@ class DisplayServerWindows : public DisplayServer {
 
 		Vector<Vector2> mpath;
 
-		bool create_completed = false;
 		bool pre_fs_valid = false;
 		RECT pre_fs_rect;
 		bool maximized = false;

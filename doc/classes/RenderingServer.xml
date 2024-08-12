@@ -2012,6 +2012,13 @@
 				If [code]true[/code], this light will not be used for anything except sky shaders. Use this for lights that impact your sky shader that you may want to hide from affecting the rest of the scene. For example, you may want to enable this when the sun in your sky shader falls below the horizon.
 			</description>
 		</method>
+		<method name="light_get_shadow_caster_mask" qualifiers="const">
+			<return type="int" />
+			<param index="0" name="light" type="RID" />
+			<description>
+				Gets the shadow caster mask for this 3D light. Shadows will only be cast using objects in the selected layers. Equivalent to [member Light3D.shadow_caster_mask].
+			</description>
+		</method>
 		<method name="light_omni_set_shadow_mode">
 			<return type="void" />
 			<param index="0" name="light" type="RID" />
@@ -2109,6 +2116,14 @@
 			<param index="1" name="enabled" type="bool" />
 			<description>
 				If [code]true[/code], light will cast shadows. Equivalent to [member Light3D.shadow_enabled].
+			</description>
+		</method>
+		<method name="light_set_shadow_caster_mask">
+			<return type="void" />
+			<param index="0" name="light" type="RID" />
+			<param index="1" name="mask" type="int" />
+			<description>
+				Sets the shadow caster mask for this 3D light. Shadows will only be cast using objects in the selected layers. Equivalent to [member Light3D.shadow_caster_mask].
 			</description>
 		</method>
 		<method name="lightmap_create">
@@ -5128,6 +5143,12 @@
 		<constant name="ENV_TONE_MAPPER_ACES" value="3" enum="EnvironmentToneMapper">
 			Use the Academy Color Encoding System tonemapper. ACES is slightly more expensive than other options, but it handles bright lighting in a more realistic fashion by desaturating it as it becomes brighter. ACES typically has a more contrasted output compared to [constant ENV_TONE_MAPPER_REINHARD] and [constant ENV_TONE_MAPPER_FILMIC].
 			[b]Note:[/b] This tonemapping operator is called "ACES Fitted" in Godot 3.x.
+		</constant>
+		<constant name="ENV_TONE_MAPPER_AGX" value="4" enum="EnvironmentToneMapper">
+			Use the AgX tonemapper. AgX is slightly more expensive than other options, but it handles bright lighting in a more realistic fashion by desaturating it as it becomes brighter. AgX is less likely to darken parts of the scene compared to [constant ENV_TONE_MAPPER_ACES], and can match [constant ENV_TONE_MAPPER_FILMIC] more closely with whitepoint values above [code]10.0[/code].
+		</constant>
+		<constant name="ENV_TONE_MAPPER_AGX_PUNCHY" value="5" enum="EnvironmentToneMapper">
+			Use the AgX tonemapper with the "punchy" look. AgX is slightly more expensive than other options, but it handles bright lighting in a more realistic fashion by desaturating it as it becomes brighter. The punchy look increases contrast and saturation, bringing its visuals closer to [constant ENV_TONE_MAPPER_ACES].
 		</constant>
 		<constant name="ENV_SSR_ROUGHNESS_QUALITY_DISABLED" value="0" enum="EnvironmentSSRRoughnessQuality">
 			Lowest quality of roughness filter for screen-space reflections. Rough materials will not have blurrier screen-space reflections compared to smooth (non-rough) materials. This is the fastest option.

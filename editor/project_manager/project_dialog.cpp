@@ -315,8 +315,6 @@ void ProjectDialog::_create_dir_toggled(bool p_pressed) {
 			target_path = target_path.path_join(last_custom_target_dir);
 		}
 	} else {
-		// Strip any trailing slash.
-		target_path = target_path.rstrip("/\\");
 		// Save and remove target dir name.
 		if (target_path.get_file() == auto_dir) {
 			last_custom_target_dir = "";
@@ -351,19 +349,15 @@ void ProjectDialog::_install_path_changed() {
 }
 
 void ProjectDialog::_browse_project_path() {
-	String path = project_path->get_text();
-	if (path.is_empty()) {
-		path = EDITOR_GET("filesystem/directories/default_project_path");
-	}
 	if (mode == MODE_IMPORT && install_path->is_visible_in_tree()) {
 		// Select last ZIP file.
-		fdialog_project->set_current_path(path);
+		fdialog_project->set_current_path(project_path->get_text());
 	} else if ((mode == MODE_NEW || mode == MODE_INSTALL) && create_dir->is_pressed()) {
 		// Select parent directory of project path.
-		fdialog_project->set_current_dir(path.get_base_dir());
+		fdialog_project->set_current_dir(project_path->get_text().get_base_dir());
 	} else {
 		// Select project path.
-		fdialog_project->set_current_dir(path);
+		fdialog_project->set_current_dir(project_path->get_text());
 	}
 
 	if (mode == MODE_IMPORT) {
@@ -427,10 +421,6 @@ void ProjectDialog::_install_path_selected(const String &p_path) {
 	_install_path_changed();
 
 	get_ok_button()->grab_focus();
-}
-
-void ProjectDialog::_reset_name() {
-	project_name->set_text(TTR("New Game Project"));
 }
 
 void ProjectDialog::_renderer_selected() {
@@ -698,7 +688,6 @@ void ProjectDialog::set_project_path(const String &p_path) {
 }
 
 void ProjectDialog::ask_for_path_and_show() {
-	_reset_name();
 	_browse_project_path();
 }
 
@@ -723,7 +712,8 @@ void ProjectDialog::show_dialog(bool p_reset_name) {
 		callable_mp(project_name, &LineEdit::select_all).call_deferred();
 	} else {
 		if (p_reset_name) {
-			_reset_name();
+			String proj = TTR("New Game Project");
+			project_name->set_text(proj);
 		}
 		project_path->set_editable(true);
 
@@ -988,6 +978,7 @@ ProjectDialog::ProjectDialog() {
 	Control *spacer = memnew(Control);
 	spacer->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	default_files_container->add_child(spacer);
+
 	fdialog_install = memnew(EditorFileDialog);
 	fdialog_install->set_previews_enabled(false); //Crucial, otherwise the engine crashes.
 	fdialog_install->set_access(EditorFileDialog::ACCESS_FILESYSTEM);

@@ -85,8 +85,12 @@ abstract class GodotActivity : FragmentActivity(), GodotHost {
 	protected open fun getGodotAppLayout() = R.layout.godot_app_layout
 
 	override fun onDestroy() {
-		Log.v(TAG, "Destroying GodotActivity $this...")
+		Log.v(TAG, "Destroying Godot app...")
 		super.onDestroy()
+
+		godotFragment?.let {
+			terminateGodotInstance(it.godot)
+		}
 	}
 
 	override fun onGodotForceQuit(instance: Godot) {

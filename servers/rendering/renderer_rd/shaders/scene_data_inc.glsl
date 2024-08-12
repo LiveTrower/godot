@@ -55,8 +55,8 @@ struct SceneData {
 	highp float fog_height_density;
 
 	highp float fog_depth_curve;
-	highp float pad;
 	highp float fog_depth_begin;
+	highp float jitter_fraction;
 
 	mediump vec3 fog_light_color;
 	highp float fog_depth_end;

@@ -648,7 +648,7 @@ public:
 			};
 
 			int order = 0;
-			int texture_order = 0;
+			int texture_order = -1;
 			int texture_binding = 0;
 			DataType type = TYPE_VOID;
 			DataPrecision precision = PRECISION_DEFAULT;
@@ -663,6 +663,10 @@ public:
 			int instance_index = 0;
 			String group;
 			String subgroup;
+
+			_FORCE_INLINE_ bool is_texture() const {
+				return texture_order >= 0;
+			}
 
 			Uniform() {
 				hint_range[0] = 0.0f;
@@ -918,21 +922,8 @@ private:
 
 	// Additional function information (eg. call hierarchy). No need to expose it to compiler.
 	struct CallInfo {
-		struct Item {
-			enum ItemType {
-				ITEM_TYPE_BUILTIN,
-				ITEM_TYPE_VARYING,
-			} type;
-
-			TkPos pos;
-
-			Item() {}
-			Item(ItemType p_type, TkPos p_pos) :
-					type(p_type), pos(p_pos) {}
-		};
-
 		StringName name;
-		List<Pair<StringName, Item>> uses_restricted_items;
+		List<Pair<StringName, TkPos>> uses_restricted_functions;
 		List<CallInfo *> calls;
 	};
 

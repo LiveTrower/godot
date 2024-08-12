@@ -31,7 +31,6 @@
 #include "parallax_2d.h"
 
 #include "core/config/project_settings.h"
-#include "scene/main/viewport.h"
 
 void Parallax2D::_notification(int p_what) {
 	switch (p_what) {
@@ -73,11 +72,7 @@ void Parallax2D::_validate_property(PropertyInfo &p_property) const {
 
 void Parallax2D::_camera_moved(const Transform2D &p_transform, const Point2 &p_screen_offset, const Point2 &p_adj_screen_pos) {
 	if (!ignore_camera_scroll) {
-		if (get_viewport() && get_viewport()->is_snap_2d_transforms_to_pixel_enabled()) {
-			set_screen_offset((p_adj_screen_pos + Vector2(0.5, 0.5)).floor());
-		} else {
-			set_screen_offset(p_adj_screen_pos);
-		}
+		set_screen_offset(p_adj_screen_pos);
 	}
 }
 
@@ -91,10 +86,11 @@ void Parallax2D::_update_scroll() {
 	}
 
 	Point2 scroll_ofs = screen_offset;
+	Size2 vps = get_viewport_rect().size;
 
-	if (!Engine::get_singleton()->is_editor_hint()) {
-		Size2 vps = get_viewport_rect().size;
-
+	if (Engine::get_singleton()->is_editor_hint()) {
+		vps = Size2(GLOBAL_GET("display/window/size/viewport_width"), GLOBAL_GET("display/window/size/viewport_height"));
+	} else {
 		if (limit_begin.x <= limit_end.x - vps.x) {
 			scroll_ofs.x = CLAMP(scroll_ofs.x, limit_begin.x, limit_end.x - vps.x);
 		}

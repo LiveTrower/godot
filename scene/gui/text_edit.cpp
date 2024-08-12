@@ -764,7 +764,7 @@ void TextEdit::_notification(int p_what) {
 				}
 			}
 
-			bool draw_placeholder = _using_placeholder();
+			bool draw_placeholder = text.size() == 1 && text[0].is_empty() && ime_text.is_empty();
 
 			// Get the highlighted words.
 			String highlighted_text = get_selected_text(0);
@@ -2847,10 +2847,6 @@ void TextEdit::_update_placeholder() {
 		Vector2i line_range = placeholder_data_buf->get_line_range(i);
 		placeholder_wraped_rows.push_back(placeholder_translated.substr(line_range.x, line_range.y - line_range.x));
 	}
-}
-
-bool TextEdit::_using_placeholder() const {
-	return text.size() == 1 && text[0].is_empty() && ime_text.is_empty();
 }
 
 void TextEdit::_update_theme_item_cache() {
@@ -7844,10 +7840,10 @@ void TextEdit::_update_scrollbars() {
 	h_scroll->set_begin(Point2(0, size.height - hmin.height));
 	h_scroll->set_end(Point2(size.width - vmin.width, size.height));
 
-	bool draw_placeholder = _using_placeholder();
+	bool draw_placeholder = text.size() == 1 && text[0].length() == 0;
 
 	int visible_rows = get_visible_line_count();
-	int total_rows = draw_placeholder ? placeholder_wraped_rows.size() : get_total_visible_line_count();
+	int total_rows = draw_placeholder ? placeholder_wraped_rows.size() - 1 : get_total_visible_line_count();
 	if (scroll_past_end_of_file_enabled && !fit_content_height) {
 		total_rows += visible_rows - 1;
 	}
@@ -7925,7 +7921,7 @@ void TextEdit::_scroll_moved(double p_to_val) {
 	}
 	if (v_scroll->is_visible_in_tree()) {
 		// Set line ofs and wrap ofs.
-		bool draw_placeholder = _using_placeholder();
+		bool draw_placeholder = text.size() == 1 && text[0].length() == 0;
 
 		int v_scroll_i = floor(get_v_scroll());
 		int sc = 0;
@@ -8152,7 +8148,7 @@ void TextEdit::_update_gutter_width() {
 
 /* Syntax highlighting. */
 Dictionary TextEdit::_get_line_syntax_highlighting(int p_line) {
-	return (syntax_highlighter.is_null() || setting_text) ? Dictionary() : syntax_highlighter->get_line_syntax_highlighting(p_line);
+	return syntax_highlighter.is_null() && !setting_text ? Dictionary() : syntax_highlighter->get_line_syntax_highlighting(p_line);
 }
 
 /* Deprecated. */

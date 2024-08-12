@@ -137,6 +137,9 @@ public:
 			real_t linear_spring_stiffness = 0.0;
 			real_t linear_spring_damping = 0.0;
 			real_t linear_equilibrium_point = 0.0;
+			bool linear_motor_enabled = false;
+			real_t linear_motor_target_velocity = 0.0;
+			real_t linear_motor_force_limit = 0.0;
 			bool angular_limit_enabled = true;
 			real_t angular_limit_upper = 0.0;
 			real_t angular_limit_lower = 0.0;
@@ -148,6 +151,9 @@ public:
 			real_t angular_spring_stiffness = 0.0;
 			real_t angular_spring_damping = 0.0;
 			real_t angular_equilibrium_point = 0.0;
+			bool angular_motor_enabled = false;
+			real_t angular_motor_target_velocity = 0.0;
+			real_t angular_motor_force_limit = 300.0;
 		};
 
 		virtual JointType get_joint_type() { return JOINT_TYPE_6DOF; }

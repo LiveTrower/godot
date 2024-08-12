@@ -50,7 +50,7 @@ import androidx.annotation.Keep;
 
 import java.io.InputStream;
 
-class GodotVulkanRenderView extends VkSurfaceView implements GodotRenderView {
+public class GodotVulkanRenderView extends VkSurfaceView implements GodotRenderView {
 	private final GodotHost host;
 	private final Godot godot;
 	private final GodotInputHandler mInputHandler;
@@ -119,13 +119,8 @@ class GodotVulkanRenderView extends VkSurfaceView implements GodotRenderView {
 	}
 
 	@Override
-	public void onActivityDestroyed() {
-		requestRenderThreadExitAndWait();
-	}
-
-	@Override
 	public void onBackPressed() {
-		godot.onBackPressed();
+		godot.onBackPressed(host);
 	}
 
 	@Override

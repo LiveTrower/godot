@@ -246,10 +246,13 @@ void BoneAttachment3D::set_override_pose(bool p_override) {
 	override_pose = p_override;
 	set_notify_transform(override_pose);
 	set_process_internal(override_pose);
-	if (!override_pose && bone_idx >= 0) {
-		Skeleton3D *sk = _get_skeleton3d();
-		if (sk) {
-			sk->reset_bone_pose(bone_idx);
+
+	if (!override_pose) {
+		if (bone_idx >= 0) {
+			Skeleton3D *sk = _get_skeleton3d();
+			if (sk) {
+				sk->reset_bone_pose(bone_idx);
+			}
 		}
 	}
 

@@ -77,6 +77,8 @@ public class GodotInputHandler implements InputManager.InputDeviceListener {
 
 	private int rotaryInputAxis = ROTARY_INPUT_VERTICAL_AXIS;
 
+	private boolean dispatchInputToRenderThread = false;
+
 	public GodotInputHandler(GodotRenderView godotView) {
 		final Context context = godotView.getView().getContext();
 		mRenderView = godotView;
@@ -109,11 +111,19 @@ public class GodotInputHandler implements InputManager.InputDeviceListener {
 	}
 
 	/**
+	 * Specifies whether input should be dispatch on the UI thread or on the Render thread.
+	 * @param enable true to dispatch input on the Render thread, false to dispatch input on the UI thread
+	 */
+	public void enableInputDispatchToRenderThread(boolean enable) {
+		this.dispatchInputToRenderThread = enable;
+	}
+
+	/**
 	 * @return true if input must be dispatched from the render thread. If false, input is
 	 * dispatched from the UI thread.
 	 */
 	private boolean shouldDispatchInputToRenderThread() {
-		return GodotLib.shouldDispatchInputToRenderThread();
+		return dispatchInputToRenderThread;
 	}
 
 	/**
@@ -462,7 +472,7 @@ public class GodotInputHandler implements InputManager.InputDeviceListener {
 		return button;
 	}
 
-	static int getEventToolType(MotionEvent event) {
+	private static int getEventToolType(MotionEvent event) {
 		return event.getPointerCount() > 0 ? event.getToolType(0) : MotionEvent.TOOL_TYPE_UNKNOWN;
 	}
 

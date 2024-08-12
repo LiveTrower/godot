@@ -7,8 +7,11 @@
     <Filter Include="Header Files">
       <UniqueIdentifier>%%UUID2%%</UniqueIdentifier>
     </Filter>
-    <Filter Include="Other Files">
+    <Filter Include="Resource Files">
       <UniqueIdentifier>%%UUID3%%</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Scripts">
+      <UniqueIdentifier>%%UUID4%%</UniqueIdentifier>
     </Filter>
     %%FILTERS%%
   </ItemGroup>

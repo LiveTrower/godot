@@ -1,43 +1,4 @@
-// Functions related to lighting
-
-float D_GGX(float cos_theta_m, float alpha) {
-	float a = cos_theta_m * alpha;
-	float k = alpha / (1.0 - cos_theta_m * cos_theta_m + a * a);
-	return k * k * (1.0 / M_PI);
-}
-
-// From Earl Hammon, Jr. "PBR Diffuse Lighting for GGX+Smith Microsurfaces" https://www.gdcvault.com/play/1024478/PBR-Diffuse-Lighting-for-GGX
-float V_GGX(float NdotL, float NdotV, float alpha) {
-	return 0.5 / mix(2.0 * NdotL * NdotV, NdotL + NdotV, alpha);
-}
-
-float D_GGX_anisotropic(float cos_theta_m, float alpha_x, float alpha_y, float cos_phi, float sin_phi) {
-	float alpha2 = alpha_x * alpha_y;
-	highp vec3 v = vec3(alpha_y * cos_phi, alpha_x * sin_phi, alpha2 * cos_theta_m);
-	highp float v2 = dot(v, v);
-	float w2 = alpha2 / v2;
-	float D = alpha2 * w2 * w2 * (1.0 / M_PI);
-	return D;
-}
-
-float V_GGX_anisotropic(float alpha_x, float alpha_y, float TdotV, float TdotL, float BdotV, float BdotL, float NdotV, float NdotL) {
-	float Lambda_V = NdotL * length(vec3(alpha_x * TdotV, alpha_y * BdotV, NdotV));
-	float Lambda_L = NdotV * length(vec3(alpha_x * TdotL, alpha_y * BdotL, NdotL));
-	return 0.5 / (Lambda_V + Lambda_L);
-}
-
-float SchlickFresnel(float u) {
-	float m = 1.0 - u;
-	float m2 = m * m;
-	return m2 * m2 * m; // pow(m,5)
-}
-
-vec3 F0(float metallic, float specular, vec3 albedo) {
-	float dielectric = 0.16 * specular * specular;
-	// use albedo * metallic as colored specular reflectance at 0 angle for metallic materials;
-	// see https://google.github.io/filament/Filament.md.html
-	return mix(vec3(dielectric), albedo, vec3(metallic));
-}
+#include "brdf_inc.glsl"
 
 void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_directional, float attenuation, vec3 f0, uint orms, float specular_amount, vec3 albedo, inout float alpha,
 #ifdef LIGHT_BACKLIGHT_USED
@@ -52,6 +13,9 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 #ifdef LIGHT_RIM_USED
 		float rim, float rim_tint,
 #endif
+#ifdef LIGHT_SHEEN_USED
+		float sheen, float sheen_roughness, vec3 sheen_color,
+#endif
 #ifdef LIGHT_CLEARCOAT_USED
 		float clearcoat, float clearcoat_roughness, vec3 vertex_normal,
 #endif
@@ -62,6 +26,7 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 
 	vec4 orms_unpacked = unpackUnorm4x8(orms);
 
+	float ao = orms_unpacked.x;
 	float roughness = orms_unpacked.y;
 	float metallic = orms_unpacked.z;
 
@@ -114,34 +79,21 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 		float diffuse_brdf_NL; // BRDF times N.L for calculating diffuse radiance
 
 #if defined(DIFFUSE_LAMBERT_WRAP)
-		// Energy conserving lambert wrap shader.
-		// https://web.archive.org/web/20210228210901/http://blog.stevemcauley.com/2011/12/03/energy-conserving-wrapped-diffuse/
-		diffuse_brdf_NL = max(0.0, (NdotL + roughness) / ((1.0 + roughness) * (1.0 + roughness))) * (1.0 / M_PI);
+		diffuse_brdf_NL = Diffuse_Lambert_Wrap(NdotL, roughness);
 #elif defined(DIFFUSE_TOON)
 
-		diffuse_brdf_NL = smoothstep(-roughness, max(roughness, 0.01), NdotL) * (1.0 / M_PI);
+		diffuse_brdf_NL = Diffuse_Toon(NdotL, roughness);
 
 #elif defined(DIFFUSE_BURLEY)
 
 		{
-			float FD90_minus_1 = 2.0 * cLdotH * cLdotH * roughness - 0.5;
-			float FdV = 1.0 + FD90_minus_1 * SchlickFresnel(cNdotV);
-			float FdL = 1.0 + FD90_minus_1 * SchlickFresnel(cNdotL);
-			diffuse_brdf_NL = (1.0 / M_PI) * FdV * FdL * cNdotL;
-			/*
-			float energyBias = mix(roughness, 0.0, 0.5);
-			float energyFactor = mix(roughness, 1.0, 1.0 / 1.51);
-			float fd90 = energyBias + 2.0 * VoH * VoH * roughness;
-			float f0 = 1.0;
-			float lightScatter = f0 + (fd90 - f0) * pow(1.0 - cNdotL, 5.0);
-			float viewScatter = f0 + (fd90 - f0) * pow(1.0 - cNdotV, 5.0);
-
-			diffuse_brdf_NL = lightScatter * viewScatter * energyFactor;
-			*/
+			float cVdotH = clamp(dot(V, H), 0.0, 1.0);
+			//diffuse_brdf_NL = Diffuse_Burley(cLdotH, cNdotV, cNdotL, roughness);
+			diffuse_brdf_NL = Normalized_Diffuse_Burley(cLdotH, cNdotL, cVdotH, roughness);
 		}
 #else
 		// lambert
-		diffuse_brdf_NL = cNdotL * (1.0 / M_PI);
+		diffuse_brdf_NL = Diffuse_Lambert(cNdotL);
 #endif
 
 		diffuse_light += light_color * diffuse_brdf_NL * attenuation;
@@ -200,12 +152,12 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 #elif defined(SPECULAR_DISABLED)
 		// none..
 
-#elif defined(SPECULAR_SCHLICK_GGX)
+#elif defined(SPECULAR_SCHLICK_GGX) || defined(SPECULAR_MULTISCATTER_GGX)
 		// shlick+ggx as default
 		float alpha_ggx = roughness * roughness;
 #if defined(LIGHT_ANISOTROPY_USED)
 
-		float aspect = sqrt(1.0 - anisotropy * 0.9);
+		float aspect = sqrt_IEEE_int_approximation(1.0 - anisotropy * 0.9);
 		float ax = alpha_ggx / aspect;
 		float ay = alpha_ggx * aspect;
 		float XdotH = dot(T, H);
@@ -225,7 +177,19 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 
 		vec3 specular_brdf_NL = cNdotL * D * F * G;
 
+		vec2 dfg = prefiltered_dfg(roughness, cNdotV).xy;
+		vec3 energy_compensation = get_energy_compensation(f0, dfg);
+		specular_brdf_NL *= energy_compensation;
+
 		specular_light += specular_brdf_NL * light_color * attenuation * specular_amount;
+#endif
+
+#if defined(LIGHT_SHEEN_USED)
+		sheen_roughness = clamp(sheen_roughness * sheen_roughness, 0.045, 1);
+		float Dc = D_Charlie(sheen_roughness, cNdotH);
+		float Vn = V_Neubelt(cNdotV, cNdotL);
+		vec3 sheen_specular_brdf_NL = cNdotL * Dc * Vn * sheen_color * sheen;
+		specular_light += sheen_specular_brdf_NL * light_color * attenuation * specular_amount;
 #endif
 
 #if defined(LIGHT_CLEARCOAT_USED)
@@ -237,9 +201,11 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 #if !defined(SPECULAR_SCHLICK_GGX)
 		float cLdotH5 = SchlickFresnel(cLdotH);
 #endif
-		float Dr = D_GGX(ccNdotH, mix(0.001, 0.1, clearcoat_roughness));
-		float Gr = 0.25 / (cLdotH * cLdotH);
-		float Fr = mix(.04, 1.0, cLdotH5);
+		clearcoat_roughness = clamp(clearcoat_roughness, 0.045, 1.0);
+		float alpha_c = clearcoat_roughness * clearcoat_roughness;
+		float Dr = D_GGX(ccNdotH, alpha_c);
+		float Gr = V_Kelemen(cLdotH);
+		float Fr = 0.04 + (1.0 - 0.04) * cLdotH5;
 		float clearcoat_specular_brdf_NL = clearcoat * Gr * Fr * Dr * cNdotL;
 
 		specular_light += clearcoat_specular_brdf_NL * light_color * attenuation * specular_amount;
@@ -343,7 +309,7 @@ float sample_omni_pcf_shadow(texture2D shadow, float blur_scale, vec2 coord, vec
 		bool do_flip = sample_coord_length_sqaured > 1.0;
 
 		if (do_flip) {
-			float len = sqrt(sample_coord_length_sqaured);
+			float len = sqrt_IEEE_int_approximation(sample_coord_length_sqaured);
 			sample_coord = sample_coord * (2.0 / len - 1.0);
 		}
 
@@ -559,6 +525,9 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 #ifdef LIGHT_RIM_USED
 		float rim, float rim_tint,
 #endif
+#ifdef LIGHT_SHEEN_USED
+		float sheen, float sheen_roughness, vec3 sheen_color,
+#endif
 #ifdef LIGHT_CLEARCOAT_USED
 		float clearcoat, float clearcoat_roughness, vec3 vertex_normal,
 #endif
@@ -576,40 +545,45 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 
 	if (sc_use_light_soft_shadows && omni_lights.data[idx].size > 0.0) {
 		float t = omni_lights.data[idx].size / max(0.001, light_length);
-		size_A = max(0.0, 1.0 - 1 / sqrt(1 + t * t));
+		size_A = max(0.0, 1.0 - 1 / sqrt_IEEE_int_approximation(1 + t * t));
 	}
 
 #ifdef LIGHT_TRANSMITTANCE_USED
 	float transmittance_z = transmittance_depth; //no transmittance by default
 	transmittance_color.a *= light_attenuation;
-	{
-		vec4 clamp_rect = omni_lights.data[idx].atlas_rect;
+#ifndef SHADOWS_DISABLED
+	if (omni_lights.data[idx].shadow_opacity > 0.001) {
+		// Redo shadowmapping, but shrink the model a bit to avoid artifacts.
+		vec2 texel_size = scene_data_block.data.shadow_atlas_pixel_size;
+		vec4 uv_rect = omni_lights.data[idx].atlas_rect;
+		uv_rect.xy += texel_size;
+		uv_rect.zw -= texel_size * 2.0;
 
-		//redo shadowmapping, but shrink the model a bit to avoid artifacts
-		vec4 splane = (omni_lights.data[idx].shadow_matrix * vec4(vertex - normalize(normal_interp) * omni_lights.data[idx].transmittance_bias, 1.0));
+		// Omni lights use direction.xy to store to store the offset between the two paraboloid regions
+		vec2 flip_offset = omni_lights.data[idx].direction.xy;
 
-		float shadow_len = length(splane.xyz);
-		splane.xyz = normalize(splane.xyz);
+		vec3 local_vert = (omni_lights.data[idx].shadow_matrix * vec4(vertex - normalize(normal) * omni_lights.data[idx].transmittance_bias, 1.0)).xyz;
 
-		if (splane.z >= 0.0) {
-			splane.z += 1.0;
-			clamp_rect.y += clamp_rect.w;
-		} else {
-			splane.z = 1.0 - splane.z;
+		float shadow_len = length(local_vert); //need to remember shadow len from here
+		vec3 shadow_sample = normalize(local_vert);
+
+		if (shadow_sample.z >= 0.0) {
+			uv_rect.xy += flip_offset;
+			flip_offset *= -1.0;
 		}
 
-		splane.xy /= splane.z;
+		shadow_sample.z = 1.0 + abs(shadow_sample.z);
+		vec2 pos = shadow_sample.xy / shadow_sample.z;
+		float depth = shadow_len * omni_lights.data[idx].inv_radius;
+		depth = 1.0 - depth;
 
-		splane.xy = splane.xy * 0.5 + 0.5;
-		splane.z = shadow_len * omni_lights.data[idx].inv_radius;
-		splane.xy = clamp_rect.xy + splane.xy * clamp_rect.zw;
-		//		splane.xy = clamp(splane.xy,clamp_rect.xy + scene_data_block.data.shadow_atlas_pixel_size,clamp_rect.xy + clamp_rect.zw - scene_data_block.data.shadow_atlas_pixel_size );
-		splane.w = 1.0; //needed? i think it should be 1 already
-
-		float shadow_z = textureLod(sampler2D(shadow_atlas, SAMPLER_LINEAR_CLAMP), splane.xy, 0.0).r;
-		transmittance_z = (splane.z - shadow_z) / omni_lights.data[idx].inv_radius;
+		pos = pos * 0.5 + 0.5;
+		pos = uv_rect.xy + pos * uv_rect.zw;
+		float shadow_z = textureLod(sampler2D(shadow_atlas, SAMPLER_LINEAR_CLAMP), pos, 0.0).r;
+		transmittance_z = (depth - shadow_z) / omni_lights.data[idx].inv_radius;
 	}
-#endif
+#endif // !SHADOWS_DISABLED
+#endif // LIGHT_TRANSMITTANCE_USED
 
 	if (sc_use_light_projector && omni_lights.data[idx].projector_rect != vec4(0.0)) {
 		vec3 local_v = (omni_lights.data[idx].shadow_matrix * vec4(vertex, 1.0)).xyz;
@@ -682,6 +656,9 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 #endif
 #ifdef LIGHT_RIM_USED
 			rim * omni_attenuation, rim_tint,
+#endif
+#ifdef LIGHT_SHEEN_USED
+		    sheen, sheen_roughness, sheen_color,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
 			clearcoat, clearcoat_roughness, vertex_normal,
@@ -800,6 +777,9 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 #ifdef LIGHT_RIM_USED
 		float rim, float rim_tint,
 #endif
+#ifdef LIGHT_SHEEN_USED
+		float sheen, float sheen_roughness, vec3 sheen_color,
+#endif
 #ifdef LIGHT_CLEARCOAT_USED
 		float clearcoat, float clearcoat_roughness, vec3 vertex_normal,
 #endif
@@ -828,18 +808,19 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 
 	if (sc_use_light_soft_shadows && spot_lights.data[idx].size > 0.0) {
 		float t = spot_lights.data[idx].size / max(0.001, light_length);
-		size_A = max(0.0, 1.0 - 1 / sqrt(1 + t * t));
+		size_A = max(0.0, 1.0 - 1 / sqrt_IEEE_int_approximation(1 + t * t));
 	}
 
 #ifdef LIGHT_TRANSMITTANCE_USED
 	float transmittance_z = transmittance_depth;
 	transmittance_color.a *= light_attenuation;
-	{
-		vec4 splane = (spot_lights.data[idx].shadow_matrix * vec4(vertex - normalize(normal_interp) * spot_lights.data[idx].transmittance_bias, 1.0));
+#ifndef SHADOWS_DISABLED
+	if (spot_lights.data[idx].shadow_opacity > 0.001) {
+		vec4 splane = (spot_lights.data[idx].shadow_matrix * vec4(vertex - normalize(normal) * spot_lights.data[idx].transmittance_bias, 1.0));
 		splane /= splane.w;
-		splane.xy = splane.xy * spot_lights.data[idx].atlas_rect.zw + spot_lights.data[idx].atlas_rect.xy;
 
-		float shadow_z = textureLod(sampler2D(shadow_atlas, SAMPLER_LINEAR_CLAMP), splane.xy, 0.0).r;
+		vec3 shadow_uv = vec3(splane.xy * spot_lights.data[idx].atlas_rect.zw + spot_lights.data[idx].atlas_rect.xy, splane.z);
+		float shadow_z = textureLod(sampler2D(shadow_atlas, SAMPLER_LINEAR_CLAMP), shadow_uv.xy, 0.0).r;
 
 		shadow_z = shadow_z * 2.0 - 1.0;
 		float z_far = 1.0 / spot_lights.data[idx].inv_radius;
@@ -850,7 +831,8 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 		float z = dot(spot_dir, -light_rel_vec);
 		transmittance_z = z - shadow_z;
 	}
-#endif //LIGHT_TRANSMITTANCE_USED
+#endif // !SHADOWS_DISABLED
+#endif // LIGHT_TRANSMITTANCE_USED
 
 	if (sc_use_light_projector && spot_lights.data[idx].projector_rect != vec4(0.0)) {
 		vec4 splane = (spot_lights.data[idx].shadow_matrix * vec4(vertex, 1.0));
@@ -889,6 +871,9 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 #endif
 #ifdef LIGHT_RIM_USED
 			rim * spot_attenuation, rim_tint,
+#endif
+#ifdef LIGHT_SHEEN_USED
+			sheen, sheen_roughness, sheen_color,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
 			clearcoat, clearcoat_roughness, vertex_normal,

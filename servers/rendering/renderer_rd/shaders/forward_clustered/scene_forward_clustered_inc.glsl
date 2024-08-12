@@ -1,4 +1,5 @@
 #define M_PI 3.14159265359
+#define M_TAU 6.28318530718
 #define ROUGHNESS_MAX_LOD 5
 
 #define MAX_VOXEL_GI_INSTANCES 8
@@ -22,13 +23,13 @@
 #include "../decal_data_inc.glsl"
 #include "../scene_data_inc.glsl"
 
-#if !defined(MODE_RENDER_DEPTH) || defined(MODE_RENDER_MATERIAL) || defined(MODE_RENDER_SDF) || defined(MODE_RENDER_NORMAL_ROUGHNESS) || defined(MODE_RENDER_VOXEL_GI) || defined(TANGENT_USED) || defined(NORMAL_MAP_USED) || defined(LIGHT_ANISOTROPY_USED)
+#if !defined(MODE_RENDER_DEPTH) || defined(MODE_RENDER_MATERIAL) || defined(MODE_RENDER_SDF) || defined(MODE_RENDER_NORMAL_ROUGHNESS) || defined(MODE_RENDER_VOXEL_GI) || defined(TANGENT_USED) || defined(NORMAL_MAP_USED) || defined(BENT_NORMAL_MAP_USED) || defined(LIGHT_ANISOTROPY_USED)
 #ifndef NORMAL_USED
 #define NORMAL_USED
 #endif
 #endif
 
-#if !defined(TANGENT_USED) && (defined(NORMAL_MAP_USED) || defined(LIGHT_ANISOTROPY_USED))
+#if !defined(TANGENT_USED) && (defined(NORMAL_MAP_USED) || defined(BENT_NORMAL_MAP_USED) || defined(LIGHT_ANISOTROPY_USED))
 #define TANGENT_USED
 #endif
 
@@ -165,6 +166,8 @@ sdfgi;
 layout(set = 0, binding = 14) uniform sampler DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP;
 
 layout(set = 0, binding = 15) uniform texture2D best_fit_normal_texture;
+
+layout(set = 0, binding = 16) uniform texture2D dfg;
 
 /* Set 1: Render Pass (changes per render pass) */
 
@@ -338,6 +341,15 @@ vec4 normal_roughness_compatibility(vec4 p_normal_roughness) {
 	}
 	roughness /= (127.0 / 255.0);
 	return vec4(normalize(p_normal_roughness.xyz * 2.0 - 1.0) * 0.5 + 0.5, roughness);
+}
+
+vec3 prefiltered_dfg(float lod, float NoV) {
+    return textureLod(sampler2D(dfg, SAMPLER_LINEAR_CLAMP), vec2(NoV, 1.0 - lod), 0.0).rgb;
+}
+
+vec3 get_energy_compensation(vec3 f0, vec2 env){
+	vec3 compensation =  f0 * ((1.0 / (env.x + env.y)) - 1.0);
+	return compensation + 1.0;
 }
 
 /* Set 2 Skeleton & Instancing (can change per item) */

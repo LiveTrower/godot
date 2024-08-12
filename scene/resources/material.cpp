@@ -536,6 +536,8 @@ void BaseMaterial3D::init_shaders() {
 	shader_names->normal_scale = "normal_scale";
 	shader_names->rim = "rim";
 	shader_names->rim_tint = "rim_tint";
+	shader_names->sheen = "sheen";
+	shader_names->sheen_color = "sheen_color";
 	shader_names->clearcoat = "clearcoat";
 	shader_names->clearcoat_roughness = "clearcoat_roughness";
 	shader_names->anisotropy = "anisotropy_ratio";
@@ -585,6 +587,7 @@ void BaseMaterial3D::init_shaders() {
 	shader_names->texture_names[TEXTURE_ROUGHNESS] = "texture_roughness";
 	shader_names->texture_names[TEXTURE_EMISSION] = "texture_emission";
 	shader_names->texture_names[TEXTURE_NORMAL] = "texture_normal";
+	shader_names->texture_names[TEXTURE_BENT_NORMAL] = "texture_bent_normal";
 	shader_names->texture_names[TEXTURE_RIM] = "texture_rim";
 	shader_names->texture_names[TEXTURE_CLEARCOAT] = "texture_clearcoat";
 	shader_names->texture_names[TEXTURE_FLOWMAP] = "texture_flowmap";
@@ -949,6 +952,12 @@ uniform float normal_scale : hint_range(-16.0, 16.0);
 )",
 				texfilter_str);
 	}
+	if (features[FEATURE_BENT_NORMAL_MAPPING]) {
+		code += vformat(R"(
+uniform sampler2D texture_bent_normal : hint_roughness_normal, %s;
+)",
+				texfilter_str);
+	}
 	if (features[FEATURE_RIM]) {
 		code += vformat(R"(
 uniform float rim : hint_range(0.0, 1.0, 0.01);
@@ -956,6 +965,12 @@ uniform float rim_tint : hint_range(0.0, 1.0, 0.01);
 uniform sampler2D texture_rim : hint_default_white, %s;
 )",
 				texfilter_str);
+	}
+	if (features[FEATURE_SHEEN]) {
+		code += R"(
+uniform float sheen : hint_range(0.0, 1.0, 0.01);
+uniform vec3 sheen_color : hint_color;
+)";
 	}
 	if (features[FEATURE_CLEARCOAT]) {
 		code += vformat(R"(
@@ -1367,7 +1382,7 @@ void fragment() {)";
 		float num_layers = mix(float(heightmap_max_layers), float(heightmap_min_layers), abs(dot(vec3(0.0, 0.0, 1.0), view_dir)));
 		float layer_depth = 1.0 / num_layers;
 		float current_layer_depth = 0.0;
-		vec2 p = view_dir.xy * heightmap_scale * 0.01;
+		vec2 p = view_dir.xy / view_dir.z * heightmap_scale * 0.01;
 		vec2 delta = p / num_layers;
 		vec2 ofs = base_uv;
 )";
@@ -1565,6 +1580,13 @@ void fragment() {)";
 		code += "	NORMAL_MAP_DEPTH = normal_scale;\n";
 	}
 
+	if (features[FEATURE_BENT_NORMAL_MAPPING]) {
+		code += R"(
+	// Bent Normal Map: Enabled
+	BENT_NORMAL_MAP = texture(texture_bent_normal, base_uv).rgb;
+)";
+	}
+
 	if (features[FEATURE_EMISSION]) {
 		code += R"(
 	// Emission: Enabled
@@ -1694,6 +1716,14 @@ void fragment() {)";
 		}
 		code += R"(	RIM = rim * rim_tex.x;
 	RIM_TINT = rim_tint * rim_tex.y;
+)";
+	}
+
+	if (features[FEATURE_SHEEN]) {
+		code += R"(
+	// Sheen: Enabled
+	SHEEN = sheen;
+	SHEEN_COLOR = sheen_color;
 )";
 	}
 
@@ -1979,6 +2009,25 @@ void BaseMaterial3D::set_rim_tint(float p_rim_tint) {
 
 float BaseMaterial3D::get_rim_tint() const {
 	return rim_tint;
+}
+
+void BaseMaterial3D::set_sheen(float p_sheen) {
+	sheen = p_sheen;
+	RS::get_singleton()->material_set_param(_get_material(), shader_names->sheen, p_sheen);
+}
+
+float BaseMaterial3D::get_sheen() const {
+	return sheen;
+}
+
+void BaseMaterial3D::set_sheen_color(const Color &p_sheen_color) {
+	sheen_color = p_sheen_color;
+
+	RS::get_singleton()->material_set_param(_get_material(), shader_names->sheen_color, p_sheen_color);
+}
+
+Color BaseMaterial3D::get_sheen_color() const {
+	return sheen_color;
 }
 
 void BaseMaterial3D::set_ao_light_affect(float p_ao_light_affect) {
@@ -2304,8 +2353,10 @@ void BaseMaterial3D::_validate_feature(const String &text, Feature feature, Prop
 
 void BaseMaterial3D::_validate_property(PropertyInfo &p_property) const {
 	_validate_feature("normal", FEATURE_NORMAL_MAPPING, p_property);
+	_validate_feature("bent_normal", FEATURE_BENT_NORMAL_MAPPING, p_property);
 	_validate_feature("emission", FEATURE_EMISSION, p_property);
 	_validate_feature("rim", FEATURE_RIM, p_property);
+	_validate_feature("sheen", FEATURE_SHEEN, p_property);
 	_validate_feature("clearcoat", FEATURE_CLEARCOAT, p_property);
 	_validate_feature("anisotropy", FEATURE_ANISOTROPY, p_property);
 	_validate_feature("ao", FEATURE_AMBIENT_OCCLUSION, p_property);
@@ -2446,6 +2497,10 @@ void BaseMaterial3D::_validate_property(PropertyInfo &p_property) const {
 		}
 
 		if (p_property.name.begins_with("normal")) {
+			p_property.usage = PROPERTY_USAGE_NONE;
+		}
+
+		if (p_property.name.begins_with("bent_normal")) {
 			p_property.usage = PROPERTY_USAGE_NONE;
 		}
 
@@ -2893,6 +2948,12 @@ void BaseMaterial3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_rim_tint", "rim_tint"), &BaseMaterial3D::set_rim_tint);
 	ClassDB::bind_method(D_METHOD("get_rim_tint"), &BaseMaterial3D::get_rim_tint);
 
+	ClassDB::bind_method(D_METHOD("set_sheen", "sheen"), &BaseMaterial3D::set_sheen);
+	ClassDB::bind_method(D_METHOD("get_sheen"), &BaseMaterial3D::get_sheen);
+
+	ClassDB::bind_method(D_METHOD("set_sheen_color", "sheen_color"), &BaseMaterial3D::set_sheen_color);
+	ClassDB::bind_method(D_METHOD("get_sheen_color"), &BaseMaterial3D::get_sheen_color);
+
 	ClassDB::bind_method(D_METHOD("set_clearcoat", "clearcoat"), &BaseMaterial3D::set_clearcoat);
 	ClassDB::bind_method(D_METHOD("get_clearcoat"), &BaseMaterial3D::get_clearcoat);
 
@@ -3112,11 +3173,20 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "normal_scale", PROPERTY_HINT_RANGE, "-16,16,0.01"), "set_normal_scale", "get_normal_scale");
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_NORMAL);
 
+	ADD_GROUP("Bent Normal Map", "bent_normal_");
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "bent_normal_enabled"), "set_feature", "get_feature", FEATURE_BENT_NORMAL_MAPPING);
+	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "bent_normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_BENT_NORMAL);
+
 	ADD_GROUP("Rim", "rim_");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "rim_enabled"), "set_feature", "get_feature", FEATURE_RIM);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "rim", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_rim", "get_rim");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "rim_tint", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_rim_tint", "get_rim_tint");
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "rim_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_RIM);
+
+	ADD_GROUP("Sheen", "sheen_");
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "sheen_enabled"), "set_feature", "get_feature", FEATURE_RIM);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sheen", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_sheen", "get_sheen");
+	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "sheen_color", PROPERTY_HINT_COLOR_NO_ALPHA), "set_sheen_color", "get_sheen_color");
 
 	ADD_GROUP("Clearcoat", "clearcoat_");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "clearcoat_enabled"), "set_feature", "get_feature", FEATURE_CLEARCOAT);
@@ -3234,6 +3304,7 @@ void BaseMaterial3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(TEXTURE_ROUGHNESS);
 	BIND_ENUM_CONSTANT(TEXTURE_EMISSION);
 	BIND_ENUM_CONSTANT(TEXTURE_NORMAL);
+	BIND_ENUM_CONSTANT(TEXTURE_BENT_NORMAL);
 	BIND_ENUM_CONSTANT(TEXTURE_RIM);
 	BIND_ENUM_CONSTANT(TEXTURE_CLEARCOAT);
 	BIND_ENUM_CONSTANT(TEXTURE_FLOWMAP);
@@ -3275,6 +3346,7 @@ void BaseMaterial3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(FEATURE_EMISSION);
 	BIND_ENUM_CONSTANT(FEATURE_NORMAL_MAPPING);
 	BIND_ENUM_CONSTANT(FEATURE_RIM);
+	BIND_ENUM_CONSTANT(FEATURE_SHEEN);
 	BIND_ENUM_CONSTANT(FEATURE_CLEARCOAT);
 	BIND_ENUM_CONSTANT(FEATURE_ANISOTROPY);
 	BIND_ENUM_CONSTANT(FEATURE_AMBIENT_OCCLUSION);
@@ -3284,6 +3356,7 @@ void BaseMaterial3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(FEATURE_BACKLIGHT);
 	BIND_ENUM_CONSTANT(FEATURE_REFRACTION);
 	BIND_ENUM_CONSTANT(FEATURE_DETAIL);
+	BIND_ENUM_CONSTANT(FEATURE_BENT_NORMAL_MAPPING);
 	BIND_ENUM_CONSTANT(FEATURE_MAX);
 
 	BIND_ENUM_CONSTANT(BLEND_MODE_MIX);
@@ -3370,6 +3443,8 @@ BaseMaterial3D::BaseMaterial3D(bool p_orm) :
 	set_normal_scale(1);
 	set_rim(1.0);
 	set_rim_tint(0.5);
+	set_sheen(1.0);
+	set_sheen_color(Color(0, 0, 0));
 	set_clearcoat(1);
 	set_clearcoat_roughness(0.5);
 	set_anisotropy(0);

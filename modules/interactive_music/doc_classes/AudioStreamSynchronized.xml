@@ -47,7 +47,7 @@
 	</members>
 	<constants>
 		<constant name="MAX_STREAMS" value="32">
-			Maximum amount of streams that can be synchronized.
+			Maximum amount of streams that can be synchrohized.
 		</constant>
 	</constants>
 </class>
