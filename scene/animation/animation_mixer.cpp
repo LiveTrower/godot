@@ -33,7 +33,6 @@
 
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
-#include "core/templates/bit_set.h"
 #include "scene/2d/audio_stream_player_2d.h"
 #include "scene/animation/animation_player.h"
 #include "scene/audio/audio_stream_player.h"
@@ -1078,30 +1077,27 @@ void AnimationMixer::blend_capture(double p_delta) {
 }
 
 void AnimationMixer::_blend_calc_total_weight() {
-	thread_local BitSet processed_indices;
 	for (const AnimationInstance &ai : animation_instances) {
 		Ref<Animation> a = ai.animation_data.animation;
 		real_t weight = ai.playback_info.weight;
 		Vector<real_t> track_weights = ai.playback_info.track_weights;
-		processed_indices.clear();
-		processed_indices.resize(track_count);
+		Vector<Animation::TypeHash> processed_hashes;
 		for (int i = 0; i < a->get_track_count(); i++) {
 			if (!a->track_is_enabled(i)) {
 				continue;
 			}
 			Animation::TypeHash thash = a->track_get_type_hash(i);
-			if (!track_cache.has(thash)) {
-				continue; // No path, but avoid error spamming.
+			if (!track_cache.has(thash) || processed_hashes.has(thash)) {
+				// No path, but avoid error spamming.
+				// Or, there is the case different track type with same path; These can be distinguished by hash. So don't add the weight doubly.
+				continue;
 			}
 			TrackCache *track = track_cache[thash];
 			int blend_idx = track_map[track->path];
 			ERR_CONTINUE(blend_idx < 0 || blend_idx >= track_count);
-			if (processed_indices.get(blend_idx)) {
-				continue; // Different track type with the same path.
-			}
 			real_t blend = blend_idx < track_weights.size() ? track_weights[blend_idx] * weight : weight;
 			track->total_weight += blend;
-			processed_indices.set(blend_idx, true);
+			processed_hashes.push_back(thash);
 		}
 	}
 }

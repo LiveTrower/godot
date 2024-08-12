@@ -2131,10 +2131,9 @@ void DisplayServerWindows::window_set_flag(WindowFlags p_flag, bool p_enabled, W
 					bb.fEnable = TRUE;
 					DwmEnableBlurBehindWindow(wd.hWnd, &bb);
 				}
-
 				wd.layered_window = true;
 			} else {
-				// Disable per-pixel alpha
+				// Disable per-pixel alpha.
 				wd.layered_window = false;
 				if (OS::get_singleton()->is_layered_allowed()) {
 					DWM_BLURBEHIND bb;
@@ -4254,6 +4253,16 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 				break;
 			}
 
+			uint32_t pointer_id = LOWORD(wParam);
+			POINTER_INPUT_TYPE pointer_type = PT_POINTER;
+			if (!win8p_GetPointerType(pointer_id, &pointer_type)) {
+				break;
+			}
+
+			if (pointer_type != PT_PEN) {
+				break;
+			}
+
 			Ref<InputEventMouseButton> mb;
 			mb.instantiate();
 			mb->set_window_id(window_id);
@@ -4856,16 +4865,16 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 					rect_changed = true;
 				}
 #if defined(RD_ENABLED)
-				if (rendering_context && window.context_created) {
+				if (window.create_completed && rendering_context && window.context_created) {
 					// Note: Trigger resize event to update swapchains when window is minimized/restored, even if size is not changed.
 					rendering_context->window_set_size(window_id, window.width, window.height);
 				}
 #endif
 #if defined(GLES3_ENABLED)
-				if (gl_manager_native) {
+				if (window.create_completed && gl_manager_native) {
 					gl_manager_native->window_resize(window_id, window.width, window.height);
 				}
-				if (gl_manager_angle) {
+				if (window.create_completed && gl_manager_angle) {
 					gl_manager_angle->window_resize(window_id, window.width, window.height);
 				}
 #endif
@@ -5594,6 +5603,7 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 			SetWindowPos(wd.hWnd, HWND_TOP, srect.position.x, srect.position.y, srect.size.width, srect.size.height, SWP_NOZORDER | SWP_NOACTIVATE);
 		}
 
+		wd.create_completed = true;
 		window_id_counter++;
 	}
 
@@ -5951,23 +5961,69 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 
 	if (rendering_context) {
 		if (rendering_context->initialize() != OK) {
-			memdelete(rendering_context);
-			rendering_context = nullptr;
-			r_error = ERR_UNAVAILABLE;
-			return;
+			bool failed = true;
+#if defined(VULKAN_ENABLED)
+			bool fallback_to_vulkan = GLOBAL_GET("rendering/rendering_device/fallback_to_vulkan");
+			if (failed && fallback_to_vulkan && rendering_driver != "vulkan") {
+				memdelete(rendering_context);
+				rendering_context = memnew(RenderingContextDriverVulkanWindows);
+				if (rendering_context->initialize() == OK) {
+					WARN_PRINT("Your video card drivers seem not to support Direct3D 12, switching to Vulkan.");
+					rendering_driver = "vulkan";
+					failed = false;
+				}
+			}
+#endif
+#if defined(D3D12_ENABLED)
+			bool fallback_to_d3d12 = GLOBAL_GET("rendering/rendering_device/fallback_to_d3d12");
+			if (failed && fallback_to_d3d12 && rendering_driver != "d3d12") {
+				memdelete(rendering_context);
+				rendering_context = memnew(RenderingContextDriverD3D12);
+				if (rendering_context->initialize() == OK) {
+					WARN_PRINT("Your video card drivers seem not to support Vulkan, switching to Direct3D 12.");
+					rendering_driver = "d3d12";
+					failed = false;
+				}
+			}
+#endif
+			if (failed) {
+				memdelete(rendering_context);
+				rendering_context = nullptr;
+				r_error = ERR_UNAVAILABLE;
+				return;
+			}
 		}
 	}
 #endif
 // Init context and rendering device
 #if defined(GLES3_ENABLED)
 
-#if defined(__arm__) || defined(__aarch64__) || defined(_M_ARM) || defined(_M_ARM64)
-	// There's no native OpenGL drivers on Windows for ARM, switch to ANGLE over DX.
-	if (rendering_driver == "opengl3") {
-		rendering_driver = "opengl3_angle";
-	}
-#elif defined(EGL_STATIC)
 	bool fallback = GLOBAL_GET("rendering/gl_compatibility/fallback_to_angle");
+	bool show_warning = true;
+
+	if (rendering_driver == "opengl3") {
+		// There's no native OpenGL drivers on Windows for ARM, always enable fallback.
+#if defined(__arm__) || defined(__aarch64__) || defined(_M_ARM) || defined(_M_ARM64)
+		fallback = true;
+		show_warning = false;
+#else
+		typedef BOOL(WINAPI * IsWow64Process2Ptr)(HANDLE, USHORT *, USHORT *);
+
+		IsWow64Process2Ptr IsWow64Process2 = (IsWow64Process2Ptr)GetProcAddress(GetModuleHandle(TEXT("kernel32")), "IsWow64Process2");
+		if (IsWow64Process2) {
+			USHORT process_arch = 0;
+			USHORT machine_arch = 0;
+			if (!IsWow64Process2(GetCurrentProcess(), &process_arch, &machine_arch)) {
+				machine_arch = 0;
+			}
+			if (machine_arch == 0xAA64) {
+				fallback = true;
+				show_warning = false;
+			}
+		}
+#endif
+	}
+
 	if (fallback && (rendering_driver == "opengl3")) {
 		Dictionary gl_info = detect_wgl();
 
@@ -5993,11 +6049,12 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 		}
 
 		if (force_angle || (gl_info["version"].operator int() < 30003)) {
-			WARN_PRINT("Your video card drivers seem not to support the required OpenGL 3.3 version, switching to ANGLE.");
+			if (show_warning) {
+				WARN_PRINT("Your video card drivers seem not to support the required OpenGL 3.3 version, switching to ANGLE.");
+			}
 			rendering_driver = "opengl3_angle";
 		}
 	}
-#endif
 
 	if (rendering_driver == "opengl3") {
 		gl_manager_native = memnew(GLManagerNative_Windows);

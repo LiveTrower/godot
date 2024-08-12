@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  spring_bone_3d.h                                                      */
+/*  animation_library.h                                                   */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,86 +28,45 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef SPRING_BONE_3D_H
-#define SPRING_BONE_3D_H
+#ifndef ANIMATION_LIBRARY_H
+#define ANIMATION_LIBRARY_H
 
-#ifndef _3D_DISABLED
+#include "core/variant/typed_array.h"
+#include "scene/resources/animation.h"
 
-#include "scene/3d/skeleton_3d.h"
+class AnimationLibrary : public Resource {
+	GDCLASS(AnimationLibrary, Resource)
 
-class SpringBone3D : public Node {
-	GDCLASS(SpringBone3D, Node);
+	void _set_data(const Dictionary &p_data);
+	Dictionary _get_data() const;
 
-private:
-	bool enabled = true;
-	NodePath skeleton_node;
-	StringName bone;
-	real_t stiffness = 0.75;
-	real_t damping = 0.05;
-	Vector3 additional_force = Vector3(0.0, 0.0, 0.0);
-	real_t influence = 1.0;
-	bool stretchable = false;
-	StringName tail_bone;
-	Vector3 tail_position_offset = Vector3(0.0, 0.0, 0.0);
+	TypedArray<StringName> _get_animation_list() const;
 
-	Variant skeleton_ref = Variant();
-	BoneId bone_id = -1;
-	BoneId bone_id_parent = -1;
-	BoneId bone_id_tail = -1;
-	Vector3 tail_pos;
-	Vector3 prev_pos;
-	Vector3 tail_dir;
+	void _animation_changed(const StringName &p_name);
+
+	friend class AnimationMixer; // For faster access.
+	HashMap<StringName, Ref<Animation>> animations;
 
 protected:
-	void _validate_property(PropertyInfo &p_property) const;
-
 	static void _bind_methods();
-	virtual void _notification(int p_what);
-
-	virtual Vector3 _adjust_tail_position(const Vector3 &p_tail_position, const Vector3 &p_previous_tail_position, const Vector3 &p_bone_position, real_t p_tail_length);
-	GDVIRTUAL4R(Vector3, _adjust_tail_position, Vector3, Vector3, Vector3, real_t);
 
 public:
-	SpringBone3D();
-	virtual ~SpringBone3D();
+	static bool is_valid_animation_name(const String &p_name);
+	static bool is_valid_library_name(const String &p_name);
+	static String validate_library_name(const String &p_name);
 
-	void set_enabled(bool p_enabled);
-	bool is_enabled() const;
+	Error add_animation(const StringName &p_name, const Ref<Animation> &p_animation);
+	void remove_animation(const StringName &p_name);
+	void rename_animation(const StringName &p_name, const StringName &p_new_name);
+	bool has_animation(const StringName &p_name) const;
+	Ref<Animation> get_animation(const StringName &p_name) const;
+	void get_animation_list(List<StringName> *p_animations) const;
 
-	void set_skeleton_node(const NodePath &p_path);
-	NodePath get_skeleton_node() const;
+#ifdef TOOLS_ENABLED
+	virtual void get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const override;
+#endif
 
-	void set_bone(const StringName &p_bone);
-	StringName get_bone() const;
-
-	void set_stiffness(real_t p_stiffness);
-	real_t get_stiffness() const;
-
-	void set_damping(real_t p_damping);
-	real_t get_damping() const;
-
-	void set_additional_force(const Vector3 &p_additional_force);
-	const Vector3 &get_additional_force() const;
-
-	void set_influence(real_t p_influence);
-	real_t get_influence() const;
-
-	void set_stretchable(bool p_stretchable);
-	bool is_stretchable() const;
-
-	void set_tail_bone(const StringName &p_tail_bone);
-	StringName get_tail_bone() const;
-
-	void set_tail_position_offset(const Vector3 &p_tail_position_offset);
-	const Vector3 &get_tail_position_offset() const;
-
-private:
-	Skeleton3D *get_skeleton() const;
-
-	void reload_bone();
-	void process_spring(real_t p_delta);
+	AnimationLibrary();
 };
 
-#endif // _3D_DISABLED
-
-#endif // SPRING_BONE_3D_H
+#endif // ANIMATION_LIBRARY_H

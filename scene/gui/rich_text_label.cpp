@@ -828,14 +828,14 @@ int RichTextLabel::_draw_line(ItemFrame *p_frame, int p_line, const Vector2 &p_o
 			break;
 		}
 
-		const Size2 line_size = l.text_buf->get_line_size(line);
-		if (p_ofs.y + off.y + line_size.y <= 0) {
-			off.y += line_size.y;
+		double l_height = l.text_buf->get_line_ascent(line) + l.text_buf->get_line_descent(line);
+		if (p_ofs.y + off.y + l_height <= 0) {
+			off.y += l_height;
 			continue;
 		}
 
 		float width = l.text_buf->get_width();
-		float length = line_size.x;
+		float length = l.text_buf->get_line_size(line).x;
 
 		// Draw line.
 		line_count++;
@@ -2098,7 +2098,7 @@ void RichTextLabel::gui_input(const Ref<InputEvent> &p_event) {
 				handled = true;
 			}
 			if (k->is_action("ui_down", true) && vscroll->is_visible_in_tree()) {
-				vscroll->scroll(vscroll->get_value() + theme_cache.normal_font->get_height(theme_cache.normal_font_size));
+				vscroll->scroll(theme_cache.normal_font->get_height(theme_cache.normal_font_size));
 				handled = true;
 			}
 			if (k->is_action("ui_home", true) && vscroll->is_visible_in_tree()) {
@@ -4947,10 +4947,10 @@ void RichTextLabel::append_text(const String &p_bbcode) {
 			tag_stack.push_front("outline_size");
 
 		} else if (bbcode_name == "fade") {
-			int start_index = 0;
+			int start_index = brk_pos;
 			OptionMap::Iterator start_option = bbcode_options.find("start");
 			if (start_option) {
-				start_index = start_option->value.to_int();
+				start_index += start_option->value.to_int();
 			}
 
 			int length = 10;
@@ -5139,7 +5139,7 @@ void RichTextLabel::scroll_to_selection() {
 			if (range.x <= selection.from_char && range.y >= selection.from_char) {
 				break;
 			}
-			line_offset += selection.from_frame->lines[selection.from_line].text_buf->get_line_size(i).y + theme_cache.line_separation;
+			line_offset += selection.from_frame->lines[selection.from_line].text_buf->get_line_ascent(i) + selection.from_frame->lines[selection.from_line].text_buf->get_line_descent(i) + theme_cache.line_separation;
 		}
 
 		// Add nested frame (e.g. table cell) offset.
@@ -5191,7 +5191,7 @@ void RichTextLabel::scroll_to_line(int p_line) {
 		if ((line_count <= p_line) && (line_count + main->lines[i].text_buf->get_line_count() >= p_line)) {
 			float line_offset = 0.f;
 			for (int j = 0; j < p_line - line_count; j++) {
-				line_offset += main->lines[i].text_buf->get_line_size(j).y + theme_cache.line_separation;
+				line_offset += main->lines[i].text_buf->get_line_ascent(j) + main->lines[i].text_buf->get_line_descent(j) + theme_cache.line_separation;
 			}
 			vscroll->set_value(main->lines[i].offset.y + line_offset);
 			return;
@@ -5211,7 +5211,7 @@ float RichTextLabel::get_line_offset(int p_line) {
 		if ((line_count <= p_line) && (p_line <= line_count + main->lines[i].text_buf->get_line_count())) {
 			float line_offset = 0.f;
 			for (int j = 0; j < p_line - line_count; j++) {
-				line_offset += main->lines[i].text_buf->get_line_size(j).y + theme_cache.line_separation;
+				line_offset += main->lines[i].text_buf->get_line_ascent(j) + main->lines[i].text_buf->get_line_descent(j) + theme_cache.line_separation;
 			}
 			return main->lines[i].offset.y + line_offset;
 		}

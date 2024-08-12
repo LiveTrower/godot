@@ -1030,10 +1030,8 @@ Ref<Image> TextureStorage::texture_2d_get(RID p_texture) const {
 			if (texture->compressed) {
 				glPixelStorei(GL_PACK_ALIGNMENT, 4);
 				glGetCompressedTexImage(texture->target, i, &w[ofs]);
-
 			} else {
 				glPixelStorei(GL_PACK_ALIGNMENT, 1);
-
 				glGetTexImage(texture->target, i, texture->gl_format_cache, texture->gl_type_cache, &w[ofs]);
 			}
 		}

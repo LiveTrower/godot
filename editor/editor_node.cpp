@@ -5906,7 +5906,7 @@ void EditorNode::preload_reimporting_with_path_in_edited_scenes(const List<Strin
 					for (Node *original_node : instance_list) {
 						InstanceModificationsEntry instance_modifications;
 
-					// Fetching all the modified properties of the nodes reimported scene.
+						// Fetching all the modified properties of the nodes reimported scene.
 						get_preload_scene_modification_table(edited_scene_root, original_node, original_node, instance_modifications);
 
 						instance_modifications.original_node = original_node;
