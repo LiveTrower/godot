@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  progress_dialog.h                                                     */
+/*  soft_body_3d.compat.inc                                               */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,76 +28,14 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef PROGRESS_DIALOG_H
-#define PROGRESS_DIALOG_H
+#ifndef DISABLE_DEPRECATED
 
-#include "scene/gui/box_container.h"
-#include "scene/gui/button.h"
-#include "scene/gui/label.h"
-#include "scene/gui/popup.h"
-#include "scene/gui/progress_bar.h"
+void SoftBody3D::_pin_point_bind_compat_94684(int p_point_index, bool pin, const NodePath &p_spatial_attachment_path) {
+	pin_point(p_point_index, pin, p_spatial_attachment_path, -1);
+}
 
-class BackgroundProgress : public HBoxContainer {
-	GDCLASS(BackgroundProgress, HBoxContainer);
+void SoftBody3D::_bind_compatibility_methods() {
+	ClassDB::bind_compatibility_method(D_METHOD("set_point_pinned", "point_index", "pinned", "attachment_path"), &SoftBody3D::_pin_point_bind_compat_94684, DEFVAL(NodePath()));
+}
 
-	_THREAD_SAFE_CLASS_
-
-	struct Task {
-		HBoxContainer *hb = nullptr;
-		ProgressBar *progress = nullptr;
-	};
-
-	HashMap<String, Task> tasks;
-	HashMap<String, int> updates;
-	void _update();
-
-protected:
-	void _add_task(const String &p_task, const String &p_label, int p_steps);
-	void _task_step(const String &p_task, int p_step = -1);
-	void _end_task(const String &p_task);
-
-public:
-	void add_task(const String &p_task, const String &p_label, int p_steps);
-	void task_step(const String &p_task, int p_step = -1);
-	void end_task(const String &p_task);
-
-	BackgroundProgress() {}
-};
-
-class ProgressDialog : public PopupPanel {
-	GDCLASS(ProgressDialog, PopupPanel);
-	struct Task {
-		String task;
-		VBoxContainer *vb = nullptr;
-		ProgressBar *progress = nullptr;
-		Label *state = nullptr;
-		uint64_t last_progress_tick = 0;
-	};
-	HBoxContainer *cancel_hb = nullptr;
-	Button *cancel = nullptr;
-
-	HashMap<String, Task> tasks;
-	VBoxContainer *main = nullptr;
-
-	LocalVector<Window *> host_windows;
-
-	static ProgressDialog *singleton;
-	void _popup();
-
-	void _cancel_pressed();
-
-	void _update_ui();
-	bool canceled = false;
-
-public:
-	static ProgressDialog *get_singleton() { return singleton; }
-	void add_task(const String &p_task, const String &p_label, int p_steps, bool p_can_cancel = false);
-	bool task_step(const String &p_task, const String &p_state, int p_step = -1, bool p_force_redraw = true);
-	void end_task(const String &p_task);
-
-	void add_host_window(Window *p_window);
-
-	ProgressDialog();
-};
-
-#endif // PROGRESS_DIALOG_H
+#endif // DISABLE_DEPRECATED

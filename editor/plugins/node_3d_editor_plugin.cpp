@@ -1068,6 +1068,12 @@ void Node3DEditorViewport::_select_region() {
 		found_nodes.insert(sp);
 
 		Node *node = Object::cast_to<Node>(sp);
+
+		// Prevent selection of nodes that exist outside the current edited scene.
+		if (!edited_scene->is_ancestor_of(node)) {
+			continue;
+		}
+
 		if (node != edited_scene) {
 			node = edited_scene->get_deepest_editable_node(node);
 		}
@@ -1931,9 +1937,8 @@ void Node3DEditorViewport::_sinput(const Ref<InputEvent> &p_event) {
 					surface->queue_redraw();
 				} else {
 					if (_edit.gizmo.is_valid()) {
-						if (_edit.original_mouse_pos != _edit.mouse_pos) {
-							_edit.gizmo->commit_handle(_edit.gizmo_handle, _edit.gizmo_handle_secondary, _edit.gizmo_initial_value, false);
-						}
+						_edit.gizmo->commit_handle(_edit.gizmo_handle, _edit.gizmo_handle_secondary, _edit.gizmo_initial_value, false);
+						spatial_editor->get_single_selected_node()->update_gizmos();
 						_edit.gizmo = Ref<EditorNode3DGizmo>();
 						break;
 					}
@@ -5001,14 +5006,24 @@ void Node3DEditorViewport::update_transform(bool p_shift) {
 		} break;
 
 		case TRANSFORM_ROTATE: {
-			Plane plane = Plane(_get_camera_normal(), _edit.center);
+			Plane plane;
+			if (camera->get_projection() == Camera3D::PROJECTION_PERSPECTIVE) {
+				Vector3 cam_to_obj = _edit.center - _get_camera_position();
+				if (!cam_to_obj.is_zero_approx()) {
+					plane = Plane(cam_to_obj.normalized(), _edit.center);
+				} else {
+					plane = Plane(_get_camera_normal(), _edit.center);
+				}
+			} else {
+				plane = Plane(_get_camera_normal(), _edit.center);
+			}
 
 			Vector3 local_axis;
 			Vector3 global_axis;
 			switch (_edit.plane) {
 				case TRANSFORM_VIEW:
 					// local_axis unused
-					global_axis = _get_camera_normal();
+					global_axis = plane.normal;
 					break;
 				case TRANSFORM_X_AXIS:
 					local_axis = Vector3(1, 0, 0);
@@ -5039,7 +5054,7 @@ void Node3DEditorViewport::update_transform(bool p_shift) {
 				break;
 			}
 
-			static const float orthogonal_threshold = Math::cos(Math::deg_to_rad(87.0f));
+			static const float orthogonal_threshold = Math::cos(Math::deg_to_rad(85.0f));
 			bool axis_is_orthogonal = ABS(plane.normal.dot(global_axis)) < orthogonal_threshold;
 
 			double angle = 0.0f;
