@@ -1064,27 +1064,23 @@ void Node3DEditorViewport::_select_region() {
 		if (found_nodes.has(sp)) {
 			continue;
 		}
-
 		found_nodes.insert(sp);
 
 		Node *node = Object::cast_to<Node>(sp);
 
-		// Prevent selection of nodes that exist outside the current edited scene.
-		if (!edited_scene->is_ancestor_of(node)) {
-			continue;
-		}
-
+		// Selection requires that the node is the edited scene or its descendant, and has an owner.
 		if (node != edited_scene) {
-			node = edited_scene->get_deepest_editable_node(node);
-		}
-
-		// Prevent selection of nodes not owned by the edited scene.
-		while (node && node != edited_scene->get_parent()) {
-			Node *node_owner = node->get_owner();
-			if (node_owner == edited_scene || node == edited_scene || (node_owner != nullptr && edited_scene->is_editable_instance(node_owner))) {
-				break;
+			if (!node->get_owner() || !edited_scene->is_ancestor_of(node)) {
+				continue;
 			}
-			node = node->get_parent();
+			node = edited_scene->get_deepest_editable_node(node);
+			while (node != edited_scene) {
+				Node *node_owner = node->get_owner();
+				if (node_owner == edited_scene || (node_owner != nullptr && edited_scene->is_editable_instance(node_owner))) {
+					break;
+				}
+				node = node->get_parent();
+			}
 		}
 
 		// Replace the node by the group if grouped
@@ -2257,6 +2253,11 @@ void Node3DEditorViewport::_sinput(const Ref<InputEvent> &p_event) {
 		}
 
 		if (_edit.mode == TRANSFORM_NONE) {
+			if (_edit.gizmo.is_null() && is_freelook_active() && k->get_keycode() == Key::ESCAPE) {
+				set_freelook_active(false);
+				return;
+			}
+
 			if (_edit.gizmo.is_valid() && (k->get_keycode() == Key::ESCAPE || k->get_keycode() == Key::BACKSPACE)) {
 				// Restore.
 				_edit.gizmo->commit_handle(_edit.gizmo_handle, _edit.gizmo_handle_secondary, _edit.gizmo_initial_value, true);
@@ -7320,9 +7321,9 @@ void Node3DEditor::_init_grid() {
 	int primary_grid_steps = EDITOR_GET("editors/3d/primary_grid_steps");
 
 	// Which grid planes are enabled? Which should we generate?
-	grid_enable[0] = grid_visible[0] = EDITOR_GET("editors/3d/grid_xy_plane");
-	grid_enable[1] = grid_visible[1] = EDITOR_GET("editors/3d/grid_yz_plane");
-	grid_enable[2] = grid_visible[2] = EDITOR_GET("editors/3d/grid_xz_plane");
+	grid_enable[0] = grid_visible[0] = orthogonal || EDITOR_GET("editors/3d/grid_xy_plane");
+	grid_enable[1] = grid_visible[1] = orthogonal || EDITOR_GET("editors/3d/grid_yz_plane");
+	grid_enable[2] = grid_visible[2] = orthogonal || EDITOR_GET("editors/3d/grid_xz_plane");
 
 	// Offsets division_level for bigger or smaller grids.
 	// Default value is -0.2. -1.0 gives Blender-like behavior, 0.5 gives huge grids.
