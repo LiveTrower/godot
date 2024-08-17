@@ -415,6 +415,7 @@ private:
 		StringName rim;
 		StringName rim_tint;
 		StringName sheen;
+		StringName sheen_roughness;
 		StringName sheen_color;
 		StringName clearcoat;
 		StringName clearcoat_roughness;
@@ -485,6 +486,7 @@ private:
 	float rim = 0.0f;
 	float rim_tint = 0.0f;
 	float sheen = 0.0f;
+	float sheen_roughness = 0.0f;
 	Color sheen_color;
 	float clearcoat = 0.0f;
 	float clearcoat_roughness = 0.0f;
@@ -603,6 +605,9 @@ public:
 
 	void set_sheen(float p_sheen);
 	float get_sheen() const;
+
+	void set_sheen_roughness(float p_sheen_roughness);
+	float get_sheen_roughness() const;
 
 	void set_sheen_color(const Color &p_sheen_color);
 	Color get_sheen_color() const;

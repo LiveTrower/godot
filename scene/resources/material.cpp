@@ -537,6 +537,7 @@ void BaseMaterial3D::init_shaders() {
 	shader_names->rim = "rim";
 	shader_names->rim_tint = "rim_tint";
 	shader_names->sheen = "sheen";
+	shader_names->sheen_roughness = "sheen_roughness";
 	shader_names->sheen_color = "sheen_color";
 	shader_names->clearcoat = "clearcoat";
 	shader_names->clearcoat_roughness = "clearcoat_roughness";
@@ -969,7 +970,8 @@ uniform sampler2D texture_rim : hint_default_white, %s;
 	if (features[FEATURE_SHEEN]) {
 		code += R"(
 uniform float sheen : hint_range(0.0, 1.0, 0.01);
-uniform vec3 sheen_color : hint_color;
+uniform float sheen_roughness : hint_range(0.0, 1.0, 0.01);
+uniform vec3 sheen_color : source_color;
 )";
 	}
 	if (features[FEATURE_CLEARCOAT]) {
@@ -1723,6 +1725,7 @@ void fragment() {)";
 		code += R"(
 	// Sheen: Enabled
 	SHEEN = sheen;
+	SHEEN_ROUGHNESS = sheen_roughness;
 	SHEEN_COLOR = sheen_color;
 )";
 	}
@@ -2020,9 +2023,17 @@ float BaseMaterial3D::get_sheen() const {
 	return sheen;
 }
 
+void BaseMaterial3D::set_sheen_roughness(float p_sheen_roughness) {
+	sheen_roughness = p_sheen_roughness;
+	RS::get_singleton()->material_set_param(_get_material(), shader_names->sheen_roughness, p_sheen_roughness);
+}
+
+float BaseMaterial3D::get_sheen_roughness() const {
+	return sheen_roughness;
+}
+
 void BaseMaterial3D::set_sheen_color(const Color &p_sheen_color) {
 	sheen_color = p_sheen_color;
-
 	RS::get_singleton()->material_set_param(_get_material(), shader_names->sheen_color, p_sheen_color);
 }
 
@@ -2492,6 +2503,10 @@ void BaseMaterial3D::_validate_property(PropertyInfo &p_property) const {
 			p_property.usage = PROPERTY_USAGE_NONE;
 		}
 
+		if (p_property.name.begins_with("sheen")) {
+			p_property.usage = PROPERTY_USAGE_NONE;
+		}
+
 		if (p_property.name.begins_with("clearcoat")) {
 			p_property.usage = PROPERTY_USAGE_NONE;
 		}
@@ -2951,6 +2966,9 @@ void BaseMaterial3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_sheen", "sheen"), &BaseMaterial3D::set_sheen);
 	ClassDB::bind_method(D_METHOD("get_sheen"), &BaseMaterial3D::get_sheen);
 
+	ClassDB::bind_method(D_METHOD("set_sheen_roughness", "sheen_roughness"), &BaseMaterial3D::set_sheen_roughness);
+	ClassDB::bind_method(D_METHOD("get_sheen_roughness"), &BaseMaterial3D::get_sheen_roughness);
+
 	ClassDB::bind_method(D_METHOD("set_sheen_color", "sheen_color"), &BaseMaterial3D::set_sheen_color);
 	ClassDB::bind_method(D_METHOD("get_sheen_color"), &BaseMaterial3D::get_sheen_color);
 
@@ -3184,8 +3202,9 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "rim_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_RIM);
 
 	ADD_GROUP("Sheen", "sheen_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "sheen_enabled"), "set_feature", "get_feature", FEATURE_RIM);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "sheen_enabled"), "set_feature", "get_feature", FEATURE_SHEEN);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sheen", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_sheen", "get_sheen");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sheen_roughness", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_sheen_roughness", "get_sheen_roughness");
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "sheen_color", PROPERTY_HINT_COLOR_NO_ALPHA), "set_sheen_color", "get_sheen_color");
 
 	ADD_GROUP("Clearcoat", "clearcoat_");
@@ -3444,7 +3463,8 @@ BaseMaterial3D::BaseMaterial3D(bool p_orm) :
 	set_rim(1.0);
 	set_rim_tint(0.5);
 	set_sheen(1.0);
-	set_sheen_color(Color(0, 0, 0));
+	set_sheen_roughness(0.5);
+	set_sheen_color(Color(1, 1, 1));
 	set_clearcoat(1);
 	set_clearcoat_roughness(0.5);
 	set_anisotropy(0);
