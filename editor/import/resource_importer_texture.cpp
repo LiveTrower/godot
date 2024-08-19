@@ -740,16 +740,14 @@ String ResourceImporterTexture::get_import_settings_string() const {
 	return s;
 }
 
-bool ResourceImporterTexture::are_import_settings_valid(const String &p_path) const {
-	Dictionary meta = ResourceFormatImporter::get_singleton()->get_resource_metadata(p_path);
-
-	if (meta.has("has_editor_variant")) {
+bool ResourceImporterTexture::are_import_settings_valid(const String &p_path, const Dictionary &p_meta) const {
+	if (p_meta.has("has_editor_variant")) {
 		String imported_path = ResourceFormatImporter::get_singleton()->get_internal_resource_path(p_path);
 		if (!FileAccess::exists(imported_path)) {
 			return false;
 		}
 
-		String editor_meta_path = imported_path.replace(".editor.ctex", ".editor.meta");
+		String editor_meta_path = imported_path.replace(".editor.ctex", ".editor.p_meta");
 		Dictionary editor_meta = _load_editor_meta(editor_meta_path);
 
 		if (editor_meta.has("editor_scale") && (float)editor_meta["editor_scale"] != EDSCALE) {
@@ -760,19 +758,19 @@ bool ResourceImporterTexture::are_import_settings_valid(const String &p_path) co
 		}
 	}
 
-	if (!meta.has("vram_texture")) {
+	if (!p_meta.has("vram_texture")) {
 		return false;
 	}
 
-	bool vram = meta["vram_texture"];
+	bool vram = p_meta["vram_texture"];
 	if (!vram) {
 		return true; // Do not care about non-VRAM.
 	}
 
 	// Will become invalid if formats are missing to import.
 	Vector<String> formats_imported;
-	if (meta.has("imported_formats")) {
-		formats_imported = meta["imported_formats"];
+	if (p_meta.has("imported_formats")) {
+		formats_imported = p_meta["imported_formats"];
 	}
 
 	int index = 0;

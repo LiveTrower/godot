@@ -255,6 +255,21 @@ void EditorFileSystem::_first_scan_process_scripts(const ScannedDirectory *p_sca
 	}
 
 	for (const String &scan_file : p_scan_dir->files) {
+		// Optimization to skip the ResourceLoader::get_resource_type for files
+		// that are not scripts. Some loader get_resource_type methods read the file
+		// which can be very slow on large projects.
+		String ext = scan_file.get_extension().to_lower();
+		bool is_script = false;
+		for (int i = 0; i < ScriptServer::get_language_count(); i++) {
+			if (ScriptServer::get_language(i)->get_extension() == ext) {
+				is_script = true;
+				break;
+			}
+		}
+		if (!is_script) {
+			continue; // Not a script.
+		}
+
 		String path = p_scan_dir->full_path.path_join(scan_file);
 		String type = ResourceLoader::get_resource_type(path);
 
@@ -431,10 +446,6 @@ bool EditorFileSystem::_test_for_reimport(const String &p_path, bool p_only_impo
 		return false;
 	}
 
-	if (!FileAccess::exists(p_path + ".import")) {
-		return true;
-	}
-
 	Error err;
 	Ref<FileAccess> f = FileAccess::open(p_path + ".import", FileAccess::READ, &err);
 
@@ -461,6 +472,7 @@ bool EditorFileSystem::_test_for_reimport(const String &p_path, bool p_only_impo
 	String dest_md5 = "";
 	int version = 0;
 	bool found_uid = false;
+	Variant meta;
 
 	while (true) {
 		assign = Variant();
@@ -500,16 +512,13 @@ bool EditorFileSystem::_test_for_reimport(const String &p_path, bool p_only_impo
 				} else if (assign == "dest_files") {
 					dest_files = value;
 				}
+			} else if (assign == "metadata") {
+				meta = value;
 			}
 
 		} else if (next_tag.name != "remap" && next_tag.name != "deps") {
 			break;
 		}
-	}
-
-	if (!ResourceFormatImporter::get_singleton()->are_import_settings_valid(p_path)) {
-		// Reimport settings are out of sync with project settings, reimport.
-		return true;
 	}
 
 	if (importer_name == "keep" || importer_name == "skip") {
@@ -528,6 +537,11 @@ bool EditorFileSystem::_test_for_reimport(const String &p_path, bool p_only_impo
 
 	if (importer->get_format_version() > version) {
 		return true; // version changed, reimport
+	}
+
+	if (!importer->are_import_settings_valid(p_path, meta)) {
+		// Reimport settings are out of sync with project settings, reimport.
+		return true;
 	}
 
 	// Read the md5's from a separate file (so the import parameters aren't dependent on the file version
@@ -648,6 +662,12 @@ bool EditorFileSystem::_update_scan_actions() {
 	Vector<String> reimports;
 	Vector<String> reloads;
 
+	EditorProgress *ep = nullptr;
+	if (scan_actions.size() > 1) {
+		ep = memnew(EditorProgress("_update_scan_actions", TTR("Scanning actions..."), scan_actions.size()));
+	}
+
+	int step_count = 0;
 	for (const ItemAction &ia : scan_actions) {
 		switch (ia.action) {
 			case ItemAction::ACTION_NONE: {
@@ -779,7 +799,13 @@ bool EditorFileSystem::_update_scan_actions() {
 
 			} break;
 		}
+
+		if (ep) {
+			ep->step(ia.file, step_count++, false);
+		}
 	}
+
+	memdelete_notnull(ep);
 
 	if (_scan_extensions()) {
 		//needs editor restart
@@ -870,8 +896,6 @@ void EditorFileSystem::scan() {
 		scan_total = 0;
 		s.priority = Thread::PRIORITY_LOW;
 		thread.start(_thread_func, this, s);
-		//tree->hide();
-		//progress->show();
 	}
 }
 
@@ -1020,9 +1044,8 @@ void EditorFileSystem::_process_file_system(const ScannedDirectory *p_scan_dir, 
 				}
 
 			} else {
-				fi->type = ResourceFormatImporter::get_singleton()->get_resource_type(path);
-				fi->uid = ResourceFormatImporter::get_singleton()->get_resource_uid(path);
-				fi->import_group_file = ResourceFormatImporter::get_singleton()->get_import_group_file(path);
+				// Using get_resource_import_info() to prevent calling 3 times ResourceFormatImporter::_get_path_and_type.
+				ResourceFormatImporter::get_singleton()->get_resource_import_info(path, fi->type, fi->uid, fi->import_group_file);
 				fi->script_class_name = _get_global_script_class(fi->type, path, &fi->script_class_extends, &fi->script_class_icon_path);
 				fi->modified_time = 0;
 				fi->import_modified_time = 0;
@@ -1828,9 +1851,20 @@ void EditorFileSystem::_update_script_classes() {
 
 	update_script_mutex.lock();
 
+	EditorProgress *ep = nullptr;
+	if (update_script_paths.size() > 1) {
+		ep = memnew(EditorProgress("update_scripts_classes", TTR("Registering global classes..."), update_script_paths.size()));
+	}
+
+	int step_count = 0;
 	for (const KeyValue<String, ScriptInfo> &E : update_script_paths) {
 		_register_global_class_script(E.key, E.key, E.value.type, E.value.script_class_name, E.value.script_class_extends, E.value.script_class_icon_path);
+		if (ep) {
+			ep->step(E.value.script_class_name, step_count++, false);
+		}
 	}
+
+	memdelete_notnull(ep);
 
 	update_script_paths.clear();
 	update_script_mutex.unlock();
@@ -1856,6 +1890,12 @@ void EditorFileSystem::_update_script_documentation() {
 
 	update_script_mutex.lock();
 
+	EditorProgress *ep = nullptr;
+	if (update_script_paths_documentation.size() > 1) {
+		ep = memnew(EditorProgress("update_script_paths_documentation", TTR("Updating scripts documentation"), update_script_paths_documentation.size()));
+	}
+
+	int step_count = 0;
 	for (const String &path : update_script_paths_documentation) {
 		int index = -1;
 		EditorFileSystemDirectory *efd = find_file(path, &index);
@@ -1878,7 +1918,13 @@ void EditorFileSystem::_update_script_documentation() {
 				}
 			}
 		}
+
+		if (ep) {
+			ep->step(efd->files[index]->file, step_count++, false);
+		}
 	}
+
+	memdelete_notnull(ep);
 
 	update_script_paths_documentation.clear();
 	update_script_mutex.unlock();
@@ -1914,7 +1960,7 @@ void EditorFileSystem::_update_scene_groups() {
 
 	EditorProgress *ep = nullptr;
 	if (update_scene_paths.size() > 20) {
-		ep = memnew(EditorProgress("update_scene_groups", TTR("Update Scene Groups"), update_scene_paths.size()));
+		ep = memnew(EditorProgress("update_scene_groups", TTR("Updating Scene Groups"), update_scene_paths.size()));
 	}
 	int step_count = 0;
 
@@ -1936,7 +1982,7 @@ void EditorFileSystem::_update_scene_groups() {
 		}
 
 		if (ep) {
-			ep->step(TTR("Updating Scene Groups..."), step_count++, false);
+			ep->step(efd->files[index]->file, step_count++);
 		}
 	}
 
@@ -2652,23 +2698,15 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 
 	Vector<String> reloads;
 
-	EditorProgress pr("reimport", TTR("(Re)Importing Assets"), p_files.size());
-
-	// The method reimport_files runs on the main thread, and if VSync is enabled
-	// or Update Continuously is disabled, Main::Iteration takes longer each frame.
-	// Each EditorProgress::step can trigger a redraw, and when there are many files to import,
-	// this could lead to a slow import process, especially when the editor is unfocused.
-	// Temporarily disabling VSync and low_processor_usage_mode while reimporting fixes this.
-	const bool old_low_processor_usage_mode = OS::get_singleton()->is_in_low_processor_usage_mode();
-	const DisplayServer::VSyncMode old_vsync_mode = DisplayServer::get_singleton()->window_get_vsync_mode(DisplayServer::MAIN_WINDOW_ID);
-	OS::get_singleton()->set_low_processor_usage_mode(false);
-	DisplayServer::get_singleton()->window_set_vsync_mode(DisplayServer::VSyncMode::VSYNC_DISABLED);
+	EditorProgress *ep = memnew(EditorProgress("reimport", TTR("(Re)Importing Assets"), p_files.size()));
 
 	Vector<ImportFile> reimport_files;
 
 	HashSet<String> groups_to_reimport;
 
 	for (int i = 0; i < p_files.size(); i++) {
+		ep->step(TTR("Preparing files to reimport..."), i, false);
+
 		String file = p_files[i];
 
 		ResourceUID::ID uid = ResourceUID::get_singleton()->text_to_id(file);
@@ -2728,7 +2766,7 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 			if (i + 1 == reimport_files.size() || reimport_files[i + 1].importer != reimport_files[from].importer || groups_to_reimport.has(reimport_files[i + 1].path)) {
 				if (from - i == 0) {
 					// Single file, do not use threads.
-					pr.step(reimport_files[i].path.get_file(), i, false);
+					ep->step(reimport_files[i].path.get_file(), i, false);
 					_reimport_file(reimport_files[i].path);
 				} else {
 					Ref<ResourceImporter> importer = ResourceFormatImporter::get_singleton()->get_importer_by_name(reimport_files[from].importer);
@@ -2750,7 +2788,7 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 					do {
 						if (current_index < tdata.max_index.get()) {
 							current_index = tdata.max_index.get();
-							pr.step(reimport_files[current_index].path.get_file(), current_index, false);
+							ep->step(reimport_files[current_index].path.get_file(), current_index, false);
 						}
 						OS::get_singleton()->delay_usec(1);
 					} while (!WorkerThreadPool::get_singleton()->is_group_task_completed(group_task));
@@ -2764,7 +2802,7 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 			}
 
 		} else {
-			pr.step(reimport_files[i].path.get_file(), i, false);
+			ep->step(reimport_files[i].path.get_file(), i, false);
 			_reimport_file(reimport_files[i].path);
 
 			// We need to increment the counter, maybe the next file is multithreaded
@@ -2781,7 +2819,7 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 		HashMap<String, Vector<String>> group_files;
 		_find_group_files(filesystem, group_files, groups_to_reimport);
 		for (const KeyValue<String, Vector<String>> &E : group_files) {
-			pr.step(E.key.get_file(), from++, false);
+			ep->step(E.key.get_file(), from++, false);
 			Error err = _reimport_group(E.key, E.value);
 			reloads.push_back(E.key);
 			reloads.append_array(E.value);
@@ -2790,17 +2828,13 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 			}
 		}
 	}
-	pr.step(TTR("Finalizing Asset Import..."), p_files.size());
 
 	ResourceUID::get_singleton()->update_cache(); // After reimporting, update the cache.
-
 	_save_filesystem_cache();
+
+	memdelete_notnull(ep);
+
 	_process_update_pending();
-
-	// Revert to previous values to restore editor settings for VSync and Update Continuously.
-	OS::get_singleton()->set_low_processor_usage_mode(old_low_processor_usage_mode);
-	DisplayServer::get_singleton()->window_set_vsync_mode(old_vsync_mode);
-
 	importing = false;
 	if (!is_scanning()) {
 		emit_signal(SNAME("filesystem_changed"));

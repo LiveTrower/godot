@@ -93,6 +93,7 @@ public:
 	String get_import_settings_hash() const;
 
 	String get_import_base_path(const String &p_for_file) const;
+	Error get_resource_import_info(const String &p_path, StringName &r_type, ResourceUID::ID &r_uid, String &r_import_group_file) const;
 	ResourceFormatImporter();
 };
 
@@ -145,7 +146,7 @@ public:
 	virtual void import_threaded_end() {}
 
 	virtual Error import_group_file(const String &p_group_file, const HashMap<String, HashMap<StringName, Variant>> &p_source_file_options, const HashMap<String, String> &p_base_paths) { return ERR_UNAVAILABLE; }
-	virtual bool are_import_settings_valid(const String &p_path) const { return true; }
+	virtual bool are_import_settings_valid(const String &p_path, const Dictionary &p_meta) const { return true; }
 	virtual String get_import_settings_string() const { return String(); }
 };
 
