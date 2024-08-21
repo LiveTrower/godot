@@ -1334,6 +1334,8 @@ void fragment_shader(in SceneData scene_data) {
 	vec3 indirect_normal = normal;
 #endif
 
+#ifndef AMBIENT_LIGHT_DISABLED
+
 	if (scene_data.use_reflection_cubemap) {
 #ifdef LIGHT_ANISOTROPY_USED
 		// https://google.github.io/filament/Filament.html#lighting/imagebasedlights/anisotropy
@@ -1449,14 +1451,15 @@ void fragment_shader(in SceneData scene_data) {
 #endif //USE_RADIANCE_CUBEMAP_ARRAY
 		indirect_specular_light += clearcoat_light * horizon * horizon * Fc * scene_data.ambient_light_color_energy.a;
 	}
-#endif
+#endif // LIGHT_CLEARCOAT_USED
+#endif // !AMBIENT_LIGHT_DISABLED
 #endif //!defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED)
 
 	//radiance
 
 /// GI ///
 #if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED)
-
+#ifndef AMBIENT_LIGHT_DISABLED
 #ifdef USE_LIGHTMAP
 
 	//lightmap
@@ -1751,9 +1754,6 @@ void fragment_shader(in SceneData scene_data) {
 
 	//finalize ambient light here
 	{
-#if defined(AMBIENT_LIGHT_DISABLED)
-		ambient_light = vec3(0.0, 0.0, 0.0);
-#else
 		ambient_light *= albedo.rgb;
 		ambient_light *= ao;
 
@@ -1766,8 +1766,9 @@ void fragment_shader(in SceneData scene_data) {
 			ambient_light *= 1.0 - ssil.a;
 			ambient_light += ssil.rgb * albedo.rgb;
 		}
-#endif // AMBIENT_LIGHT_DISABLED
 	}
+
+#endif // AMBIENT_LIGHT_DISABLED
 
 	// Store original AO for indirect specular occlusion approximation, because we want
 	// Light Affect to always be treated as 1.0 for indirect specular lighting.
@@ -1779,7 +1780,7 @@ void fragment_shader(in SceneData scene_data) {
 
 	//this saves some VGPRs
 	vec3 f0 = F0(metallic, specular, albedo);
-
+#ifndef AMBIENT_LIGHT_DISABLED
 	{
 #if defined(DIFFUSE_TOON)
 		//simplify for toon, as
@@ -1803,6 +1804,7 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 	}
 
+#endif // !AMBIENT_LIGHT_DISABLED
 #endif //GI !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED)
 
 #if !defined(MODE_RENDER_DEPTH)

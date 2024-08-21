@@ -42,6 +42,8 @@ class VisualShaderNode;
 class VisualShader : public Shader {
 	GDCLASS(VisualShader, Shader);
 
+	friend class VisualShaderNodeVersionChecker;
+
 public:
 	enum Type {
 		TYPE_VERTEX,
@@ -66,7 +68,7 @@ public:
 
 	struct DefaultTextureParam {
 		StringName name;
-		List<Ref<Texture>> params;
+		List<Ref<Texture2D>> params;
 	};
 
 	enum VaryingMode {
@@ -140,7 +142,6 @@ private:
 	HashSet<StringName> flags;
 
 	HashMap<String, Varying> varyings;
-	HashMap<String, Variant> preview_params;
 	List<Varying> varyings_list;
 
 	mutable SafeFlag dirty;
@@ -197,10 +198,6 @@ public: // internal methods
 
 	void set_varying_type(const String &p_name, VaryingType p_type);
 	VaryingType get_varying_type(const String &p_name);
-
-	void set_preview_shader_parameter(const String &p_name, const Variant &p_value);
-	Variant get_preview_shader_parameter(const String &p_name) const;
-	bool has_preview_shader_parameter(const String &p_name) const;
 
 	Vector2 get_node_position(Type p_type, int p_id) const;
 	Ref<VisualShaderNode> get_node(Type p_type, int p_id) const;
