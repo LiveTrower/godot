@@ -1214,11 +1214,9 @@ void RenderForwardClustered::_update_volumetric_fog(Ref<RenderSceneBuffersRD> p_
 
 	if (p_render_buffers->has_custom_data(RB_SCOPE_FOG)) {
 		Ref<RendererRD::Fog::VolumetricFog> fog = p_render_buffers->get_custom_data(RB_SCOPE_FOG);
-
-		if (p_environment.is_null() || !environment_get_volumetric_fog_enabled(p_environment)) {
+		//validate
+		if (p_environment.is_null() || !environment_get_volumetric_fog_enabled(p_environment) || fog->width != target_width || fog->height != target_height || fog->depth != get_volumetric_fog_depth()) {
 			p_render_buffers->set_custom_data(RB_SCOPE_FOG, Ref<RenderBufferCustomDataRD>());
-		} else if (p_environment.is_valid() || environment_get_volumetric_fog_enabled(p_environment) || fog->width != target_width || fog->height != target_height || fog->depth != get_volumetric_fog_depth()) {
-			p_render_buffers->set_custom_data(RB_SCOPE_FOG, previous_fog);
 		}
 	}
 
@@ -1239,7 +1237,6 @@ void RenderForwardClustered::_update_volumetric_fog(Ref<RenderSceneBuffersRD> p_
 
 	if (p_render_buffers->has_custom_data(RB_SCOPE_FOG)) {
 		Ref<RendererRD::Fog::VolumetricFog> fog = p_render_buffers->get_custom_data(RB_SCOPE_FOG);
-		previous_fog = fog;
 
 		RendererRD::Fog::VolumetricFogSettings settings;
 		settings.rb_size = size;

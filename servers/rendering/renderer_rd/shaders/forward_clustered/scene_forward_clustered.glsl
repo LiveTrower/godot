@@ -1467,14 +1467,16 @@ void fragment_shader(in SceneData scene_data) {
 
 	if (scene_data.use_reflection_cubemap) {
 		vec3 ref_vec = reflect(-view, normal);
-		ref_vec = mix(ref_vec, normal, sheen_roughness * sheen_roughness);
-		ref_vec = scene_data.radiance_inverse_xform * ref_vec;
 		float ndotv = max(dot(normal, view), 1e-4);
 		float dfg_sheen = prefiltered_dfg(sheen_roughness, ndotv).z;
 		// Albedo scaling of the base layer before we layer sheen on top
 		float sheen_scaling = 1.0 - max(sheen_color.x, max(sheen_color.y, sheen_color.z)) * dfg_sheen;
 		ambient_light *= sheen_scaling;
 		indirect_specular_light *= sheen_scaling;
+
+		ref_vec = mix(ref_vec, normal, sheen_roughness * sheen_roughness);
+		ref_vec = scene_data.radiance_inverse_xform * ref_vec;
+		float horizon = min(1.0 + dot(ref_vec, indirect_normal), 1.0);
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
 
 		float lod, blend;
@@ -1486,7 +1488,7 @@ void fragment_shader(in SceneData scene_data) {
 		vec3 sheen_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_vec, sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD).rgb;
 
 #endif //USE_RADIANCE_CUBEMAP_ARRAY
-		indirect_specular_light += sheen_light * scene_data.ambient_light_color_energy.a;
+		indirect_specular_light += sheen_light * horizon * horizon * scene_data.ambient_light_color_energy.a;
 	}
 #endif
 
@@ -1883,7 +1885,6 @@ void fragment_shader(in SceneData scene_data) {
 		float f90 = clamp(dot(f0, vec3(50.0 * 0.33)), metallic, 1.0);
 		indirect_specular_light *= f0 * envBRDF.x + f90 * envBRDF.y;
 #endif
-
 
 		vec3 energy_compensation = get_energy_compensation(f0, envBRDF.xy);
 		indirect_specular_light *= energy_compensation;
@@ -2448,7 +2449,7 @@ void fragment_shader(in SceneData scene_data) {
 			}
 		}
 
-#ifdef MOLTENVK_USED
+#ifdef NO_IMAGE_ATOMICS
 		imageStore(geom_facing_grid, grid_pos, uvec4(imageLoad(geom_facing_grid, grid_pos).r | facing_bits)); //store facing bits
 #else
 		imageAtomicOr(geom_facing_grid, grid_pos, facing_bits); //store facing bits

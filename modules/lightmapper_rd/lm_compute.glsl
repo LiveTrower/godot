@@ -390,7 +390,6 @@ vec2 get_vogel_disk(float p_i, float p_rotation, float p_sample_count_sqrt) {
 
 void trace_direct_light(vec3 p_position, vec3 p_normal, uint p_light_index, bool p_soft_shadowing, out vec3 r_light, out vec3 r_light_dir, inout uint r_noise, float p_texel_size) {
 	r_light = vec3(0.0f);
-	r_light = vec3(0.0f);
 
 	vec3 light_pos;
 	float dist;
@@ -482,6 +481,7 @@ void trace_direct_light(vec3 p_position, vec3 p_normal, uint p_light_index, bool
 							break;
 						}
 					}
+
 					float a = randomize(r_noise) * 2.0 * PI;
 					float vogel_index = float(total_ray_count - 1 - (i * shadowing_ray_count + j)); // Start from (total_ray_count - 1) so we check the outer points first.
 					vec2 light_disk_sample = (get_vogel_disk(vogel_index, a, shadowing_ray_count_sqrt)) * soft_shadowing_disk_size * light_data.shadow_blur;
