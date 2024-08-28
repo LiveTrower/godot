@@ -643,6 +643,7 @@ void SceneShaderForwardClustered::init(const String p_defines) {
 		actions.renames["CUSTOM2"] = "custom2_attrib";
 		actions.renames["CUSTOM3"] = "custom3_attrib";
 		actions.renames["OUTPUT_IS_SRGB"] = "SHADER_IS_SRGB";
+		actions.renames["CLIP_SPACE_FAR"] = "SHADER_SPACE_FAR";
 		actions.renames["LIGHT_VERTEX"] = "light_vertex";
 		actions.renames["JITTER_FRACTION"] = "scene_data.jitter_fraction";
 
