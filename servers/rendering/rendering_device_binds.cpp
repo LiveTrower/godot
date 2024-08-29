@@ -136,13 +136,12 @@ Error RDShaderFile::parse_versions_from_text(const String &p_text, const String 
 					if (p_include_func) {
 						//process include
 						String include = line.replace("#include", "").strip_edges();
-						String include_text = p_include_func(include, p_include_func_userdata);
-
 						if (!include.begins_with("\"") || !include.ends_with("\"")) {
 							base_error = "Malformed #include syntax, expected #include \"<path>\", found instead: " + include;
 							break;
 						}
 						include = include.substr(1, include.length() - 2).strip_edges();
+						String include_text = p_include_func(include, p_include_func_userdata);
 						if (!include_text.is_empty()) {
 							stage_code[stage] += "\n" + include_text + "\n";
 						} else {
@@ -157,9 +156,6 @@ Error RDShaderFile::parse_versions_from_text(const String &p_text, const String 
 			}
 		}
 	}
-
-	Ref<RDShaderFile> shader_file;
-	shader_file.instantiate();
 
 	if (base_error.is_empty()) {
 		if (stage_found[RD::SHADER_STAGE_COMPUTE] && stages_found > 1) {

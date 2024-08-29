@@ -285,23 +285,6 @@ void LightStorage::light_set_reverse_cull_face_mode(RID p_light, bool p_enabled)
 	light->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_LIGHT);
 }
 
-void LightStorage::light_set_shadow_caster_mask(RID p_light, uint32_t p_caster_mask) {
-	Light *light = light_owner.get_or_null(p_light);
-	ERR_FAIL_NULL(light);
-
-	light->shadow_caster_mask = p_caster_mask;
-
-	light->version++;
-	light->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_LIGHT);
-}
-
-uint32_t LightStorage::light_get_shadow_caster_mask(RID p_light) const {
-	Light *light = light_owner.get_or_null(p_light);
-	ERR_FAIL_NULL_V(light, 0);
-
-	return light->shadow_caster_mask;
-}
-
 void LightStorage::light_set_bake_mode(RID p_light, RS::LightBakeMode p_bake_mode) {
 	Light *light = light_owner.get_or_null(p_light);
 	ERR_FAIL_NULL(light);
@@ -702,7 +685,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 						float bias_scale = light_instance->shadow_transform[j].bias_scale * light_data.soft_shadow_scale;
 						light_data.shadow_bias[j] = light->param[RS::LIGHT_PARAM_SHADOW_BIAS] / 100.0 * bias_scale;
 						light_data.shadow_normal_bias[j] = light->param[RS::LIGHT_PARAM_SHADOW_NORMAL_BIAS] * light_instance->shadow_transform[j].shadow_texel_size;
-						light_data.shadow_transmittance_bias[j] = light->param[RS::LIGHT_PARAM_TRANSMITTANCE_BIAS] / 100.0 * bias_scale;
+						light_data.shadow_transmittance_bias[j] = light->param[RS::LIGHT_PARAM_TRANSMITTANCE_BIAS] * bias_scale;
 						light_data.shadow_z_range[j] = light_instance->shadow_transform[j].farplane;
 						light_data.shadow_range_begin[j] = light_instance->shadow_transform[j].range_begin;
 						RendererRD::MaterialStorage::store_camera(shadow_mtx, light_data.shadow_matrices[j]);

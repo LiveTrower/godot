@@ -1,3 +1,0 @@
-C:/Users/alfon/OneDrive/Escritorio/godot-master/platform/android/java/nativeSrcsConfigs/out/build/x64-Debug/CMakeFiles/godot.dir
-C:/Users/alfon/OneDrive/Escritorio/godot-master/platform/android/java/nativeSrcsConfigs/out/build/x64-Debug/CMakeFiles/edit_cache.dir
-C:/Users/alfon/OneDrive/Escritorio/godot-master/platform/android/java/nativeSrcsConfigs/out/build/x64-Debug/CMakeFiles/rebuild_cache.dir

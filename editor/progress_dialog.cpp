@@ -209,7 +209,6 @@ bool ProgressDialog::task_step(const String &p_task, const String &p_state, int 
 			return canceled;
 		}
 	}
-
 	if (p_step < 0) {
 		t.progress->set_value(t.progress->get_value() + 1);
 	} else {

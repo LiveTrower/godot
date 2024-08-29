@@ -79,7 +79,7 @@ void RendererCanvasCull::_render_canvas_item_tree(RID p_to_render_target, Canvas
 	}
 }
 
-void _collect_ysort_children(RendererCanvasCull::Item *p_canvas_item, Transform2D p_transform, RendererCanvasCull::Item *p_material_owner, const Color &p_modulate, RendererCanvasCull::Item **r_items, int &r_index, int p_z) {
+void _collect_ysort_children(RendererCanvasCull::Item *p_canvas_item, const Transform2D &p_transform, RendererCanvasCull::Item *p_material_owner, const Color &p_modulate, RendererCanvasCull::Item **r_items, int &r_index, int p_z) {
 	int child_item_count = p_canvas_item->child_items.size();
 	RendererCanvasCull::Item **child_items = p_canvas_item->child_items.ptrw();
 	for (int i = 0; i < child_item_count; i++) {

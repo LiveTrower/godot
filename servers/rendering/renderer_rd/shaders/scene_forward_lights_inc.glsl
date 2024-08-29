@@ -26,7 +26,6 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 
 	vec4 orms_unpacked = unpackUnorm4x8(orms);
 
-	float ao = orms_unpacked.x;
 	float roughness = orms_unpacked.y;
 	float metallic = orms_unpacked.z;
 
