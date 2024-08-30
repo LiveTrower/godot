@@ -353,6 +353,13 @@ vec3 get_energy_compensation(vec3 f0, vec2 env){
 	return compensation + 1.0;
 }
 
+/*float compute_micro_shadowing(float NoL, float visibility) {
+    // Chan 2018, "Material Advances in Call of Duty: WWII"
+    float aperture = inversesqrt(1.0 - visibility);
+    float microShadow = clamp(NoL * aperture, 0.0, 1.0);
+    return microShadow * microShadow;
+}*/
+
 /* Set 2 Skeleton & Instancing (can change per item) */
 
 layout(set = 2, binding = 0, std430) restrict readonly buffer Transforms {

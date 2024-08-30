@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  packed_data_container.h                                               */
+/*  navigation_globals.h                                                  */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,77 +28,39 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef PACKED_DATA_CONTAINER_H
-#define PACKED_DATA_CONTAINER_H
+#ifndef NAVIGATION_GLOBALS_H
+#define NAVIGATION_GLOBALS_H
 
-#include "core/io/resource.h"
+namespace NavigationDefaults3D {
 
-class PackedDataContainer : public Resource {
-	GDCLASS(PackedDataContainer, Resource);
+// Rasterization.
 
-	enum : uint32_t {
-		TYPE_DICT = 0xFFFFFFFF,
-		TYPE_ARRAY = 0xFFFFFFFE,
-	};
+// To find the polygons edges the vertices are displaced in a grid where
+// each cell has the following cell_size and cell_height.
+constexpr float navmesh_cell_size{ 0.25f }; // Must match ProjectSettings default 3D cell_size and NavigationMesh cell_size.
+constexpr float navmesh_cell_height{ 0.25f }; // Must match ProjectSettings default 3D cell_height and NavigationMesh cell_height.
+constexpr auto navmesh_cell_size_hint{ "0.001,100,0.001,or_greater" };
 
-	struct DictKey {
-		uint32_t hash;
-		Variant key;
-		bool operator<(const DictKey &p_key) const { return hash < p_key.hash; }
-	};
+// Map.
 
-	Vector<uint8_t> data;
-	int datalen = 0;
+constexpr float edge_connection_margin{ 0.25f };
+constexpr float link_connection_radius{ 1.0f };
 
-	uint32_t _pack(const Variant &p_data, Vector<uint8_t> &tmpdata, HashMap<String, uint32_t> &string_cache);
+} //namespace NavigationDefaults3D
 
-	Variant _iter_init_ofs(const Array &p_iter, uint32_t p_offset);
-	Variant _iter_next_ofs(const Array &p_iter, uint32_t p_offset);
-	Variant _iter_get_ofs(const Variant &p_iter, uint32_t p_offset);
+namespace NavigationDefaults2D {
 
-	Variant _iter_init(const Array &p_iter);
-	Variant _iter_next(const Array &p_iter);
-	Variant _iter_get(const Variant &p_iter);
+// Rasterization.
 
-	friend class PackedDataContainerRef;
-	Variant _key_at_ofs(uint32_t p_ofs, const Variant &p_key, bool &err) const;
-	Variant _get_at_ofs(uint32_t p_ofs, const uint8_t *p_buf, bool &err) const;
-	uint32_t _type_at_ofs(uint32_t p_ofs) const;
-	int _size(uint32_t p_ofs) const;
+// Same as in 3D but larger since 1px is treated as 1m.
+constexpr float navmesh_cell_size{ 1.0f }; // Must match ProjectSettings default 2D cell_size.
+constexpr auto navmesh_cell_size_hint{ "0.001,100,0.001,or_greater" };
 
-protected:
-	void _set_data(const Vector<uint8_t> &p_data);
-	Vector<uint8_t> _get_data() const;
-	static void _bind_methods();
+// Map.
 
-public:
-	virtual Variant getvar(const Variant &p_key, bool *r_valid = nullptr) const override;
-	Error pack(const Variant &p_data);
+constexpr float edge_connection_margin{ 1.0f };
+constexpr float link_connection_radius{ 4.0f };
 
-	int size() const;
+} //namespace NavigationDefaults2D
 
-	PackedDataContainer() {}
-};
-
-class PackedDataContainerRef : public RefCounted {
-	GDCLASS(PackedDataContainerRef, RefCounted);
-
-	friend class PackedDataContainer;
-	uint32_t offset = 0;
-	Ref<PackedDataContainer> from;
-
-protected:
-	static void _bind_methods();
-
-public:
-	Variant _iter_init(const Array &p_iter);
-	Variant _iter_next(const Array &p_iter);
-	Variant _iter_get(const Variant &p_iter);
-
-	int size() const;
-	virtual Variant getvar(const Variant &p_key, bool *r_valid = nullptr) const override;
-
-	PackedDataContainerRef() {}
-};
-
-#endif // PACKED_DATA_CONTAINER_H
+#endif // NAVIGATION_GLOBALS_H
