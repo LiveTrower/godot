@@ -28,7 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#include "servers/rendering/renderer_rd/environment/dfg_lut.h"
+#include "servers/rendering/renderer_rd/texture_data/dfg_lut.h"
 #include "render_forward_clustered.h"
 #include "core/config/project_settings.h"
 #include "core/object/worker_thread_pool.h"

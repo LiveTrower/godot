@@ -665,6 +665,20 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
 		RD::get_singleton()->draw_command_end_label();
 	}
 
+	if (rb->get_screen_space_aa() == RS::VIEWPORT_SCREEN_SPACE_AA_SMAA) {
+		RD::get_singleton()->draw_command_begin_label("SMAA");
+
+		RendererRD::SMAA::SMAASettings smaa_settings;
+
+		Size2i resolution = rb->get_internal_size();
+		RID depth_texture = rb->get_depth_texture();
+		RID framebuffers = texture_storage->render_target_get_rd_framebuffer(render_target);
+
+		smaa->smaa(color_texture, depth_texture, framebuffers, resolution, smaa_settings);
+
+		RD::get_singleton()->draw_command_end_label();
+	}
+
 	if (use_fsr) {
 		RD::get_singleton()->draw_command_begin_label("FSR 1.0 Upscale");
 
@@ -1502,6 +1516,7 @@ void RendererSceneRenderRD::init() {
 	debug_effects = memnew(RendererRD::DebugEffects);
 	luminance = memnew(RendererRD::Luminance(!can_use_storage));
 	tone_mapper = memnew(RendererRD::ToneMapper);
+	smaa = memnew(RendererRD::SMAA);
 	if (can_use_vrs) {
 		vrs = memnew(RendererRD::VRS);
 	}
@@ -1529,6 +1544,9 @@ RendererSceneRenderRD::~RendererSceneRenderRD() {
 	}
 	if (tone_mapper) {
 		memdelete(tone_mapper);
+	}
+	if(smaa){
+		memdelete(smaa);
 	}
 	if (vrs) {
 		memdelete(vrs);
