@@ -121,12 +121,18 @@ bool AnimationTrackKeyEdit::_set(const StringName &p_name, const Variant &p_valu
 		float val = p_value;
 		float prev_val = animation->track_get_key_transition(track, key);
 		setting = true;
+
 		EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 		undo_redo->create_action(TTR("Animation Change Transition"), UndoRedo::MERGE_ENDS);
 		undo_redo->add_do_method(animation.ptr(), "track_set_key_transition", track, key, val);
 		undo_redo->add_undo_method(animation.ptr(), "track_set_key_transition", track, key, prev_val);
 		undo_redo->add_do_method(this, "_update_obj", animation);
 		undo_redo->add_undo_method(this, "_update_obj", animation);
+		AnimationPlayerEditor *ape = AnimationPlayerEditor::get_singleton();
+		if (ape) {
+			undo_redo->add_do_method(ape, "_animation_update_key_frame");
+			undo_redo->add_undo_method(ape, "_animation_update_key_frame");
+		}
 		undo_redo->commit_action();
 
 		setting = false;
@@ -178,12 +184,18 @@ bool AnimationTrackKeyEdit::_set(const StringName &p_name, const Variant &p_valu
 				}
 
 				setting = true;
+
 				undo_redo->create_action(TTR("Animation Change Keyframe Value"), UndoRedo::MERGE_ENDS);
 				Variant prev = animation->track_get_key_value(track, key);
 				undo_redo->add_do_method(animation.ptr(), "track_set_key_value", track, key, value);
 				undo_redo->add_undo_method(animation.ptr(), "track_set_key_value", track, key, prev);
 				undo_redo->add_do_method(this, "_update_obj", animation);
 				undo_redo->add_undo_method(this, "_update_obj", animation);
+				AnimationPlayerEditor *ape = AnimationPlayerEditor::get_singleton();
+				if (ape) {
+					undo_redo->add_do_method(ape, "_animation_update_key_frame");
+					undo_redo->add_undo_method(ape, "_animation_update_key_frame");
+				}
 				undo_redo->commit_action();
 
 				setting = false;
@@ -1541,13 +1553,17 @@ void AnimationTimelineEdit::_notification(int p_what) {
 				max_digit_width = MAX(digit_width, max_digit_width);
 			}
 			const int max_sc = int(Math::ceil(zoomw / scale));
-			const int max_sc_width = String::num(max_sc).length() * max_digit_width;
+			const int max_sc_width = String::num(max_sc).length() * Math::ceil(max_digit_width);
+
+			const int min_margin = MAX(text_secondary_margin, text_primary_margin);
 
 			while (!step_found) {
 				int min = max_sc_width;
 				if (decimals > 0) {
-					min += period_width + max_digit_width * decimals;
+					min += Math::ceil(period_width + max_digit_width * decimals);
 				}
+
+				min += (min_margin * 2);
 
 				static const int _multp[3] = { 1, 2, 5 };
 				for (int i = 0; i < 3; i++) {
@@ -1604,10 +1620,11 @@ void AnimationTimelineEdit::_notification(int p_what) {
 
 					int sc = int(Math::floor(pos * SC_ADJ));
 					int prev_sc = int(Math::floor(prev * SC_ADJ));
-					bool sub = (sc % SC_ADJ);
 
 					if ((sc / step) != (prev_sc / step) || (prev_sc < 0 && sc >= 0)) {
 						int scd = sc < 0 ? prev_sc : sc;
+						bool sub = (((scd - (scd % step)) % (dec * 10)) != 0);
+
 						int line_margin = sub ? v_line_secondary_margin : v_line_primary_margin;
 						int line_width = sub ? v_line_secondary_width : v_line_primary_width;
 						Color line_color = sub ? v_line_secondary_color : v_line_primary_color;
@@ -3282,6 +3299,11 @@ void AnimationTrackEdit::_menu_selected(int p_index) {
 			undo_redo->create_action(TTR("Change Animation Update Mode"));
 			undo_redo->add_do_method(animation.ptr(), "value_track_set_update_mode", track, update_mode);
 			undo_redo->add_undo_method(animation.ptr(), "value_track_set_update_mode", track, animation->value_track_get_update_mode(track));
+			AnimationPlayerEditor *ape = AnimationPlayerEditor::get_singleton();
+			if (ape) {
+				undo_redo->add_do_method(ape, "_animation_update_key_frame");
+				undo_redo->add_undo_method(ape, "_animation_update_key_frame");
+			}
 			undo_redo->commit_action();
 			queue_redraw();
 
@@ -3296,6 +3318,11 @@ void AnimationTrackEdit::_menu_selected(int p_index) {
 			undo_redo->create_action(TTR("Change Animation Interpolation Mode"));
 			undo_redo->add_do_method(animation.ptr(), "track_set_interpolation_type", track, interp_mode);
 			undo_redo->add_undo_method(animation.ptr(), "track_set_interpolation_type", track, animation->track_get_interpolation_type(track));
+			AnimationPlayerEditor *ape = AnimationPlayerEditor::get_singleton();
+			if (ape) {
+				undo_redo->add_do_method(ape, "_animation_update_key_frame");
+				undo_redo->add_undo_method(ape, "_animation_update_key_frame");
+			}
 			undo_redo->commit_action();
 			queue_redraw();
 		} break;
@@ -3306,6 +3333,11 @@ void AnimationTrackEdit::_menu_selected(int p_index) {
 			undo_redo->create_action(TTR("Change Animation Loop Mode"));
 			undo_redo->add_do_method(animation.ptr(), "track_set_interpolation_loop_wrap", track, loop_wrap);
 			undo_redo->add_undo_method(animation.ptr(), "track_set_interpolation_loop_wrap", track, animation->track_get_interpolation_loop_wrap(track));
+			AnimationPlayerEditor *ape = AnimationPlayerEditor::get_singleton();
+			if (ape) {
+				undo_redo->add_do_method(ape, "_animation_update_key_frame");
+				undo_redo->add_undo_method(ape, "_animation_update_key_frame");
+			}
 			undo_redo->commit_action();
 			queue_redraw();
 
@@ -3583,7 +3615,8 @@ void AnimationTrackEditor::set_animation(const Ref<Animation> &p_anim, bool p_re
 		_update_step_spinbox();
 		step->set_block_signals(false);
 		step->set_read_only(false);
-		snap->set_disabled(false);
+		snap_keys->set_disabled(false);
+		snap_timeline->set_disabled(false);
 		snap_mode->set_disabled(false);
 		auto_fit->set_disabled(false);
 		auto_fit_bezier->set_disabled(false);
@@ -3604,7 +3637,8 @@ void AnimationTrackEditor::set_animation(const Ref<Animation> &p_anim, bool p_re
 		step->set_value(0);
 		step->set_block_signals(false);
 		step->set_read_only(true);
-		snap->set_disabled(true);
+		snap_keys->set_disabled(true);
+		snap_timeline->set_disabled(true);
 		snap_mode->set_disabled(true);
 		bezier_edit_icon->set_disabled(true);
 		auto_fit->set_disabled(true);
@@ -4523,8 +4557,16 @@ bool AnimationTrackEditor::is_key_clipboard_active() const {
 	return key_clipboard.keys.size();
 }
 
-bool AnimationTrackEditor::is_snap_enabled() const {
-	return snap->is_pressed() ^ Input::get_singleton()->is_key_pressed(Key::CMD_OR_CTRL);
+bool AnimationTrackEditor::is_snap_timeline_enabled() const {
+	return snap_timeline->is_pressed() ^ Input::get_singleton()->is_key_pressed(Key::CMD_OR_CTRL);
+}
+
+bool AnimationTrackEditor::is_snap_keys_enabled() const {
+	return snap_keys->is_pressed() ^ Input::get_singleton()->is_key_pressed(Key::CMD_OR_CTRL);
+}
+
+bool AnimationTrackEditor::is_bezier_editor_active() const {
+	return bezier_edit->is_visible();
 }
 
 bool AnimationTrackEditor::can_add_reset_key() const {
@@ -4860,7 +4902,8 @@ void AnimationTrackEditor::_notification(int p_what) {
 		case NOTIFICATION_THEME_CHANGED: {
 			zoom_icon->set_texture(get_editor_theme_icon(SNAME("Zoom")));
 			bezier_edit_icon->set_icon(get_editor_theme_icon(SNAME("EditBezier")));
-			snap->set_icon(get_editor_theme_icon(SNAME("Snap")));
+			snap_timeline->set_icon(get_editor_theme_icon(SNAME("SnapTimeline")));
+			snap_keys->set_icon(get_editor_theme_icon(SNAME("SnapKeys")));
 			view_group->set_icon(get_editor_theme_icon(view_group->is_pressed() ? SNAME("AnimationTrackList") : SNAME("AnimationTrackGroup")));
 			selected_filter->set_icon(get_editor_theme_icon(SNAME("AnimationFilter")));
 			imported_anim_warning->set_icon(get_editor_theme_icon(SNAME("NodeWarning")));
@@ -5181,7 +5224,7 @@ int AnimationTrackEditor::_get_track_selected() {
 void AnimationTrackEditor::_insert_key_from_track(float p_ofs, int p_track) {
 	ERR_FAIL_INDEX(p_track, animation->get_track_count());
 
-	if (snap->is_pressed() && step->get_value() != 0) {
+	if (snap_keys->is_pressed() && step->get_value() != 0) {
 		p_ofs = snap_time(p_ofs);
 	}
 	while (animation->track_find_key(p_track, p_ofs, Animation::FIND_MODE_APPROX) != -1) { // Make sure insertion point is valid.
@@ -5588,6 +5631,14 @@ void AnimationTrackEditor::_move_selection_commit() {
 	moving_selection = false;
 	undo_redo->add_do_method(this, "_redraw_tracks");
 	undo_redo->add_undo_method(this, "_redraw_tracks");
+
+	// Update key frame.
+	AnimationPlayerEditor *ape = AnimationPlayerEditor::get_singleton();
+	if (ape) {
+		undo_redo->add_do_method(ape, "_animation_update_key_frame");
+		undo_redo->add_undo_method(ape, "_animation_update_key_frame");
+	}
+
 	undo_redo->commit_action();
 }
 
@@ -5796,7 +5847,7 @@ void AnimationTrackEditor::_anim_duplicate_keys(float p_ofs, bool p_ofs_valid, i
 			float insert_pos = p_ofs_valid ? p_ofs : timeline->get_play_position();
 
 			if (p_ofs_valid) {
-				if (snap->is_pressed() && step->get_value() != 0) {
+				if (snap_keys->is_pressed() && step->get_value() != 0) {
 					insert_pos = snap_time(insert_pos);
 				}
 			}
@@ -5944,7 +5995,7 @@ void AnimationTrackEditor::_anim_paste_keys(float p_ofs, bool p_ofs_valid, int p
 			float insert_pos = p_ofs_valid ? p_ofs : timeline->get_play_position();
 
 			if (p_ofs_valid) {
-				if (snap->is_pressed() && step->get_value() != 0) {
+				if (snap_keys->is_pressed() && step->get_value() != 0) {
 					insert_pos = snap_time(insert_pos);
 				}
 			}
@@ -7017,12 +7068,15 @@ void AnimationTrackEditor::_update_snap_unit() {
 	if (timeline->is_using_fps()) {
 		snap_unit = 1.0 / step->get_value();
 	} else {
-		snap_unit = 1.0 / Math::round(1.0 / step->get_value()); // Follow the snap behavior of the timeline editor.
+		double integer;
+		double fraction = Math::modf(step->get_value(), &integer);
+		fraction = 1.0 / Math::round(1.0 / fraction);
+		snap_unit = integer + fraction;
 	}
 }
 
 float AnimationTrackEditor::snap_time(float p_value, bool p_relative) {
-	if (is_snap_enabled()) {
+	if (is_snap_keys_enabled()) {
 		if (Input::get_singleton()->is_key_pressed(Key::SHIFT)) {
 			// Use more precise snapping when holding Shift.
 			snap_unit *= 0.25;
@@ -7276,13 +7330,21 @@ AnimationTrackEditor::AnimationTrackEditor() {
 	bottom_hb->add_child(view_group);
 	bottom_hb->add_child(memnew(VSeparator));
 
-	snap = memnew(Button);
-	snap->set_flat(true);
-	snap->set_text(TTR("Snap:") + " ");
-	bottom_hb->add_child(snap);
-	snap->set_disabled(true);
-	snap->set_toggle_mode(true);
-	snap->set_pressed(true);
+	snap_timeline = memnew(Button);
+	snap_timeline->set_flat(true);
+	bottom_hb->add_child(snap_timeline);
+	snap_timeline->set_disabled(true);
+	snap_timeline->set_toggle_mode(true);
+	snap_timeline->set_pressed(false);
+	snap_timeline->set_tooltip_text(TTR("Apply snapping to timeline cursor."));
+
+	snap_keys = memnew(Button);
+	snap_keys->set_flat(true);
+	bottom_hb->add_child(snap_keys);
+	snap_keys->set_disabled(true);
+	snap_keys->set_toggle_mode(true);
+	snap_keys->set_pressed(true);
+	snap_keys->set_tooltip_text(TTR("Apply snapping to selected key(s)."));
 
 	step = memnew(EditorSpinSlider);
 	step->set_min(0);
@@ -7651,6 +7713,8 @@ void AnimationTrackKeyEditEditor::_time_edit_exited() {
 			undo_redo->add_do_method(ate, "_select_at_anim", animation, track, new_time);
 			undo_redo->add_undo_method(ate, "_select_at_anim", animation, track, key_data_cache.time);
 		}
+		undo_redo->add_do_method(ape, "_animation_update_key_frame");
+		undo_redo->add_undo_method(ape, "_animation_update_key_frame");
 	}
 
 	undo_redo->commit_action();

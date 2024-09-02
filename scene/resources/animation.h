@@ -396,6 +396,10 @@ public:
 	int add_track(TrackType p_type, int p_at_pos = -1);
 	void remove_track(int p_track);
 
+	_FORCE_INLINE_ const Vector<Track *> get_tracks() {
+		return tracks;
+	}
+
 	bool is_capture_included() const;
 
 	int get_track_count() const;
