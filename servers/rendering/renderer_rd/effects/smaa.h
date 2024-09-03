@@ -83,29 +83,31 @@ private:
 	};
 
     SMAAPushConstant push_constant;
+    RID area_texture;
+    RID search_texture;
 
     struct SMAAEdge {
         SmaaEdgeDetectionShaderRD edge_detection_shader_rd;
         RID shader_version;
-        RID edge_pipeline;
+        PipelineCacheRD edge_pipeline;
     } smaa_edge;
 
     struct SMAAWeight {
         SmaaWeightShaderRD weight_shader_rd;
         RID shader_version;
-        RID weight_pipeline;
+        PipelineCacheRD weight_pipeline;
     } smaa_weight;
 
     struct SMAABlend {
         SmaaBlendShaderRD blend_shader_rd;
         RID shader_version;
-        RID blend_pipeline;
+        PipelineCacheRD blend_pipeline;
     } smaa_blend;
     
     struct SMAABlit{
         SmaaBlitShaderRD blit_shader_rd;
         RID shader_version;
-        RID blit_pipeline;
+        PipelineCacheRD blit_pipeline;
     } smaa_blit;
 };
 
