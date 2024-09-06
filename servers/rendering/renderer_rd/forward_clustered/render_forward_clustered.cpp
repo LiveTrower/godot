@@ -3052,7 +3052,7 @@ void RenderForwardClustered::_update_render_base_uniform_set() {
 			tformat.height = 128;
 			tformat.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT;
 			tformat.texture_type = RD::TEXTURE_TYPE_2D;
-			RID dfg_texture = RD::get_singleton()->texture_create(tformat, RD::TextureView(), {brdf_lut});
+			dfg_texture = RD::get_singleton()->texture_create(tformat, RD::TextureView(), {brdf_lut});
 			RD::Uniform u;
 			u.binding = 16;
 			u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
@@ -4387,6 +4387,7 @@ RenderForwardClustered::~RenderForwardClustered() {
 	RD::get_singleton()->free(shadow_sampler);
 	RSG::light_storage->directional_shadow_atlas_set_size(0);
 	RD::get_singleton()->free(best_fit_normal.texture);
+	RD::get_singleton()->free(dfg_texture);
 
 	{
 		for (const RID &rid : scene_state.uniform_buffers) {

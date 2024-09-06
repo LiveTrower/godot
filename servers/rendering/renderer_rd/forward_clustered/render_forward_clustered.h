@@ -161,6 +161,8 @@ class RenderForwardClustered : public RendererSceneRenderRD {
 
 	RID render_base_uniform_set;
 
+	RID dfg_texture;
+
 	uint64_t lightmap_texture_array_version = 0xFFFFFFFF;
 
 	void _update_render_base_uniform_set();

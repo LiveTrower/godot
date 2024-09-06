@@ -147,8 +147,8 @@ SMAA::~SMAA(){
     smaa_weight.weight_shader_rd.version_free(smaa_weight.shader_version);
     smaa_edge.edge_detection_shader_rd.version_free(smaa_edge.shader_version);
     smaa_blit.blit_shader_rd.version_free(smaa_blit.shader_version);
-    RS::free(area_texture);
-    RS::free(search_texture);
+    RD::get_singleton()->free(area_texture);
+    RD::get_singleton()->free(search_texture);
 }
 
 void SMAA::smaa(RID p_source_color, RID p_depth, RID p_dst_framebuffer, Size2 p_resolution, const SMAASettings &p_settings){
