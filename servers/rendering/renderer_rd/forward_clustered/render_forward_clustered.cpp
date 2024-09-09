@@ -3046,13 +3046,6 @@ void RenderForwardClustered::_update_render_base_uniform_set() {
 		}
 
 		{
-			RD::TextureFormat tformat;
-			tformat.format = RD::DATA_FORMAT_R16G16B16A16_SFLOAT;
-			tformat.width = 128;
-			tformat.height = 128;
-			tformat.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT;
-			tformat.texture_type = RD::TEXTURE_TYPE_2D;
-			dfg_texture = RD::get_singleton()->texture_create(tformat, RD::TextureView(), {brdf_lut});
 			RD::Uniform u;
 			u.binding = 16;
 			u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
@@ -4353,6 +4346,17 @@ RenderForwardClustered::RenderForwardClustered() {
 		RD::get_singleton()->compute_list_end();
 
 		best_fit_normal.shader.version_free(best_fit_normal.shader_version);
+	}
+
+	/* DFG LUT */
+	{
+		RD::TextureFormat tformat;
+		tformat.format = RD::DATA_FORMAT_R16G16B16A16_SFLOAT;
+		tformat.width = 128;
+		tformat.height = 128;
+		tformat.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT;
+		tformat.texture_type = RD::TEXTURE_TYPE_2D;
+		dfg_texture = RD::get_singleton()->texture_create(tformat, RD::TextureView(), {brdf_lut});
 	}
 
 	_update_shader_quality_settings();

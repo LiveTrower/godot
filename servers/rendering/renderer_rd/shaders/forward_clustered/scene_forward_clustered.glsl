@@ -1473,8 +1473,8 @@ void fragment_shader(in SceneData scene_data) {
 		float dfg_sheen = prefiltered_dfg(sheen_roughness, ndotv).z;
 		// Albedo scaling of the base layer before we layer sheen on top
 		float sheen_scaling = 1.0 - max(sheen_color.x, max(sheen_color.y, sheen_color.z)) * dfg_sheen;
-		ambient_light *= sheen_scaling;
-		indirect_specular_light *= sheen_scaling;
+		//ambient_light *= sheen_scaling;
+		//indirect_specular_light *= sheen_scaling;
 
 		ref_vec = mix(ref_vec, normal, sheen_roughness * sheen_roughness);
 		ref_vec = scene_data.radiance_inverse_xform * ref_vec;
@@ -1490,7 +1490,7 @@ void fragment_shader(in SceneData scene_data) {
 		vec3 sheen_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_vec, sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD).rgb;
 
 #endif //USE_RADIANCE_CUBEMAP_ARRAY
-		indirect_specular_light += sheen_light * horizon * horizon * scene_data.ambient_light_color_energy.a;
+		indirect_specular_light += sheen_light * sheen_scaling * horizon * horizon * scene_data.ambient_light_color_energy.a;
 	}
 #endif
 
@@ -1568,7 +1568,6 @@ void fragment_shader(in SceneData scene_data) {
 
 		if (uses_sh) {
 			uvw.z *= 4.0; //SH textures use 4 times more data
-
 			vec3 lm_light_l0;
 			vec3 lm_light_l1n1;
 			vec3 lm_light_l1_0;
@@ -1576,23 +1575,24 @@ void fragment_shader(in SceneData scene_data) {
 
 			if (sc_use_lightmap_bicubic_filter) {
 				lm_light_l0 = textureArray_bicubic(lightmap_textures[ofs], uvw + vec3(0.0, 0.0, 0.0), lightmaps.data[ofs].light_texture_size).rgb;
-				lm_light_l1n1 = textureArray_bicubic(lightmap_textures[ofs], uvw + vec3(0.0, 0.0, 1.0), lightmaps.data[ofs].light_texture_size).rgb;
-				lm_light_l1_0 = textureArray_bicubic(lightmap_textures[ofs], uvw + vec3(0.0, 0.0, 2.0), lightmaps.data[ofs].light_texture_size).rgb;
-				lm_light_l1p1 = textureArray_bicubic(lightmap_textures[ofs], uvw + vec3(0.0, 0.0, 3.0), lightmaps.data[ofs].light_texture_size).rgb;
+				lm_light_l1n1 = (textureArray_bicubic(lightmap_textures[ofs], uvw + vec3(0.0, 0.0, 1.0), lightmaps.data[ofs].light_texture_size).rgb - vec3(0.5)) * 2.0;
+				lm_light_l1_0 = (textureArray_bicubic(lightmap_textures[ofs], uvw + vec3(0.0, 0.0, 2.0), lightmaps.data[ofs].light_texture_size).rgb - vec3(0.5)) * 2.0;
+				lm_light_l1p1 = (textureArray_bicubic(lightmap_textures[ofs], uvw + vec3(0.0, 0.0, 3.0), lightmaps.data[ofs].light_texture_size).rgb - vec3(0.5)) * 2.0;
 			} else {
 				lm_light_l0 = textureLod(sampler2DArray(lightmap_textures[ofs], SAMPLER_LINEAR_CLAMP), uvw + vec3(0.0, 0.0, 0.0), 0.0).rgb;
-				lm_light_l1n1 = textureLod(sampler2DArray(lightmap_textures[ofs], SAMPLER_LINEAR_CLAMP), uvw + vec3(0.0, 0.0, 1.0), 0.0).rgb;
-				lm_light_l1_0 = textureLod(sampler2DArray(lightmap_textures[ofs], SAMPLER_LINEAR_CLAMP), uvw + vec3(0.0, 0.0, 2.0), 0.0).rgb;
-				lm_light_l1p1 = textureLod(sampler2DArray(lightmap_textures[ofs], SAMPLER_LINEAR_CLAMP), uvw + vec3(0.0, 0.0, 3.0), 0.0).rgb;
+				lm_light_l1n1 = (textureLod(sampler2DArray(lightmap_textures[ofs], SAMPLER_LINEAR_CLAMP), uvw + vec3(0.0, 0.0, 1.0), 0.0).rgb - vec3(0.5)) * 2.0;
+				lm_light_l1_0 = (textureLod(sampler2DArray(lightmap_textures[ofs], SAMPLER_LINEAR_CLAMP), uvw + vec3(0.0, 0.0, 2.0), 0.0).rgb - vec3(0.5)) * 2.0;
+				lm_light_l1p1 = (textureLod(sampler2DArray(lightmap_textures[ofs], SAMPLER_LINEAR_CLAMP), uvw + vec3(0.0, 0.0, 3.0), 0.0).rgb - vec3(0.5)) * 2.0;
 			}
 
 			vec3 n = normalize(lightmaps.data[ofs].normal_xform * indirect_normal);
 			float en = lightmaps.data[ofs].exposure_normalization;
 
 			ambient_light += lm_light_l0 * en;
-			ambient_light += lm_light_l1n1 * n.y * en;
-			ambient_light += lm_light_l1_0 * n.z * en;
-			ambient_light += lm_light_l1p1 * n.x * en;
+			ambient_light += lm_light_l1n1 * n.y * (lm_light_l0 * en * 4.0);
+			ambient_light += lm_light_l1_0 * n.z * (lm_light_l0 * en * 4.0);
+			ambient_light += lm_light_l1p1 * n.x * (lm_light_l0 * en * 4.0);
+
 		} else {
 			if (sc_use_lightmap_bicubic_filter) {
 				ambient_light += textureArray_bicubic(lightmap_textures[ofs], uvw, lightmaps.data[ofs].light_texture_size).rgb * lightmaps.data[ofs].exposure_normalization;
@@ -1869,21 +1869,19 @@ void fragment_shader(in SceneData scene_data) {
 		//simplify for toon, as
 		indirect_specular_light *= specular * metallic * albedo * 2.0;
 #else
+		float NdotV = max(dot(normal, view), 1e-4);
 
-		float ndotv = max(dot(normal, view), 1e-4);
-		vec3 envBRDF = prefiltered_dfg(roughness, ndotv);
-
-#ifdef LIGHT_SHEEN_USED
-		float dfg_sheen = prefiltered_dfg(sheen_roughness, ndotv).z;
-		indirect_specular_light *= sheen_color * dfg_sheen;
-#else
+		vec2 envBRDF = prefiltered_dfg(roughness, NdotV).xy;
 		float f90 = clamp(dot(f0, vec3(50.0 * 0.33)), metallic, 1.0);
 		indirect_specular_light *= f0 * envBRDF.x + f90 * envBRDF.y;
-#endif
-
 		vec3 energy_compensation = get_energy_compensation(f0, envBRDF.xy);
 		indirect_specular_light *= energy_compensation;
-#endif
+
+#ifdef LIGHT_SHEEN_USED
+		float dfg_sheen = prefiltered_dfg(sheen_roughness, NdotV).z;
+		indirect_specular_light += sheen_color * dfg_sheen;
+#endif // LIGHT_SHEEN_USED
+#endif // DIFFUSE_TOON
 	}
 
 #endif // !AMBIENT_LIGHT_DISABLED
