@@ -1,5 +1,49 @@
 #include "brdf_inc.glsl"
 
+vec3 specular_lobe(float metallic, vec3 f0, float anisotropy, vec3 T, vec3 B, float alpha_ggx, vec3 H, vec3 V, vec3 L, float cNdotH, float cNdotL, float cNdotV, float cLdotH){
+#if defined(LIGHT_ANISOTROPY_USED)
+	float aspect = sqrt_IEEE_int_approximation(1.0 - anisotropy * 0.9);
+	float ax = alpha_ggx / aspect;
+	float ay = alpha_ggx * aspect;
+
+	float TdotV = dot(T, V);
+	float BdotV = dot(B, V);
+	float TdotL = dot(T, L);
+	float BdotL = dot(B, L);
+	float TdotH = dot(T, H);
+	float BdotH = dot(B, H);
+
+	float D = D_GGX_anisotropic(cNdotH, ax, ay, TdotH, BdotH);
+	float G = V_GGX_anisotropic(ax, ay, TdotV, TdotL, BdotV, BdotL, cNdotV, cNdotL);
+#else // isotropic
+	float D = D_GGX(cNdotH, alpha_ggx);
+	float G = V_GGX(cNdotL, cNdotV, alpha_ggx);
+#endif
+	// Calculate Fresnel using specular occlusion term from Filament:
+	// https://google.github.io/filament/Filament.html#lighting/occlusion/specularocclusion
+	float f90 = clamp(dot(f0, vec3(50.0 * 0.33)), metallic, 1.0);
+	vec3 F = SchlickFresnel(f0, f90, cLdotH);
+	return D * G * F * cNdotL;
+}
+
+vec3 sheen_lobe(float sheen_roughness, float sheen, vec3 sheen_color, float cNdotH, float cNdotV, float cNdotL){
+	sheen_roughness = clamp(sheen_roughness * sheen_roughness, 0.045, 1);
+	float D = D_Charlie(sheen_roughness, cNdotH);
+	float V = V_Neubelt(cNdotV, cNdotL);
+	return D * V * sheen_color * sheen * cNdotL;
+}
+
+float clearcoat_lobe(float clearcoat_roughness, float clearcoat, float ccNdotH, float cLdotH, float cNdotL, out float Fcc){
+	clearcoat_roughness = clamp(clearcoat_roughness, 0.045, 1.0);
+	float alpha_c = clearcoat_roughness * clearcoat_roughness;
+	float D = D_GGX(ccNdotH, alpha_c);
+	float V = V_Kelemen(cLdotH);
+	float F = clearcoat * SchlickFresnel(0.04, 1.0, cLdotH);
+
+	Fcc = F;
+	return D * V * F * cNdotL;
+}
+
 void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_directional, float attenuation, vec3 f0, uint orms, float specular_amount, vec3 albedo, inout float alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 		vec3 backlight,
@@ -62,40 +106,99 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 	float NdotV = dot(N, V);
 	float cNdotV = max(NdotV, 1e-4);
 
+	//Multiscattering
+	vec2 dfg = prefiltered_dfg(roughness, cNdotV).xy;
+	vec3 energy_compensation = get_energy_compensation(f0, dfg);
+
 #if defined(DIFFUSE_BURLEY) || defined(SPECULAR_SCHLICK_GGX) || defined(LIGHT_CLEARCOAT_USED)
 	vec3 H = normalize(V + L);
+	float cLdotH = clamp(A + dot(L, H), 0.0, 1.0);
 #endif
 
 #if defined(SPECULAR_SCHLICK_GGX)
 	float cNdotH = clamp(A + dot(N, H), 0.0, 1.0);
 #endif
 
-#if defined(DIFFUSE_BURLEY) || defined(SPECULAR_SCHLICK_GGX) || defined(LIGHT_CLEARCOAT_USED)
-	float cLdotH = clamp(A + dot(L, H), 0.0, 1.0);
+#if defined(LIGHT_SHEEN_USED)
+	float dfg_sheen = prefiltered_dfg(sheen_roughness, cNdotV).z;
+	// Albedo scaling of the base layer before we layer sheen on top
+	float sheen_scaling = 1.0 - max(sheen_color.x, max(sheen_color.y, sheen_color.z)) * dfg_sheen;
 #endif
 
+#if defined(LIGHT_CLEARCOAT_USED)
+	float clearcoat_scaling;
+#endif
+
+	//Specular Light
+	if (roughness > 0.0) { // FIXME: roughness == 0 should not disable specular light entirely
+#if defined(SPECULAR_TOON)
+
+		vec3 R = normalize(-reflect(L, N));
+		float RdotV = dot(R, V);
+		float mid = 1.0 - roughness;
+		mid *= mid;
+		float intensity = smoothstep(mid - roughness * 0.5, mid + roughness * 0.5, RdotV) * mid;
+		diffuse_light += light_color * intensity * attenuation * specular_amount; // write to diffuse_light, as in toon shading you generally want no reflection
+
+#elif defined(SPECULAR_DISABLED)
+		// none..
+
+#elif defined(SPECULAR_SCHLICK_GGX)
+		// shlick+ggx as default
+		float alpha_ggx = roughness * roughness;
+		vec3 specular_brdf_NL = specular_lobe(metallic, f0, 
+#if defined(LIGHT_ANISOTROPY_USED)
+		anisotropy, T, B,
+#else
+		0.0, vec3(0.0), vec3(0.0),
+#endif
+		alpha_ggx, H, V, L, cNdotH, cNdotL, cNdotV, cLdotH);
+
+		specular_light += specular_brdf_NL * energy_compensation * light_color * attenuation * specular_amount;
+#endif
+
+#if defined(LIGHT_SHEEN_USED)
+		vec3 sheen_specular_brdf_NL = sheen_lobe(sheen_roughness, sheen, sheen_color, cNdotH, cNdotV, cNdotL);
+		specular_light *= sheen_scaling;
+		specular_light += sheen_specular_brdf_NL * light_color * attenuation * specular_amount;
+#endif
+
+#if defined(LIGHT_CLEARCOAT_USED)
+		// Clearcoat ignores normal_map, use vertex normal instead
+		float ccNdotH = clamp(A + dot(vertex_normal, H), 0.0, 1.0);
+		float clearcoat_specular_brdf_NL = clearcoat_lobe(clearcoat_roughness, clearcoat, ccNdotH, cLdotH, cNdotL, clearcoat_scaling);
+		// The clear coat layer assumes an IOR of 1.5 (4% reflectance)
+		specular_light *= 1.0 - clearcoat_scaling;
+		specular_light += clearcoat_specular_brdf_NL * light_color * attenuation * specular_amount;
+#endif
+	}
+
+	//Diffuse Light
 	if (metallic < 1.0) {
 		float diffuse_brdf_NL; // BRDF times N.L for calculating diffuse radiance
 
 #if defined(DIFFUSE_LAMBERT_WRAP)
 		diffuse_brdf_NL = Diffuse_Lambert_Wrap(NdotL, roughness);
 #elif defined(DIFFUSE_TOON)
-
 		diffuse_brdf_NL = Diffuse_Toon(NdotL, roughness);
-
 #elif defined(DIFFUSE_BURLEY)
-
-		{
-			float cVdotH = clamp(dot(V, H), 0.0, 1.0);
-			//diffuse_brdf_NL = Diffuse_Burley(cLdotH, cNdotV, cNdotL, roughness);
-			diffuse_brdf_NL = Normalized_Diffuse_Burley(cLdotH, cNdotL, cVdotH, roughness);
-		}
+		float cVdotH = clamp(dot(V, H), 0.0, 1.0);
+		diffuse_brdf_NL = Normalized_Diffuse_Burley(cLdotH, cNdotL, cVdotH, roughness);
 #else
 		// lambert
 		diffuse_brdf_NL = Diffuse_Lambert(cNdotL);
 #endif
+		//apply diffuse
+		diffuse_light += light_color * energy_compensation * diffuse_brdf_NL * attenuation;
 
-		diffuse_light += light_color * diffuse_brdf_NL * attenuation;
+#if defined(LIGHT_SHEEN_USED)
+		diffuse_light *= sheen_scaling;
+#endif
+
+#if defined(LIGHT_CLEARCOAT_USED)
+		// The clear coat layer assumes an IOR of 1.5 (4% reflectance)
+		diffuse_light *= 1.0 - clearcoat_scaling;
+#endif
 
 #if defined(LIGHT_BACKLIGHT_USED)
 		diffuse_light += light_color * (vec3(1.0 / M_PI) - diffuse_brdf_NL) * backlight * attenuation;
@@ -130,87 +233,7 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 			diffuse_light += exp(dd) * transmittance_color.rgb * transmittance_color.a * light_color * clamp(transmittance_boost - NdotL, 0.0, 1.0) * (1.0 / M_PI);
 #endif
 		}
-#else
-
 #endif //LIGHT_TRANSMITTANCE_USED
-	}
-
-	if (roughness > 0.0) { // FIXME: roughness == 0 should not disable specular light entirely
-
-		// D
-
-#if defined(SPECULAR_TOON)
-
-		vec3 R = normalize(-reflect(L, N));
-		float RdotV = dot(R, V);
-		float mid = 1.0 - roughness;
-		mid *= mid;
-		float intensity = smoothstep(mid - roughness * 0.5, mid + roughness * 0.5, RdotV) * mid;
-		diffuse_light += light_color * intensity * attenuation * specular_amount; // write to diffuse_light, as in toon shading you generally want no reflection
-
-#elif defined(SPECULAR_DISABLED)
-		// none..
-
-#elif defined(SPECULAR_SCHLICK_GGX) || defined(SPECULAR_MULTISCATTER_GGX)
-		// shlick+ggx as default
-		float alpha_ggx = roughness * roughness;
-#if defined(LIGHT_ANISOTROPY_USED)
-
-		float aspect = sqrt_IEEE_int_approximation(1.0 - anisotropy * 0.9);
-		float ax = alpha_ggx / aspect;
-		float ay = alpha_ggx * aspect;
-		float XdotH = dot(T, H);
-		float YdotH = dot(B, H);
-		float D = D_GGX_anisotropic(cNdotH, ax, ay, XdotH, YdotH);
-		float G = V_GGX_anisotropic(ax, ay, dot(T, V), dot(T, L), dot(B, V), dot(B, L), cNdotV, cNdotL);
-#else // LIGHT_ANISOTROPY_USED
-		float D = D_GGX(cNdotH, alpha_ggx);
-		float G = V_GGX(cNdotL, cNdotV, alpha_ggx);
-#endif // LIGHT_ANISOTROPY_USED
-	   // F
-		float cLdotH5 = SchlickFresnel(cLdotH);
-		// Calculate Fresnel using specular occlusion term from Filament:
-		// https://google.github.io/filament/Filament.html#lighting/occlusion/specularocclusion
-		float f90 = clamp(dot(f0, vec3(50.0 * 0.33)), metallic, 1.0);
-		vec3 F = f0 + (f90 - f0) * cLdotH5;
-
-		vec3 specular_brdf_NL = cNdotL * D * F * G;
-
-		vec2 dfg = prefiltered_dfg(roughness, cNdotV).xy;
-		vec3 energy_compensation = get_energy_compensation(f0, dfg);
-		specular_brdf_NL *= energy_compensation;
-
-		specular_light += specular_brdf_NL * light_color * attenuation * specular_amount;
-#endif
-
-#if defined(LIGHT_SHEEN_USED)
-		sheen_roughness = clamp(sheen_roughness * sheen_roughness, 0.045, 1);
-		float Dc = D_Charlie(sheen_roughness, cNdotH);
-		float Vn = V_Neubelt(cNdotV, cNdotL);
-		vec3 sheen_specular_brdf_NL = cNdotL * Dc * Vn * sheen_color * sheen;
-		specular_light += sheen_specular_brdf_NL * light_color * attenuation * specular_amount;
-#endif
-
-#if defined(LIGHT_CLEARCOAT_USED)
-		// Clearcoat ignores normal_map, use vertex normal instead
-		float ccNdotL = max(min(A + dot(vertex_normal, L), 1.0), 0.0);
-		float ccNdotH = clamp(A + dot(vertex_normal, H), 0.0, 1.0);
-		float ccNdotV = max(dot(vertex_normal, V), 1e-4);
-
-#if !defined(SPECULAR_SCHLICK_GGX)
-		float cLdotH5 = SchlickFresnel(cLdotH);
-#endif
-		clearcoat_roughness = clamp(clearcoat_roughness, 0.045, 1.0);
-		float alpha_c = clearcoat_roughness * clearcoat_roughness;
-		float Dr = D_GGX(ccNdotH, alpha_c);
-		float Gr = V_Kelemen(cLdotH);
-		float Fr = 0.04 + (1.0 - 0.04) * cLdotH5;
-		float clearcoat_specular_brdf_NL = clearcoat * Gr * Fr * Dr * cNdotL;
-
-		specular_light += clearcoat_specular_brdf_NL * light_color * attenuation * specular_amount;
-		// TODO: Clearcoat adds light to the scene right now (it is non-energy conserving), both diffuse and specular need to be scaled by (1.0 - FR)
-		// but to do so we need to rearrange this entire function
-#endif // LIGHT_CLEARCOAT_USED
 	}
 
 #ifdef USE_SHADOW_TO_OPACITY

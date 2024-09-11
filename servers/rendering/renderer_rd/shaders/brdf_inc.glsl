@@ -35,14 +35,16 @@ float V_GGX_anisotropic(float alpha_x, float alpha_y, float TdotV, float TdotL, 
 	return 0.5 / (Lambda_GGXV + Lambda_GGXL);
 }
 
-float SchlickFresnel(float u) {
-	float m = 1.0 - u;
-	float m2 = m * m;
-	return m2 * m2 * m; // pow(m,5)
+vec3 SchlickFresnel(vec3 f0, float f90, float u) {
+	return f0 + (f90 - f0) * pow5(1.0 - u);
+}
+
+float SchlickFresnel(float f0, float f90, float u){
+	return f0 + (f90 - f0) * pow5(1.0 - u);
 }
 
 vec3 SchlickFresnelF90(float HdotV, vec3 f0, float f90){
-	return f0 + (f90 - f0) * pow(1.0 - HdotV, 5.0);
+	return f0 + (f90 - f0) * pow5(1.0 - HdotV);
 }
 
 vec3 F0(float metallic, float specular, vec3 albedo) {
@@ -82,8 +84,8 @@ float Diffuse_Lambert_Wrap(float NoL, float roughness){
 
 float Diffuse_Burley(float LoH, float NoV, float NoL, float roughness){
 	float FD90_minus_1 = 2.0 * LoH * LoH * roughness - 0.5;
-	float FdV = 1.0 + FD90_minus_1 * SchlickFresnel(NoV);
-	float FdL = 1.0 + FD90_minus_1 * SchlickFresnel(NoL);
+	float FdV = 1.0 + FD90_minus_1 * pow5(NoV);
+	float FdL = 1.0 + FD90_minus_1 * pow5(NoL);
 	return (1.0 / M_PI) * FdV * FdL * NoL;
 }
 

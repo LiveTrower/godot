@@ -859,7 +859,7 @@ layout(location = 2) out vec2 motion_vector;
 #if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED)
 
 // Default to SPECULAR_SCHLICK_GGX.
-#if !defined(SPECULAR_DISABLED) && !defined(SPECULAR_SCHLICK_GGX) && !defined(SPECULAR_MULTISCATTER_GGX) && !defined(SPECULAR_TOON)
+#if !defined(SPECULAR_DISABLED) && !defined(SPECULAR_SCHLICK_GGX) && !defined(SPECULAR_TOON)
 #define SPECULAR_SCHLICK_GGX
 #endif
 
@@ -1420,7 +1420,6 @@ void fragment_shader(in SceneData scene_data) {
 		vec3 ref_vec = reflect(-view, normal);
 		ref_vec = mix(ref_vec, normal, roughness * roughness);
 #endif
-
 		float horizon = min(1.0 + dot(ref_vec, normal), 1.0);
 		ref_vec = scene_data.radiance_inverse_xform * ref_vec;
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
@@ -1469,12 +1468,12 @@ void fragment_shader(in SceneData scene_data) {
 
 	if (scene_data.use_reflection_cubemap) {
 		vec3 ref_vec = reflect(-view, normal);
-		float ndotv = max(dot(normal, view), 1e-4);
-		float dfg_sheen = prefiltered_dfg(sheen_roughness, ndotv).z;
+		float NdotV = max(dot(normal, view), 1e-4);
+		float dfg_sheen = prefiltered_dfg(sheen_roughness, NdotV).z;
 		// Albedo scaling of the base layer before we layer sheen on top
-		float sheen_scaling = 1.0 - max(sheen_color.x, max(sheen_color.y, sheen_color.z)) * dfg_sheen;
-		//ambient_light *= sheen_scaling;
-		//indirect_specular_light *= sheen_scaling;
+		float sheen_scaling = 1.0 - max3(sheen_color) * dfg_sheen;
+		ambient_light *= sheen_scaling * sheen;
+		indirect_specular_light *= sheen_scaling;
 
 		ref_vec = mix(ref_vec, normal, sheen_roughness * sheen_roughness);
 		ref_vec = scene_data.radiance_inverse_xform * ref_vec;
@@ -1490,7 +1489,7 @@ void fragment_shader(in SceneData scene_data) {
 		vec3 sheen_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_vec, sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD).rgb;
 
 #endif //USE_RADIANCE_CUBEMAP_ARRAY
-		indirect_specular_light += sheen_light * sheen_scaling * horizon * horizon * scene_data.ambient_light_color_energy.a;
+		indirect_specular_light += sheen_light * sheen * horizon * horizon * scene_data.ambient_light_color_energy.a;
 	}
 #endif
 
@@ -1501,7 +1500,7 @@ void fragment_shader(in SceneData scene_data) {
 		float NoV = max(dot(n, view), 1e-4);
 		vec3 ref_vec = reflect(-view, n);
 		// The clear coat layer assumes an IOR of 1.5 (4% reflectance)
-		float Fc = clearcoat * (0.04 + (1.0 - 0.04) * SchlickFresnel(NoV));
+		float Fc = clearcoat * SchlickFresnel(0.04, 1.0, NoV);
 		float attenuation = 1.0 - Fc;
 		ambient_light *= attenuation;
 		indirect_specular_light *= attenuation;
@@ -1870,16 +1869,19 @@ void fragment_shader(in SceneData scene_data) {
 		indirect_specular_light *= specular * metallic * albedo * 2.0;
 #else
 		float NdotV = max(dot(normal, view), 1e-4);
-
 		vec2 envBRDF = prefiltered_dfg(roughness, NdotV).xy;
-		float f90 = clamp(dot(f0, vec3(50.0 * 0.33)), metallic, 1.0);
-		indirect_specular_light *= f0 * envBRDF.x + f90 * envBRDF.y;
+
+		// Multiscattering
 		vec3 energy_compensation = get_energy_compensation(f0, envBRDF.xy);
+		ambient_light *= energy_compensation;
 		indirect_specular_light *= energy_compensation;
 
-#ifdef LIGHT_SHEEN_USED
+		float f90 = clamp(dot(f0, vec3(50.0 * 0.33)), metallic, 1.0);
+		indirect_specular_light *= f0 * envBRDF.x + f90 * envBRDF.y;
+
+#if defined(LIGHT_SHEEN_USED)
 		float dfg_sheen = prefiltered_dfg(sheen_roughness, NdotV).z;
-		indirect_specular_light += sheen_color * dfg_sheen;
+		indirect_specular_light += dfg_sheen * sheen * sheen_color;
 #endif // LIGHT_SHEEN_USED
 #endif // DIFFUSE_TOON
 	}
@@ -2206,10 +2208,6 @@ void fragment_shader(in SceneData scene_data) {
 			shadow = 1.0;
 #endif
 			float size_A = sc_use_directional_soft_shadows ? directional_lights.data[i].size : 0.0;
-
-			//vec3 light = directional_lights.data[i].direction;
-			//float NoL = dot(normal, light);
-			//shadow *= compute_micro_shadowing(NoL, ao);
 
 			light_compute(normal, directional_lights.data[i].direction, normalize(view), size_A,
 #ifndef DEBUG_DRAW_PSSM_SPLITS
