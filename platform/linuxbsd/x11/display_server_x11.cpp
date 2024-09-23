@@ -1787,12 +1787,6 @@ void DisplayServerX11::delete_sub_window(WindowID p_id) {
 		_send_window_event(windows[p_id], WINDOW_EVENT_MOUSE_EXIT);
 	}
 
-	window_set_rect_changed_callback(Callable(), p_id);
-	window_set_window_event_callback(Callable(), p_id);
-	window_set_input_event_callback(Callable(), p_id);
-	window_set_input_text_callback(Callable(), p_id);
-	window_set_drop_files_callback(Callable(), p_id);
-
 	while (wd.transient_children.size()) {
 		window_set_transient(*wd.transient_children.begin(), INVALID_WINDOW_ID);
 	}
@@ -1835,6 +1829,12 @@ void DisplayServerX11::delete_sub_window(WindowID p_id) {
 
 	XUnmapWindow(x11_display, wd.x11_window);
 	XDestroyWindow(x11_display, wd.x11_window);
+
+	window_set_rect_changed_callback(Callable(), p_id);
+	window_set_window_event_callback(Callable(), p_id);
+	window_set_input_event_callback(Callable(), p_id);
+	window_set_input_text_callback(Callable(), p_id);
+	window_set_drop_files_callback(Callable(), p_id);
 
 	windows.erase(p_id);
 }
@@ -2998,7 +2998,11 @@ bool DisplayServerX11::window_is_focused(WindowID p_window) const {
 
 	const WindowData &wd = windows[p_window];
 
-	return wd.focused;
+	Window focused_window;
+	int focus_ret_state;
+	XGetInputFocus(x11_display, &focused_window, &focus_ret_state);
+
+	return wd.x11_window == focused_window;
 }
 
 bool DisplayServerX11::window_can_draw(WindowID p_window) const {
@@ -6156,20 +6160,28 @@ DisplayServerX11::DisplayServerX11(const String &p_rendering_driver, WindowMode 
 		if (rendering_context->initialize() != OK) {
 			memdelete(rendering_context);
 			rendering_context = nullptr;
-			r_error = ERR_CANT_CREATE;
+			bool fallback_to_opengl3 = GLOBAL_GET("rendering/rendering_device/fallback_to_opengl3");
+			if (fallback_to_opengl3 && rendering_driver != "opengl3") {
+				WARN_PRINT("Your video card drivers seem not to support the required Vulkan version, switching to OpenGL 3.");
+				rendering_driver = "opengl3";
+				OS::get_singleton()->set_current_rendering_method("gl_compatibility");
+				OS::get_singleton()->set_current_rendering_driver_name(rendering_driver);
+			} else {
+				r_error = ERR_CANT_CREATE;
 
-			if (p_rendering_driver == "vulkan") {
-				OS::get_singleton()->alert(
-						vformat("Your video card drivers seem not to support the required Vulkan version.\n\n"
-								"If possible, consider updating your video card drivers or using the OpenGL 3 driver.\n\n"
-								"You can enable the OpenGL 3 driver by starting the engine from the\n"
-								"command line with the command:\n\n    \"%s\" --rendering-driver opengl3\n\n"
-								"If you recently updated your video card drivers, try rebooting.",
-								executable_name),
-						"Unable to initialize Vulkan video driver");
+				if (p_rendering_driver == "vulkan") {
+					OS::get_singleton()->alert(
+							vformat("Your video card drivers seem not to support the required Vulkan version.\n\n"
+									"If possible, consider updating your video card drivers or using the OpenGL 3 driver.\n\n"
+									"You can enable the OpenGL 3 driver by starting the engine from the\n"
+									"command line with the command:\n\n    \"%s\" --rendering-driver opengl3\n\n"
+									"If you recently updated your video card drivers, try rebooting.",
+									executable_name),
+							"Unable to initialize Vulkan video driver");
+				}
+
+				ERR_FAIL_MSG(vformat("Could not initialize %s", rendering_driver));
 			}
-
-			ERR_FAIL_MSG(vformat("Could not initialize %s", rendering_driver));
 		}
 		driver_found = true;
 	}

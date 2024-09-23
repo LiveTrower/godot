@@ -57,8 +57,11 @@ Error ResourceLoader::load_threaded_request(const String &p_path, const String &
 ResourceLoader::ThreadLoadStatus ResourceLoader::load_threaded_get_status(const String &p_path, Array r_progress) {
 	float progress = 0;
 	::ResourceLoader::ThreadLoadStatus tls = ::ResourceLoader::load_threaded_get_status(p_path, &progress);
-	r_progress.resize(1);
-	r_progress[0] = progress;
+	// Default array should never be modified, it causes the hash of the method to change.
+	if (!ClassDB::is_default_array_arg(r_progress)) {
+		r_progress.resize(1);
+		r_progress[0] = progress;
+	}
 	return (ThreadLoadStatus)tls;
 }
 
@@ -131,7 +134,7 @@ ResourceUID::ID ResourceLoader::get_resource_uid(const String &p_path) {
 
 void ResourceLoader::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("load_threaded_request", "path", "type_hint", "use_sub_threads", "cache_mode"), &ResourceLoader::load_threaded_request, DEFVAL(""), DEFVAL(false), DEFVAL(CACHE_MODE_REUSE));
-	ClassDB::bind_method(D_METHOD("load_threaded_get_status", "path", "progress"), &ResourceLoader::load_threaded_get_status, DEFVAL(Array()));
+	ClassDB::bind_method(D_METHOD("load_threaded_get_status", "path", "progress"), &ResourceLoader::load_threaded_get_status, DEFVAL_ARRAY);
 	ClassDB::bind_method(D_METHOD("load_threaded_get", "path"), &ResourceLoader::load_threaded_get);
 
 	ClassDB::bind_method(D_METHOD("load", "path", "type_hint", "cache_mode"), &ResourceLoader::load, DEFVAL(""), DEFVAL(CACHE_MODE_REUSE));
@@ -307,7 +310,10 @@ int OS::execute(const String &p_path, const Vector<String> &p_arguments, Array r
 	String pipe;
 	int exitcode = 0;
 	Error err = ::OS::get_singleton()->execute(p_path, args, &pipe, &exitcode, p_read_stderr, nullptr, p_open_console);
-	r_output.push_back(pipe);
+	// Default array should never be modified, it causes the hash of the method to change.
+	if (!ClassDB::is_default_array_arg(r_output)) {
+		r_output.push_back(pipe);
+	}
 	if (err != OK) {
 		return -1;
 	}
@@ -618,7 +624,7 @@ void OS::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_system_font_path_for_text", "font_name", "text", "locale", "script", "weight", "stretch", "italic"), &OS::get_system_font_path_for_text, DEFVAL(String()), DEFVAL(String()), DEFVAL(400), DEFVAL(100), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_executable_path"), &OS::get_executable_path);
 	ClassDB::bind_method(D_METHOD("read_string_from_stdin"), &OS::read_string_from_stdin);
-	ClassDB::bind_method(D_METHOD("execute", "path", "arguments", "output", "read_stderr", "open_console"), &OS::execute, DEFVAL(Array()), DEFVAL(false), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("execute", "path", "arguments", "output", "read_stderr", "open_console"), &OS::execute, DEFVAL_ARRAY, DEFVAL(false), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("execute_with_pipe", "path", "arguments", "blocking"), &OS::execute_with_pipe, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("create_process", "path", "arguments", "open_console"), &OS::create_process, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("create_instance", "arguments"), &OS::create_instance);
@@ -1413,6 +1419,11 @@ Variant ClassDB::instantiate(const StringName &p_class) const {
 	}
 }
 
+ClassDB::APIType ClassDB::class_get_api_type(const StringName &p_class) const {
+	::ClassDB::APIType api_type = ::ClassDB::get_api_type(p_class);
+	return (APIType)api_type;
+}
+
 bool ClassDB::class_has_signal(const StringName &p_class, const StringName &p_signal) const {
 	return ::ClassDB::has_signal(p_class, p_signal);
 }
@@ -1609,7 +1620,7 @@ void ClassDB::get_argument_options(const StringName &p_function, int p_idx, List
 				pf == "class_has_method" || pf == "class_get_method_list" ||
 				pf == "class_get_integer_constant_list" || pf == "class_has_integer_constant" || pf == "class_get_integer_constant" ||
 				pf == "class_has_enum" || pf == "class_get_enum_list" || pf == "class_get_enum_constants" || pf == "class_get_integer_constant_enum" ||
-				pf == "is_class_enabled" || pf == "is_class_enum_bitfield");
+				pf == "is_class_enabled" || pf == "is_class_enum_bitfield" || pf == "class_get_api_type");
 	}
 	if (first_argument_is_class || pf == "is_parent_class") {
 		for (const String &E : get_class_list()) {
@@ -1629,6 +1640,8 @@ void ClassDB::_bind_methods() {
 	::ClassDB::bind_method(D_METHOD("is_parent_class", "class", "inherits"), &ClassDB::is_parent_class);
 	::ClassDB::bind_method(D_METHOD("can_instantiate", "class"), &ClassDB::can_instantiate);
 	::ClassDB::bind_method(D_METHOD("instantiate", "class"), &ClassDB::instantiate);
+
+	::ClassDB::bind_method(D_METHOD("class_get_api_type", "class"), &ClassDB::class_get_api_type);
 
 	::ClassDB::bind_method(D_METHOD("class_has_signal", "class", "signal"), &ClassDB::class_has_signal);
 	::ClassDB::bind_method(D_METHOD("class_get_signal", "class", "signal"), &ClassDB::class_get_signal);
@@ -1663,6 +1676,12 @@ void ClassDB::_bind_methods() {
 	::ClassDB::bind_method(D_METHOD("is_class_enum_bitfield", "class", "enum", "no_inheritance"), &ClassDB::is_class_enum_bitfield, DEFVAL(false));
 
 	::ClassDB::bind_method(D_METHOD("is_class_enabled", "class"), &ClassDB::is_class_enabled);
+
+	BIND_ENUM_CONSTANT(API_CORE);
+	BIND_ENUM_CONSTANT(API_EDITOR);
+	BIND_ENUM_CONSTANT(API_EXTENSION);
+	BIND_ENUM_CONSTANT(API_EDITOR_EXTENSION);
+	BIND_ENUM_CONSTANT(API_NONE);
 }
 
 } // namespace special
