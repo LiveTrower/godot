@@ -2775,6 +2775,8 @@ String VisualShaderNodeTransformVector::generate_code(Shader::Mode p_mode, Visua
 			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "MODELVIEW_MATRIX" : "VIEW_MATRIX * MODEL_MATRIX";
 		} else if (to_space == SPACE_CLIP) {
 			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "PROJECTION_MATRIX * MODELVIEW_MATRIX" : "PROJECTION_MATRIX * VIEW_MATRIX * MODEL_MATRIX";
+		} else if (to_space == SPACE_TANGENT){
+			return identity;
 		}
 	} else if (from_space == SPACE_WORLD) {
 		if (to_space == SPACE_LOCAL) {
@@ -2785,6 +2787,8 @@ String VisualShaderNodeTransformVector::generate_code(Shader::Mode p_mode, Visua
 			matrix = "VIEW_MATRIX";
 		} else if (to_space == SPACE_CLIP) {
 			matrix = "PROJECTION_MATRIX * VIEW_MATRIX";
+		} else if (to_space == SPACE_TANGENT){
+			return identity;
 		}
 	} else if (from_space == SPACE_VIEW) {
 		if (to_space == SPACE_LOCAL) {
@@ -2795,6 +2799,8 @@ String VisualShaderNodeTransformVector::generate_code(Shader::Mode p_mode, Visua
 			return identity;
 		} else if (to_space == SPACE_CLIP) {
 			matrix = "PROJECTION_MATRIX";
+		} else if (to_space == SPACE_TANGENT){
+			return identity;
 		}
 	} else if (from_space == SPACE_CLIP) {
 		if (to_space == SPACE_LOCAL) {
@@ -2806,7 +2812,7 @@ String VisualShaderNodeTransformVector::generate_code(Shader::Mode p_mode, Visua
 		} else if (to_space == SPACE_CLIP) {
 			return identity;
 		} else if (to_space == SPACE_TANGENT){
-			matrix = "";
+			return identity;
 		}
 	} else if (from_space == SPACE_TANGENT) {
 		if (to_space == SPACE_LOCAL) {
@@ -2818,7 +2824,7 @@ String VisualShaderNodeTransformVector::generate_code(Shader::Mode p_mode, Visua
 		} else if (to_space == SPACE_CLIP) {
 			return identity;
 		} else if (to_space == SPACE_TANGENT){
-			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "MODELVIEW_MATRIX * mat3(TANGENT, -BINORMAL, NORMAL)" : "mat3(TANGENT, -BINORMAL, NORMAL)";
+			return identity;
 		}
 	}
 	String vec4_w = vector_type == VECTOR_POSITION ? "1.0" : "0.0";
@@ -2884,8 +2890,8 @@ void VisualShaderNodeTransformVector::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_vector_type", "vector_type"), &VisualShaderNodeTransformVector::set_vector_type);
 	ClassDB::bind_method(D_METHOD("get_vector_type"), &VisualShaderNodeTransformVector::get_vector_type);
 
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "from_space", PROPERTY_HINT_ENUM, "Local to...,World to...,View to...,Clip to..."), "set_from_space", "get_from_space");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "to_space", PROPERTY_HINT_ENUM, "Local,World,View,Clip"), "set_to_space", "get_to_space");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "from_space", PROPERTY_HINT_ENUM, "Local to...,World to...,View to...,Clip to...,Tangent to..."), "set_from_space", "get_from_space");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "to_space", PROPERTY_HINT_ENUM, "Local,World,View,Clip,Tangent"), "set_to_space", "get_to_space");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "vector_type", PROPERTY_HINT_ENUM, "Position,Direction"), "set_vector_type", "get_vector_type");
 
 	BIND_ENUM_CONSTANT(SPACE_LOCAL);

@@ -672,7 +672,7 @@ private:
 			VertexFormatInfo,
 			ShaderInfo,
 			UniformSetInfo>;
-	PagedAllocator<VersatileResource> resources_allocator;
+	PagedAllocator<VersatileResource, true> resources_allocator;
 
 	/******************/
 
