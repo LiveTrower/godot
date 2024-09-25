@@ -30,34 +30,32 @@
 
 #include "register_types.h"
 
-#if defined(LINUXBSD_ENABLED)
-#include "camera_linux.h"
-#endif
-#if defined(WINDOWS_ENABLED)
-#include "camera_win.h"
-#endif
-#if defined(MACOS_ENABLED)
-#include "camera_macos.h"
+#include "godot_physics_server_2d.h"
+#include "servers/physics_server_2d.h"
+#include "servers/physics_server_2d_wrap_mt.h"
+
+static PhysicsServer2D *_createGodotPhysics2DCallback() {
+#ifdef THREADS_ENABLED
+	bool using_threads = GLOBAL_GET("physics/2d/run_on_separate_thread");
+#else
+	bool using_threads = false;
 #endif
 
-void initialize_camera_module(ModuleInitializationLevel p_level) {
-	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
-		return;
-	}
+	PhysicsServer2D *physics_server_2d = memnew(GodotPhysicsServer2D(using_threads));
 
-#if defined(LINUXBSD_ENABLED)
-	CameraServer::make_default<CameraLinux>();
-#endif
-#if defined(WINDOWS_ENABLED)
-	CameraServer::make_default<CameraWindows>();
-#endif
-#if defined(MACOS_ENABLED)
-	CameraServer::make_default<CameraMacOS>();
-#endif
+	return memnew(PhysicsServer2DWrapMT(physics_server_2d, using_threads));
 }
 
-void uninitialize_camera_module(ModuleInitializationLevel p_level) {
-	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
+void initialize_godot_physics_2d_module(ModuleInitializationLevel p_level) {
+	if (p_level != MODULE_INITIALIZATION_LEVEL_SERVERS) {
+		return;
+	}
+	PhysicsServer2DManager::get_singleton()->register_server("GodotPhysics2D", callable_mp_static(_createGodotPhysics2DCallback));
+	PhysicsServer2DManager::get_singleton()->set_default_server("GodotPhysics2D");
+}
+
+void uninitialize_godot_physics_2d_module(ModuleInitializationLevel p_level) {
+	if (p_level != MODULE_INITIALIZATION_LEVEL_SERVERS) {
 		return;
 	}
 }
