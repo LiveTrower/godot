@@ -349,6 +349,7 @@ bool RenderForwardMobile::free(RID p_rid) {
 void RenderForwardMobile::update() {
 	RendererSceneRenderRD::update();
 	_update_global_pipeline_data_requirements_from_project();
+	_update_global_pipeline_data_requirements_from_light_storage();
 }
 
 /* Render functions */
@@ -817,6 +818,13 @@ void RenderForwardMobile::_render_scene(RenderDataRD *p_render_data, const Color
 
 	p_render_data->directional_light_count = directional_light_count;
 
+	// fill our render lists early so we can find out if we use various features
+	_fill_render_list(RENDER_LIST_OPAQUE, p_render_data, PASS_MODE_COLOR);
+	render_list[RENDER_LIST_OPAQUE].sort_by_key();
+	render_list[RENDER_LIST_ALPHA].sort_by_reverse_depth_and_priority();
+	_fill_instance_data(RENDER_LIST_OPAQUE);
+	_fill_instance_data(RENDER_LIST_ALPHA);
+
 	if (p_render_data->render_info) {
 		p_render_data->render_info->info[RS::VIEWPORT_RENDER_INFO_TYPE_VISIBLE][RS::VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME] = p_render_data->instances->size();
 		p_render_data->render_info->info[RS::VIEWPORT_RENDER_INFO_TYPE_VISIBLE][RS::VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME] = p_render_data->instances->size();
@@ -878,12 +886,7 @@ void RenderForwardMobile::_render_scene(RenderDataRD *p_render_data, const Color
 		global_pipeline_data_required.use_lightmaps = true;
 	}
 
-	// fill our render lists early so we can find out if we use various features
-	_fill_render_list(RENDER_LIST_OPAQUE, p_render_data, PASS_MODE_COLOR);
-	render_list[RENDER_LIST_OPAQUE].sort_by_key();
-	render_list[RENDER_LIST_ALPHA].sort_by_reverse_depth_and_priority();
-	_fill_instance_data(RENDER_LIST_OPAQUE);
-	_fill_instance_data(RENDER_LIST_ALPHA);
+	_update_dirty_geometry_pipelines();
 
 	p_render_data->scene_data->emissive_exposure_normalization = -1.0;
 
@@ -1354,9 +1357,6 @@ void RenderForwardMobile::_render_shadow_pass(RID p_light, RID p_shadow_atlas, i
 	}
 
 	if (render_cubemap) {
-		// Indicate pipelines for cubemap shadowmaps are required.
-		global_pipeline_data_required.use_light_cubemaps = true;
-
 		//rendering to cubemap
 		_render_shadow_append(render_fb, p_instances, light_projection, light_transform, zfar, 0, 0, false, false, use_pancake, p_lod_distance_multiplier, p_screen_mesh_lod_threshold, Rect2(), false, true, true, true, p_render_info, p_main_cam_transform);
 		if (finalize_cubemap) {
@@ -1376,13 +1376,6 @@ void RenderForwardMobile::_render_shadow_pass(RID p_light, RID p_shadow_atlas, i
 		}
 
 	} else {
-		// Indicate pipelines for atlas shadowmaps are required.
-		global_pipeline_data_required.use_light_atlas = true;
-
-		if (using_dual_paraboloid) {
-			global_pipeline_data_required.use_light_dual_paraboloid = true;
-		}
-
 		//render shadow
 		_render_shadow_append(render_fb, p_instances, light_projection, light_transform, zfar, 0, 0, using_dual_paraboloid, using_dual_paraboloid_flip, use_pancake, p_lod_distance_multiplier, p_screen_mesh_lod_threshold, atlas_rect, flip_y, p_clear_region, p_open_pass, p_close_pass, p_render_info, p_main_cam_transform);
 	}
@@ -2256,6 +2249,7 @@ void RenderForwardMobile::_render_list_template(RenderingDevice::DrawListID p_dr
 		RID vertex_array_rd;
 		RID index_array_rd;
 		const uint32_t ubershader_iterations = 2;
+		bool pipeline_valid = false;
 		while (pipeline_key.ubershader < ubershader_iterations) {
 			// Skeleton and blend shape.
 			uint64_t input_mask = shader->get_vertex_input_mask(pipeline_key.version, pipeline_key.ubershader);
@@ -2283,6 +2277,7 @@ void RenderForwardMobile::_render_list_template(RenderingDevice::DrawListID p_dr
 				pipeline_rd = shader->pipeline_hash_map.get_pipeline(pipeline_key, pipeline_hash, pipeline_key.ubershader, pipeline_source);
 
 				if (pipeline_rd.is_valid()) {
+					pipeline_valid = true;
 					prev_shader = shader;
 					prev_pipeline_hash = pipeline_hash;
 					break;
@@ -2291,60 +2286,63 @@ void RenderForwardMobile::_render_list_template(RenderingDevice::DrawListID p_dr
 				}
 			} else {
 				// The same pipeline is bound already.
+				pipeline_valid = true;
 				break;
 			}
 		}
 
-		index_array_rd = mesh_storage->mesh_surface_get_index_array(mesh_surface, element_info.lod_index);
+		if (pipeline_valid) {
+			index_array_rd = mesh_storage->mesh_surface_get_index_array(mesh_surface, element_info.lod_index);
 
-		if (prev_vertex_array_rd != vertex_array_rd) {
-			RD::get_singleton()->draw_list_bind_vertex_array(draw_list, vertex_array_rd);
-			prev_vertex_array_rd = vertex_array_rd;
-		}
-
-		if (prev_index_array_rd != index_array_rd) {
-			if (index_array_rd.is_valid()) {
-				RD::get_singleton()->draw_list_bind_index_array(draw_list, index_array_rd);
-			}
-			prev_index_array_rd = index_array_rd;
-		}
-
-		if (!pipeline_rd.is_null()) {
-			RD::get_singleton()->draw_list_bind_render_pipeline(draw_list, pipeline_rd);
-		}
-
-		if (xforms_uniform_set.is_valid() && prev_xforms_uniform_set != xforms_uniform_set) {
-			RD::get_singleton()->draw_list_bind_uniform_set(draw_list, xforms_uniform_set, TRANSFORMS_UNIFORM_SET);
-			prev_xforms_uniform_set = xforms_uniform_set;
-		}
-
-		if (material_uniform_set != prev_material_uniform_set) {
-			// Update uniform set.
-			if (material_uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(material_uniform_set)) { // Material may not have a uniform set.
-				RD::get_singleton()->draw_list_bind_uniform_set(draw_list, material_uniform_set, MATERIAL_UNIFORM_SET);
+			if (prev_vertex_array_rd != vertex_array_rd) {
+				RD::get_singleton()->draw_list_bind_vertex_array(draw_list, vertex_array_rd);
+				prev_vertex_array_rd = vertex_array_rd;
 			}
 
-			prev_material_uniform_set = material_uniform_set;
+			if (prev_index_array_rd != index_array_rd) {
+				if (index_array_rd.is_valid()) {
+					RD::get_singleton()->draw_list_bind_index_array(draw_list, index_array_rd);
+				}
+				prev_index_array_rd = index_array_rd;
+			}
+
+			if (!pipeline_rd.is_null()) {
+				RD::get_singleton()->draw_list_bind_render_pipeline(draw_list, pipeline_rd);
+			}
+
+			if (xforms_uniform_set.is_valid() && prev_xforms_uniform_set != xforms_uniform_set) {
+				RD::get_singleton()->draw_list_bind_uniform_set(draw_list, xforms_uniform_set, TRANSFORMS_UNIFORM_SET);
+				prev_xforms_uniform_set = xforms_uniform_set;
+			}
+
+			if (material_uniform_set != prev_material_uniform_set) {
+				// Update uniform set.
+				if (material_uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(material_uniform_set)) { // Material may not have a uniform set.
+					RD::get_singleton()->draw_list_bind_uniform_set(draw_list, material_uniform_set, MATERIAL_UNIFORM_SET);
+				}
+
+				prev_material_uniform_set = material_uniform_set;
+			}
+
+			size_t push_constant_size = 0;
+			if (pipeline_key.ubershader) {
+				push_constant_size = sizeof(SceneState::PushConstant);
+				push_constant.ubershader.specialization = pipeline_specialization;
+				push_constant.ubershader.constants = {};
+				push_constant.ubershader.constants.cull_mode = cull_mode;
+			} else {
+				push_constant_size = sizeof(SceneState::PushConstant) - sizeof(SceneState::PushConstantUbershader);
+			}
+
+			RD::get_singleton()->draw_list_set_push_constant(draw_list, &push_constant, push_constant_size);
+
+			uint32_t instance_count = surf->owner->instance_count > 1 ? surf->owner->instance_count : 1;
+			if (surf->flags & GeometryInstanceSurfaceDataCache::FLAG_USES_PARTICLE_TRAILS) {
+				instance_count /= surf->owner->trail_steps;
+			}
+
+			RD::get_singleton()->draw_list_draw(draw_list, index_array_rd.is_valid(), instance_count);
 		}
-
-		size_t push_constant_size = 0;
-		if (pipeline_key.ubershader) {
-			push_constant_size = sizeof(SceneState::PushConstant);
-			push_constant.ubershader.specialization = pipeline_specialization;
-			push_constant.ubershader.constants = {};
-			push_constant.ubershader.constants.cull_mode = cull_mode;
-		} else {
-			push_constant_size = sizeof(SceneState::PushConstant) - sizeof(SceneState::PushConstantUbershader);
-		}
-
-		RD::get_singleton()->draw_list_set_push_constant(draw_list, &push_constant, push_constant_size);
-
-		uint32_t instance_count = surf->owner->instance_count > 1 ? surf->owner->instance_count : 1;
-		if (surf->flags & GeometryInstanceSurfaceDataCache::FLAG_USES_PARTICLE_TRAILS) {
-			instance_count /= surf->owner->trail_steps;
-		}
-
-		RD::get_singleton()->draw_list_draw(draw_list, index_array_rd.is_valid(), instance_count);
 	}
 
 	// Make the actual redraw request
@@ -2489,6 +2487,12 @@ void RenderForwardMobile::_update_global_pipeline_data_requirements_from_project
 	global_pipeline_data_required.use_32_bit_shadows = !directional_shadow_16_bits || !positional_shadow_16_bits;
 	global_pipeline_data_required.target_samples = RenderSceneBuffersRD::msaa_to_samples(RS::ViewportMSAA(msaa_2d_mode));
 	global_pipeline_data_required.texture_samples = RenderSceneBuffersRD::msaa_to_samples(RS::ViewportMSAA(msaa_3d_mode));
+}
+
+void RenderForwardMobile::_update_global_pipeline_data_requirements_from_light_storage() {
+	RendererRD::LightStorage *light_storage = RendererRD::LightStorage::get_singleton();
+	global_pipeline_data_required.use_shadow_cubemaps = light_storage->get_shadow_cubemaps_used();
+	global_pipeline_data_required.use_shadow_dual_paraboloid = light_storage->get_shadow_dual_paraboloid_used();
 }
 
 void RenderForwardMobile::_geometry_instance_add_surface_with_material(GeometryInstanceForwardMobile *ginstance, uint32_t p_surface, SceneShaderForwardMobile::MaterialData *p_material, uint32_t p_material_id, uint32_t p_shader_id, RID p_mesh) {
@@ -2995,29 +2999,27 @@ void RenderForwardMobile::_mesh_compile_pipelines_for_surface(const SurfacePipel
 		return;
 	}
 
-	if (p_global.use_light_cubemaps) {
+	if (p_global.use_shadow_cubemaps) {
 		pipeline_key.version = SceneShaderForwardMobile::SHADER_VERSION_SHADOW_PASS;
 		pipeline_key.framebuffer_format_id = _get_shadow_cubemap_framebuffer_format_for_pipeline();
 		_mesh_compile_pipeline_for_surface(p_surface.shader_shadow, p_surface.mesh_surface_shadow, p_surface.instanced, p_source, pipeline_key, r_pipeline_pairs);
 	}
 
-	if (p_global.use_light_atlas) {
-		const uint32_t use_16_bits_start = p_global.use_32_bit_shadows ? 0 : 1;
-		const uint32_t use_16_bits_iterations = p_global.use_16_bit_shadows ? 2 : 1;
-		for (uint32_t use_16_bits = use_16_bits_start; use_16_bits < use_16_bits_iterations; use_16_bits++) {
-			pipeline_key.version = SceneShaderForwardMobile::SHADER_VERSION_SHADOW_PASS;
-			pipeline_key.framebuffer_format_id = _get_shadow_atlas_framebuffer_format_for_pipeline(use_16_bits);
+	const uint32_t use_16_bits_start = p_global.use_32_bit_shadows ? 0 : 1;
+	const uint32_t use_16_bits_iterations = p_global.use_16_bit_shadows ? 2 : 1;
+	for (uint32_t use_16_bits = use_16_bits_start; use_16_bits < use_16_bits_iterations; use_16_bits++) {
+		pipeline_key.version = SceneShaderForwardMobile::SHADER_VERSION_SHADOW_PASS;
+		pipeline_key.framebuffer_format_id = _get_shadow_atlas_framebuffer_format_for_pipeline(use_16_bits);
+		_mesh_compile_pipeline_for_surface(p_surface.shader_shadow, p_surface.mesh_surface_shadow, p_surface.instanced, p_source, pipeline_key, r_pipeline_pairs);
+
+		if (p_global.use_shadow_dual_paraboloid) {
+			pipeline_key.version = SceneShaderForwardMobile::SHADER_VERSION_SHADOW_PASS_DP;
 			_mesh_compile_pipeline_for_surface(p_surface.shader_shadow, p_surface.mesh_surface_shadow, p_surface.instanced, p_source, pipeline_key, r_pipeline_pairs);
+		}
 
-			if (p_global.use_light_dual_paraboloid) {
-				pipeline_key.version = SceneShaderForwardMobile::SHADER_VERSION_SHADOW_PASS_DP;
-				_mesh_compile_pipeline_for_surface(p_surface.shader_shadow, p_surface.mesh_surface_shadow, p_surface.instanced, p_source, pipeline_key, r_pipeline_pairs);
-			}
-
-			if (multiview_enabled) {
-				pipeline_key.version = SceneShaderForwardMobile::SHADER_VERSION_SHADOW_PASS_MULTIVIEW;
-				_mesh_compile_pipeline_for_surface(p_surface.shader_shadow, p_surface.mesh_surface_shadow, p_surface.instanced, p_source, pipeline_key, r_pipeline_pairs);
-			}
+		if (multiview_enabled) {
+			pipeline_key.version = SceneShaderForwardMobile::SHADER_VERSION_SHADOW_PASS_MULTIVIEW;
+			_mesh_compile_pipeline_for_surface(p_surface.shader_shadow, p_surface.mesh_surface_shadow, p_surface.instanced, p_source, pipeline_key, r_pipeline_pairs);
 		}
 	}
 }
@@ -3042,6 +3044,10 @@ void RenderForwardMobile::_update_dirty_geometry_instances() {
 		_geometry_instance_update(geometry_instance_dirty_list.first()->self());
 	}
 
+	_update_dirty_geometry_pipelines();
+}
+
+void RenderForwardMobile::_update_dirty_geometry_pipelines() {
 	if (global_pipeline_data_required.key != global_pipeline_data_compiled.key) {
 		// Go through the entire list of surfaces and compile pipelines for everything again.
 		SelfList<GeometryInstanceSurfaceDataCache> *list = geometry_surface_compilation_all_list.first();
@@ -3152,6 +3158,11 @@ RenderForwardMobile::RenderForwardMobile() {
 	}
 	// defines += "\n#define SDFGI_OCT_SIZE " + itos(gi.sdfgi_get_lightprobe_octahedron_size()) + "\n";
 	defines += "\n#define MAX_DIRECTIONAL_LIGHT_DATA_STRUCTS " + itos(MAX_DIRECTIONAL_LIGHTS) + "\n";
+
+	bool force_vertex_shading = GLOBAL_GET("rendering/shading/overrides/force_vertex_shading");
+	if (force_vertex_shading) {
+		defines += "\n#define USE_VERTEX_LIGHTING\n";
+	}
 
 	{
 		//lightmaps

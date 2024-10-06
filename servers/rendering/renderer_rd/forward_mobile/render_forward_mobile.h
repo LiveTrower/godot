@@ -576,9 +576,8 @@ public:
 				uint32_t use_multiview : 1;
 				uint32_t use_16_bit_shadows : 1;
 				uint32_t use_32_bit_shadows : 1;
-				uint32_t use_light_cubemaps : 1;
-				uint32_t use_light_atlas : 1;
-				uint32_t use_light_dual_paraboloid : 1;
+				uint32_t use_shadow_cubemaps : 1;
+				uint32_t use_shadow_dual_paraboloid : 1;
 			};
 
 			uint32_t key;
@@ -591,6 +590,7 @@ public:
 	typedef Pair<SceneShaderForwardMobile::ShaderData *, SceneShaderForwardMobile::ShaderData::PipelineKey> ShaderPipelinePair;
 
 	void _update_global_pipeline_data_requirements_from_project();
+	void _update_global_pipeline_data_requirements_from_light_storage();
 	void _geometry_instance_add_surface_with_material(GeometryInstanceForwardMobile *ginstance, uint32_t p_surface, SceneShaderForwardMobile::MaterialData *p_material, uint32_t p_material_id, uint32_t p_shader_id, RID p_mesh);
 	void _geometry_instance_add_surface_with_material_chain(GeometryInstanceForwardMobile *ginstance, uint32_t p_surface, SceneShaderForwardMobile::MaterialData *p_material, RID p_mat_src, RID p_mesh);
 	void _geometry_instance_add_surface(GeometryInstanceForwardMobile *ginstance, uint32_t p_surface, RID p_material, RID p_mesh);
@@ -599,6 +599,7 @@ public:
 	void _mesh_compile_pipelines_for_surface(const SurfacePipelineData &p_surface, const GlobalPipelineData &p_global, RS::PipelineSource p_source, Vector<ShaderPipelinePair> *r_pipeline_pairs = nullptr);
 	void _mesh_generate_all_pipelines_for_surface_cache(GeometryInstanceSurfaceDataCache *p_surface_cache, const GlobalPipelineData &p_global);
 	void _update_dirty_geometry_instances();
+	void _update_dirty_geometry_pipelines();
 
 	virtual RenderGeometryInstance *geometry_instance_create(RID p_base) override;
 	virtual void geometry_instance_free(RenderGeometryInstance *p_geometry_instance) override;

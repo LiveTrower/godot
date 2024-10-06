@@ -52,9 +52,9 @@ Shader::Mode Shader::get_mode() const {
 
 void Shader::_check_shader_rid() const {
 	MutexLock lock(shader_rid_mutex);
-	if (shader_rid.is_null() && !pp_code.is_empty()) {
-		shader_rid = RenderingServer::get_singleton()->shader_create_from_code(pp_code, get_path());
-		pp_code = String();
+	if (shader_rid.is_null() && !preprocessed_code.is_empty()) {
+		shader_rid = RenderingServer::get_singleton()->shader_create_from_code(preprocessed_code, get_path());
+		preprocessed_code = String();
 	}
 }
 
@@ -87,7 +87,7 @@ void Shader::set_code(const String &p_code) {
 	}
 
 	code = p_code;
-	pp_code = p_code;
+	preprocessed_code = p_code;
 
 	{
 		String path = get_path();
@@ -99,7 +99,7 @@ void Shader::set_code(const String &p_code) {
 		// 2) Server does not do interaction with Resource filetypes, this is a scene level feature.
 		HashSet<Ref<ShaderInclude>> new_include_dependencies;
 		ShaderPreprocessor preprocessor;
-		Error result = preprocessor.preprocess(p_code, path, pp_code, nullptr, nullptr, nullptr, &new_include_dependencies);
+		Error result = preprocessor.preprocess(p_code, path, preprocessed_code, nullptr, nullptr, nullptr, &new_include_dependencies);
 		if (result == OK) {
 			// This ensures previous include resources are not freed and then re-loaded during parse (which would make compiling slower)
 			include_dependencies = new_include_dependencies;
@@ -107,7 +107,7 @@ void Shader::set_code(const String &p_code) {
 	}
 
 	// Try to get the shader type from the final, fully preprocessed shader code.
-	String type = ShaderLanguage::get_shader_type(pp_code);
+	String type = ShaderLanguage::get_shader_type(preprocessed_code);
 
 	if (type == "canvas_item") {
 		mode = MODE_CANVAS_ITEM;
@@ -126,8 +126,8 @@ void Shader::set_code(const String &p_code) {
 	}
 
 	if (shader_rid.is_valid()) {
-		RenderingServer::get_singleton()->shader_set_code(shader_rid, pp_code);
-		pp_code = String();
+		RenderingServer::get_singleton()->shader_set_code(shader_rid, preprocessed_code);
+		preprocessed_code = String();
 	}
 
 	emit_changed();

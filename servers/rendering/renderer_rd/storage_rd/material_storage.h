@@ -267,8 +267,6 @@ public:
 	MaterialStorage();
 	virtual ~MaterialStorage();
 
-	virtual bool can_create_resources_async() const override;
-
 	bool free(RID p_rid);
 
 	/* Helpers */

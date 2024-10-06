@@ -1270,10 +1270,6 @@ MaterialStorage::~MaterialStorage() {
 	singleton = nullptr;
 }
 
-bool MaterialStorage::can_create_resources_async() const {
-	return true;
-}
-
 bool MaterialStorage::free(RID p_rid) {
 	if (owns_shader(p_rid)) {
 		shader_free(p_rid);

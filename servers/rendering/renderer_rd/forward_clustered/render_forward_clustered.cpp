@@ -469,6 +469,7 @@ void RenderForwardClustered::_render_list_template(RenderingDevice::DrawListID p
 			ubershader_iterations = 1;
 		}
 
+		bool pipeline_valid = false;
 		while (pipeline_key.ubershader < ubershader_iterations) {
 			// Skeleton and blend shape.
 			RD::VertexFormatID vertex_format = -1;
@@ -480,7 +481,6 @@ void RenderForwardClustered::_render_list_template(RenderingDevice::DrawListID p
 				mesh_storage->mesh_surface_get_vertex_arrays_and_format(mesh_surface, input_mask, pipeline_motion_vectors, vertex_array_rd, vertex_format);
 			}
 
-			index_array_rd = mesh_storage->mesh_surface_get_index_array(mesh_surface, element_info.lod_index);
 			pipeline_key.vertex_format_id = vertex_format;
 
 			if (pipeline_key.ubershader) {
@@ -499,6 +499,7 @@ void RenderForwardClustered::_render_list_template(RenderingDevice::DrawListID p
 				pipeline_rd = shader->pipeline_hash_map.get_pipeline(pipeline_key, pipeline_hash, wait_for_compilation, pipeline_source);
 
 				if (pipeline_rd.is_valid()) {
+					pipeline_valid = true;
 					prev_shader = shader;
 					prev_pipeline_hash = pipeline_hash;
 					break;
@@ -507,67 +508,73 @@ void RenderForwardClustered::_render_list_template(RenderingDevice::DrawListID p
 				}
 			} else {
 				// The same pipeline is bound already.
+				pipeline_valid = true;
 				break;
 			}
 		}
 
-		if (prev_vertex_array_rd != vertex_array_rd) {
-			RD::get_singleton()->draw_list_bind_vertex_array(draw_list, vertex_array_rd);
-			prev_vertex_array_rd = vertex_array_rd;
-		}
+		if (pipeline_valid) {
+			index_array_rd = mesh_storage->mesh_surface_get_index_array(mesh_surface, element_info.lod_index);
 
-		if (prev_index_array_rd != index_array_rd) {
-			if (index_array_rd.is_valid()) {
-				RD::get_singleton()->draw_list_bind_index_array(draw_list, index_array_rd);
-			}
-			prev_index_array_rd = index_array_rd;
-		}
-
-		if (!pipeline_rd.is_null()) {
-			RD::get_singleton()->draw_list_bind_render_pipeline(draw_list, pipeline_rd);
-		}
-
-		if (xforms_uniform_set.is_valid() && prev_xforms_uniform_set != xforms_uniform_set) {
-			RD::get_singleton()->draw_list_bind_uniform_set(draw_list, xforms_uniform_set, TRANSFORMS_UNIFORM_SET);
-			prev_xforms_uniform_set = xforms_uniform_set;
-		}
-
-		if (material_uniform_set != prev_material_uniform_set) {
-			// Update uniform set.
-			if (material_uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(material_uniform_set)) { // Material may not have a uniform set.
-				RD::get_singleton()->draw_list_bind_uniform_set(draw_list, material_uniform_set, MATERIAL_UNIFORM_SET);
+			if (prev_vertex_array_rd != vertex_array_rd) {
+				RD::get_singleton()->draw_list_bind_vertex_array(draw_list, vertex_array_rd);
+				prev_vertex_array_rd = vertex_array_rd;
 			}
 
-			prev_material_uniform_set = material_uniform_set;
+			if (prev_index_array_rd != index_array_rd) {
+				if (index_array_rd.is_valid()) {
+					RD::get_singleton()->draw_list_bind_index_array(draw_list, index_array_rd);
+				}
+				prev_index_array_rd = index_array_rd;
+			}
+
+			if (!pipeline_rd.is_null()) {
+				RD::get_singleton()->draw_list_bind_render_pipeline(draw_list, pipeline_rd);
+			}
+
+			if (xforms_uniform_set.is_valid() && prev_xforms_uniform_set != xforms_uniform_set) {
+				RD::get_singleton()->draw_list_bind_uniform_set(draw_list, xforms_uniform_set, TRANSFORMS_UNIFORM_SET);
+				prev_xforms_uniform_set = xforms_uniform_set;
+			}
+
+			if (material_uniform_set != prev_material_uniform_set) {
+				// Update uniform set.
+				if (material_uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(material_uniform_set)) { // Material may not have a uniform set.
+					RD::get_singleton()->draw_list_bind_uniform_set(draw_list, material_uniform_set, MATERIAL_UNIFORM_SET);
+				}
+
+				prev_material_uniform_set = material_uniform_set;
+			}
+
+			if (surf->owner->base_flags & INSTANCE_DATA_FLAG_PARTICLES) {
+				particles_storage->particles_get_instance_buffer_motion_vectors_offsets(surf->owner->data->base, push_constant.multimesh_motion_vectors_current_offset, push_constant.multimesh_motion_vectors_previous_offset);
+			} else if (surf->owner->base_flags & INSTANCE_DATA_FLAG_MULTIMESH) {
+				mesh_storage->_multimesh_get_motion_vectors_offsets(surf->owner->data->base, push_constant.multimesh_motion_vectors_current_offset, push_constant.multimesh_motion_vectors_previous_offset);
+			} else {
+				push_constant.multimesh_motion_vectors_current_offset = 0;
+				push_constant.multimesh_motion_vectors_previous_offset = 0;
+			}
+
+			size_t push_constant_size = 0;
+			if (pipeline_key.ubershader) {
+				push_constant_size = sizeof(SceneState::PushConstant);
+				push_constant.ubershader.specialization = pipeline_specialization;
+				push_constant.ubershader.constants = {};
+				push_constant.ubershader.constants.cull_mode = cull_mode;
+			} else {
+				push_constant_size = sizeof(SceneState::PushConstant) - sizeof(SceneState::PushConstantUbershader);
+			}
+
+			RD::get_singleton()->draw_list_set_push_constant(draw_list, &push_constant, push_constant_size);
+
+			uint32_t instance_count = surf->owner->instance_count > 1 ? surf->owner->instance_count : element_info.repeat;
+			if (surf->flags & GeometryInstanceSurfaceDataCache::FLAG_USES_PARTICLE_TRAILS) {
+				instance_count /= surf->owner->trail_steps;
+			}
+
+			RD::get_singleton()->draw_list_draw(draw_list, index_array_rd.is_valid(), instance_count);
 		}
 
-		if (surf->owner->base_flags & INSTANCE_DATA_FLAG_PARTICLES) {
-			particles_storage->particles_get_instance_buffer_motion_vectors_offsets(surf->owner->data->base, push_constant.multimesh_motion_vectors_current_offset, push_constant.multimesh_motion_vectors_previous_offset);
-		} else if (surf->owner->base_flags & INSTANCE_DATA_FLAG_MULTIMESH) {
-			mesh_storage->_multimesh_get_motion_vectors_offsets(surf->owner->data->base, push_constant.multimesh_motion_vectors_current_offset, push_constant.multimesh_motion_vectors_previous_offset);
-		} else {
-			push_constant.multimesh_motion_vectors_current_offset = 0;
-			push_constant.multimesh_motion_vectors_previous_offset = 0;
-		}
-
-		size_t push_constant_size = 0;
-		if (pipeline_key.ubershader) {
-			push_constant_size = sizeof(SceneState::PushConstant);
-			push_constant.ubershader.specialization = pipeline_specialization;
-			push_constant.ubershader.constants = {};
-			push_constant.ubershader.constants.cull_mode = cull_mode;
-		} else {
-			push_constant_size = sizeof(SceneState::PushConstant) - sizeof(SceneState::PushConstantUbershader);
-		}
-
-		RD::get_singleton()->draw_list_set_push_constant(draw_list, &push_constant, push_constant_size);
-
-		uint32_t instance_count = surf->owner->instance_count > 1 ? surf->owner->instance_count : element_info.repeat;
-		if (surf->flags & GeometryInstanceSurfaceDataCache::FLAG_USES_PARTICLE_TRAILS) {
-			instance_count /= surf->owner->trail_steps;
-		}
-
-		RD::get_singleton()->draw_list_draw(draw_list, index_array_rd.is_valid(), instance_count);
 		i += element_info.repeat - 1; //skip equal elements
 	}
 
@@ -1800,6 +1807,16 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 	// May have changed due to the above (light buffer enlarged, as an example).
 	_update_render_base_uniform_set();
 
+	_fill_render_list(RENDER_LIST_OPAQUE, p_render_data, PASS_MODE_COLOR, using_sdfgi, using_sdfgi || using_voxelgi, using_motion_pass);
+    render_list[RENDER_LIST_OPAQUE].sort_by_key();
+    render_list[RENDER_LIST_MOTION].sort_by_key();
+    render_list[RENDER_LIST_ALPHA].sort_by_reverse_depth_and_priority();
+    int *render_info = p_render_data->render_info ? p_render_data->render_info->info[RS::VIEWPORT_RENDER_INFO_TYPE_VISIBLE] : (int *)nullptr;
+    _fill_instance_data(RENDER_LIST_OPAQUE, render_info);
+    _fill_instance_data(RENDER_LIST_MOTION, render_info);
+    _fill_instance_data(RENDER_LIST_ALPHA, render_info);
+    RD::get_singleton()->draw_command_end_label();
+
 	if (!is_reflection_probe) {
 		if (using_voxelgi) {
 			depth_pass_mode = PASS_MODE_DEPTH_NORMAL_ROUGHNESS_VOXEL_GI;
@@ -1864,17 +1881,8 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 		global_pipeline_data_required.use_separate_specular = true;
 	}
 
-	_fill_render_list(RENDER_LIST_OPAQUE, p_render_data, PASS_MODE_COLOR, using_sdfgi, using_sdfgi || using_voxelgi, using_motion_pass);
-	render_list[RENDER_LIST_OPAQUE].sort_by_key();
-	render_list[RENDER_LIST_MOTION].sort_by_key();
-	render_list[RENDER_LIST_ALPHA].sort_by_reverse_depth_and_priority();
-
-	int *render_info = p_render_data->render_info ? p_render_data->render_info->info[RS::VIEWPORT_RENDER_INFO_TYPE_VISIBLE] : (int *)nullptr;
-	_fill_instance_data(RENDER_LIST_OPAQUE, render_info);
-	_fill_instance_data(RENDER_LIST_MOTION, render_info);
-	_fill_instance_data(RENDER_LIST_ALPHA, render_info);
-
-	RD::get_singleton()->draw_command_end_label();
+	// Update the compiled pipelines if any of the requirements have changed.
+	_update_dirty_geometry_pipelines();
 
 	RID radiance_texture;
 	bool draw_sky = false;
@@ -4495,6 +4503,10 @@ void RenderForwardClustered::_update_dirty_geometry_instances() {
 		_geometry_instance_update(geometry_instance_dirty_list.first()->self());
 	}
 
+	_update_dirty_geometry_pipelines();
+}
+
+void RenderForwardClustered::_update_dirty_geometry_pipelines() {
 	if (global_pipeline_data_required.key != global_pipeline_data_compiled.key) {
 		// Go through the entire list of surfaces and compile pipelines for everything again.
 		SelfList<GeometryInstanceSurfaceDataCache> *list = geometry_surface_compilation_all_list.first();
@@ -4740,6 +4752,11 @@ RenderForwardClustered::RenderForwardClustered() {
 		}
 		defines += "\n#define SDFGI_OCT_SIZE " + itos(gi.sdfgi_get_lightprobe_octahedron_size()) + "\n";
 		defines += "\n#define MAX_DIRECTIONAL_LIGHT_DATA_STRUCTS " + itos(MAX_DIRECTIONAL_LIGHTS) + "\n";
+
+		bool force_vertex_shading = GLOBAL_GET("rendering/shading/overrides/force_vertex_shading");
+		if (force_vertex_shading) {
+			defines += "\n#define USE_VERTEX_LIGHTING\n";
+		}
 
 		{
 			//lightmaps

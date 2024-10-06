@@ -49,7 +49,6 @@ public:
 	Projection cam_projection;
 	Vector2 taa_jitter;
 	float taa_frame_count = 0.0f;
-	float taa_jitter_fraction = 0.0f;
 	uint32_t camera_visible_layers;
 	bool cam_orthogonal = false;
 	bool flip_y = false;

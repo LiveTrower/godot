@@ -568,6 +568,7 @@ private:
 	void _mesh_compile_pipelines_for_surface(const SurfacePipelineData &p_surface, const GlobalPipelineData &p_global, RS::PipelineSource p_source, Vector<ShaderPipelinePair> *r_pipeline_pairs = nullptr);
 	void _mesh_generate_all_pipelines_for_surface_cache(GeometryInstanceSurfaceDataCache *p_surface_cache, const GlobalPipelineData &p_global);
 	void _update_dirty_geometry_instances();
+	void _update_dirty_geometry_pipelines();
 
 	/* Render List */
 

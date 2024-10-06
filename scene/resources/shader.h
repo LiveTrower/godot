@@ -53,7 +53,7 @@ public:
 
 private:
 	mutable RID shader_rid;
-	mutable String pp_code;
+	mutable String preprocessed_code;
 	mutable Mutex shader_rid_mutex;
 
 	Mode mode = MODE_SPATIAL;

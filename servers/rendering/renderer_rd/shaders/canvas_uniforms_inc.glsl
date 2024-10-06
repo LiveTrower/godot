@@ -54,11 +54,6 @@ struct InstanceData {
 	uint lights[4];
 };
 
-layout(set = 4, binding = 0, std430) restrict readonly buffer DrawData {
-	InstanceData data[];
-}
-instances;
-
 layout(push_constant, std430) uniform Params {
 	uint base_instance_index; // base index to instance data
 	uint sc_packed_0;
@@ -89,10 +84,6 @@ uint sc_packed_0() {
 
 bool sc_use_lighting() {
 	return ((sc_packed_0() >> 0) & 1U) != 0;
-}
-
-bool sc_use_point_size() {
-	return ((sc_packed_0() >> 1) & 1U) != 0;
 }
 
 // In vulkan, sets should always be ordered using the following logic:
@@ -191,3 +182,8 @@ layout(set = 3, binding = 0) uniform texture2D color_texture;
 layout(set = 3, binding = 1) uniform texture2D normal_texture;
 layout(set = 3, binding = 2) uniform texture2D specular_texture;
 layout(set = 3, binding = 3) uniform sampler texture_sampler;
+
+layout(set = 3, binding = 4, std430) restrict readonly buffer DrawData {
+	InstanceData data[];
+}
+instances;
