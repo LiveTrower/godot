@@ -1562,6 +1562,7 @@ void fragment_shader(in SceneData scene_data) {
 		vec3 ref_vec = reflect(-view, normal);
 		ref_vec = mix(ref_vec, normal, roughness * roughness);
 #endif
+		
 		float horizon = min(1.0 + dot(ref_vec, normal), 1.0);
 		ref_vec = scene_data.radiance_inverse_xform * ref_vec;
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
@@ -2040,7 +2041,7 @@ void fragment_shader(in SceneData scene_data) {
 
 #ifdef USE_VERTEX_LIGHTING
 	diffuse_light += diffuse_light_interp.rgb;
-	specular_light += specular_light_interp.rgb * f0;
+	indirect_specular_light += specular_light_interp.rgb * f0;
 #endif
 
 	{ // Directional light.
@@ -2258,7 +2259,7 @@ void fragment_shader(in SceneData scene_data) {
 
 #ifdef USE_VERTEX_LIGHTING
 				diffuse_light *= mix(1.0, shadow, diffuse_light_interp.a);
-				specular_light *= mix(1.0, shadow, specular_light_interp.a);
+				indirect_specular_light *= mix(1.0, shadow, specular_light_interp.a);
 #endif
 
 #undef BIAS_FUNC
