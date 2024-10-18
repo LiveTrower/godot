@@ -2766,41 +2766,68 @@ String VisualShaderNodeTransformVector::get_output_port_name(int p_port) const {
 String VisualShaderNodeTransformVector::generate_code(Shader::Mode p_mode, VisualShader::Type p_type, int p_id, const String *p_input_vars, const String *p_output_vars, bool p_for_preview) const {
 	String identity = "	" + p_output_vars[0] + " = " + p_input_vars[0] + ";\n";
 	String matrix;
+	String code;
+	String vec4_w = vector_type == VECTOR_POSITION ? "1.0" : "0.0";
 	if (from_space == SPACE_LOCAL) {
 		if (to_space == SPACE_LOCAL) {
 			return identity;
 		} else if (to_space == SPACE_WORLD) {
 			matrix = "MODEL_MATRIX";
+			code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", " + vec4_w + ")).xyz;\n";
 		} else if (to_space == SPACE_VIEW) {
 			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "MODELVIEW_MATRIX" : "VIEW_MATRIX * MODEL_MATRIX";
+			code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", " + vec4_w + ")).xyz;\n";
 		} else if (to_space == SPACE_CLIP) {
 			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "PROJECTION_MATRIX * MODELVIEW_MATRIX" : "PROJECTION_MATRIX * VIEW_MATRIX * MODEL_MATRIX";
+			code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", " + vec4_w + ")).xyz;\n";
 		} else if (to_space == SPACE_TANGENT){
-			return identity;
+			if (p_type == VisualShader::TYPE_FRAGMENT || p_type == VisualShader::TYPE_LIGHT){
+				code += "	vec3 t = (inverse(MODEL_MATRIX) * INV_VIEW_MATRIX * vec4(TANGENT, " + vec4_w + ")).xyz;\n";
+				code += "	vec3 b = (inverse(MODEL_MATRIX) * INV_VIEW_MATRIX * vec4(BINORMAL, " + vec4_w + ")).xyz;\n";
+				code += "	vec3 n = (inverse(MODEL_MATRIX) * INV_VIEW_MATRIX * vec4(NORMAL, " + vec4_w + ")).xyz;\n";
+			}
+			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "mat3(TANGENT, -BINORMAL, NORMAL)" : "mat3(t, -b, n)";
+			code += "	" + p_output_vars[0] + " = normalize(" + p_input_vars[0] + " * " + matrix + ");\n";
 		}
 	} else if (from_space == SPACE_WORLD) {
 		if (to_space == SPACE_LOCAL) {
 			matrix = "inverse(MODEL_MATRIX)";
+			code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", " + vec4_w + ")).xyz;\n";
 		} else if (to_space == SPACE_WORLD) {
 			return identity;
 		} else if (to_space == SPACE_VIEW) {
 			matrix = "VIEW_MATRIX";
+			code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", " + vec4_w + ")).xyz;\n";
 		} else if (to_space == SPACE_CLIP) {
 			matrix = "PROJECTION_MATRIX * VIEW_MATRIX";
+			code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", " + vec4_w + ")).xyz;\n";
 		} else if (to_space == SPACE_TANGENT){
-			return identity;
+			code += (p_type == VisualShader::TYPE_VERTEX) ? "	vec3 t = (MODEL_MATRIX * vec4(TANGENT, " + vec4_w + ")).xyz;\n" : "	vec3 t = (INV_VIEW_MATRIX * vec4(TANGENT, " + vec4_w + ")).xyz;\n";
+			code += (p_type == VisualShader::TYPE_VERTEX) ? "	vec3 b = (MODEL_MATRIX * vec4(BINORMAL, " + vec4_w + ")).xyz;\n" : "	vec3 b = (INV_VIEW_MATRIX * vec4(BINORMAL, " + vec4_w + ")).xyz;\n";
+			code += (p_type == VisualShader::TYPE_VERTEX) ? "	vec3 n = (MODEL_MATRIX * vec4(NORMAL, " + vec4_w + ")).xyz;\n" : "	vec3 n = (INV_VIEW_MATRIX * vec4(NORMAL, " + vec4_w + ")).xyz;\n";
+			matrix = "mat3(t, -b, n)";
+			code += "	" + p_output_vars[0] + " = normalize(" + p_input_vars[0] + " * " + matrix + ");\n";
 		}
 	} else if (from_space == SPACE_VIEW) {
 		if (to_space == SPACE_LOCAL) {
 			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "inverse(MODELVIEW_MATRIX)" : "inverse(MODEL_MATRIX) * INV_VIEW_MATRIX";
+			code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", " + vec4_w + ")).xyz;\n";
 		} else if (to_space == SPACE_WORLD) {
 			matrix = "INV_VIEW_MATRIX";
+			code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", " + vec4_w + ")).xyz;\n";
 		} else if (to_space == SPACE_VIEW) {
 			return identity;
 		} else if (to_space == SPACE_CLIP) {
 			matrix = "PROJECTION_MATRIX";
+			code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", " + vec4_w + ")).xyz;\n";
 		} else if (to_space == SPACE_TANGENT){
-			return identity;
+			if (p_type == VisualShader::TYPE_VERTEX){
+				code += "	vec3 t = (MODELVIEW_MATRIX * vec4(TANGENT, " + vec4_w + ")).xyz;\n";
+				code += "	vec3 b = (MODELVIEW_MATRIX * vec4(BINORMAL, " + vec4_w + ")).xyz;\n";
+				code += "	vec3 n = (MODELVIEW_MATRIX * vec4(NORMAL, " + vec4_w + ")).xyz;\n";
+			}
+			matrix = p_type == VisualShader::TYPE_VERTEX ? "mat3(t, -b, n)" : "mat3(TANGENT, -BINORMAL, NORMAL)";
+			code += "	" + p_output_vars[0] + " = normalize(" + p_input_vars[0] + " * " + matrix + ");\n";
 		}
 	} else if (from_space == SPACE_CLIP) {
 		if (to_space == SPACE_LOCAL) {
@@ -2812,25 +2839,47 @@ String VisualShaderNodeTransformVector::generate_code(Shader::Mode p_mode, Visua
 		} else if (to_space == SPACE_CLIP) {
 			return identity;
 		} else if (to_space == SPACE_TANGENT){
-			return identity;
+			code += (p_type == VisualShader::TYPE_VERTEX) ? "	vec3 t = (MODEL_MATRIX * vec4(TANGENT, " + vec4_w + ")).xyz;\n" : "	vec3 t = (INV_VIEW_MATRIX * vec4(TANGENT, " + vec4_w + ")).xyz;\n";
+			code += (p_type == VisualShader::TYPE_VERTEX) ? "	vec3 b = (MODEL_MATRIX * vec4(BINORMAL, " + vec4_w + ")).xyz;\n" : "	vec3 b = (INV_VIEW_MATRIX * vec4(BINORMAL, " + vec4_w + ")).xyz;\n";
+			code += (p_type == VisualShader::TYPE_VERTEX) ? "	vec3 n = (MODEL_MATRIX * vec4(NORMAL, " + vec4_w + ")).xyz;\n" : "	vec3 n = (INV_VIEW_MATRIX * vec4(NORMAL, " + vec4_w + ")).xyz;\n";
+			matrix = "mat3(t, -b, n)";
+			code += "	" + p_input_vars[0] + " = (INV_VIEW_MATRIX * INV_PROJECTION_MATRIX * vec4(" + p_input_vars[0] + ", " + vec4_w + ")).xyz;\n";
+			code += "	" + p_output_vars[0] + " = normalize(" + p_input_vars[0] + " * " + matrix + ");\n";
 		}
 	} else if (from_space == SPACE_TANGENT) {
 		if (to_space == SPACE_LOCAL) {
-			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "mat3(TANGENT, -BINORMAL, NORMAL)" : "inverse(MODEL_MATRIX) * INV_VIEW_MATRIX * mat3(TANGENT, -BINORMAL, NORMAL)";
+			code += "	vec3 t = (inverse(MODEL_MATRIX) * INV_VIEW_MATRIX * vec4(TANGENT, " + vec4_w + ")).xyz;\n";
+			code += "	vec3 b = (inverse(MODEL_MATRIX) * INV_VIEW_MATRIX * vec4(BINORMAL, " + vec4_w + ")).xyz;\n";
+			code += "	vec3 n = (inverse(MODEL_MATRIX) * INV_VIEW_MATRIX * vec4(NORMAL, " + vec4_w + ")).xyz;\n";
+			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "mat3(TANGENT, -BINORMAL, NORMAL)" : "mat3(t, -b, n)";
+			code += "	" + p_output_vars[0] + " = normalize(" + matrix + " * " + p_input_vars[0] + ");\n";
 		} else if (to_space == SPACE_WORLD) {
-			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "MODEL_MATRIX * mat3(TANGENT, -BINORMAL, NORMAL)" : "INV_VIEW_MATRIX * mat3(TANGENT, -BINORMAL, NORMAL)";
+			code += (p_type == VisualShader::TYPE_VERTEX) ? "	vec3 t = (MODEL_MATRIX * vec4(TANGENT, " + vec4_w + ")).xyz;\n" : "	vec3 t = (INV_VIEW_MATRIX * vec4(TANGENT, " + vec4_w + ")).xyz;\n";
+			code += (p_type == VisualShader::TYPE_VERTEX) ? "	vec3 b = (MODEL_MATRIX * vec4(BINORMAL, " + vec4_w + ")).xyz;\n" : "	vec3 b = (INV_VIEW_MATRIX * vec4(BINORMAL, " + vec4_w + ")).xyz;\n";
+			code += (p_type == VisualShader::TYPE_VERTEX) ? "	vec3 n = (MODEL_MATRIX * vec4(NORMAL, " + vec4_w + ")).xyz;\n" : "	vec3 n = (INV_VIEW_MATRIX * vec4(NORMAL, " + vec4_w + ")).xyz;\n";
+			matrix = "mat3(t, -b, n)";
+			code += "	" + p_output_vars[0] + " = normalize(" + matrix + " * " + p_input_vars[0] + ");\n";
 		} else if (to_space == SPACE_VIEW) {
-			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "MODELVIEW_MATRIX * mat3(TANGENT, -BINORMAL, NORMAL)" : "mat3(TANGENT, -BINORMAL, NORMAL)";
+			if (p_type == VisualShader::TYPE_VERTEX){
+				code += "	vec3 t = (MODELVIEW_MATRIX * vec4(TANGENT, " + vec4_w + ")).xyz;\n";
+				code += "	vec3 b = (MODELVIEW_MATRIX * vec4(BINORMAL, " + vec4_w + ")).xyz;\n";
+				code += "	vec3 n = (MODELVIEW_MATRIX * vec4(NORMAL, " + vec4_w + ")).xyz;\n";
+			}
+			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "mat3(t, -b, n)" : "mat3(TANGENT, -BINORMAL, NORMAL)";
+			code += "	" + p_output_vars[0] + " = normalize(" + matrix + " * " + p_input_vars[0] + ");\n";
 		} else if (to_space == SPACE_CLIP) {
-			return identity;
+			code += (p_type == VisualShader::TYPE_VERTEX) ? "	vec3 t = (MODEL_MATRIX * vec4(TANGENT, " + vec4_w + ")).xyz;\n" : "	vec3 t = (INV_VIEW_MATRIX * vec4(TANGENT, " + vec4_w + ")).xyz;\n";
+			code += (p_type == VisualShader::TYPE_VERTEX) ? "	vec3 b = (MODEL_MATRIX * vec4(BINORMAL, " + vec4_w + ")).xyz;\n" : "	vec3 b = (INV_VIEW_MATRIX * vec4(BINORMAL, " + vec4_w + ")).xyz;\n";
+			code += (p_type == VisualShader::TYPE_VERTEX) ? "	vec3 n = (MODEL_MATRIX * vec4(NORMAL, " + vec4_w + ")).xyz;\n" : "	vec3 n = (INV_VIEW_MATRIX * vec4(NORMAL, " + vec4_w + ")).xyz;\n";
+			matrix = "mat3(t, -b, n)";
+			code += "	" + p_input_vars[0] + " = " + matrix + " * " + p_input_vars[0] + ";\n";
+			code += "	" + p_output_vars[0] + " = (PROJECTION_MATRIX * VIEW_MATRIX * vec4(" + p_input_vars[0] + ", " + vec4_w + ")).xyz;\n";
 		} else if (to_space == SPACE_TANGENT){
 			return identity;
 		}
 	}
-	String vec4_w = vector_type == VECTOR_POSITION ? "1.0" : "0.0";
-	return "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", " + vec4_w + ")).xyz;\n";
 
-	return identity;
+	return code;
 }
 
 void VisualShaderNodeTransformVector::set_from_space(Space p_from_space) {
