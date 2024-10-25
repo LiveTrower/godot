@@ -1416,7 +1416,9 @@ void RenderingDeviceGraph::add_buffer_update(RDD::BufferID p_dst, ResourceTracke
 
 void RenderingDeviceGraph::add_compute_list_begin(RDD::BreadcrumbMarker p_phase, uint32_t p_breadcrumb_data) {
 	compute_instruction_list.clear();
+#if defined(DEBUG_ENABLED) || defined(DEV_ENABLED)
 	compute_instruction_list.breadcrumb = p_breadcrumb_data | (p_phase & ((1 << 16) - 1));
+#endif
 	compute_instruction_list.index++;
 }
 
@@ -1512,7 +1514,9 @@ void RenderingDeviceGraph::add_draw_list_begin(RDD::RenderPassID p_render_pass, 
 	draw_instruction_list.render_pass = p_render_pass;
 	draw_instruction_list.framebuffer = p_framebuffer;
 	draw_instruction_list.region = p_region;
+#if defined(DEBUG_ENABLED) || defined(DEV_ENABLED)
 	draw_instruction_list.breadcrumb = p_breadcrumb;
+#endif
 	draw_instruction_list.clear_values.resize(p_clear_values.size());
 	for (uint32_t i = 0; i < p_clear_values.size(); i++) {
 		draw_instruction_list.clear_values[i] = p_clear_values[i];
@@ -1723,7 +1727,9 @@ void RenderingDeviceGraph::add_draw_list_end() {
 	command->framebuffer = draw_instruction_list.framebuffer;
 	command->command_buffer_type = command_buffer_type;
 	command->region = draw_instruction_list.region;
+#if defined(DEBUG_ENABLED) || defined(DEV_ENABLED)
 	command->breadcrumb = draw_instruction_list.breadcrumb;
+#endif
 	command->clear_values_count = draw_instruction_list.clear_values.size();
 
 	RDD::RenderPassClearValue *clear_values = command->clear_values();
