@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  editor_run.h                                                          */
+/*  drop_target_windows.h                                                 */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,44 +28,50 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef EDITOR_RUN_H
-#define EDITOR_RUN_H
+#ifndef DROP_TARGET_WINDOWS_H
+#define DROP_TARGET_WINDOWS_H
 
-#include "core/os/os.h"
-#include "servers/display_server.h"
+#include "display_server_windows.h"
 
-typedef void (*EditorRunInstanceStarting)(int p_index, List<String> &r_arguments);
+#include <shlobj.h>
 
-class EditorRun {
+// Silence warning due to a COM API weirdness.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
+#endif
+
+// https://learn.microsoft.com/en-us/windows/win32/api/ole2/nf-ole2-dodragdrop#remarks
+class DropTargetWindows : public IDropTarget {
+	LONG ref_count;
+	DisplayServerWindows::WindowData *window_data = nullptr;
+	CLIPFORMAT cf_filedescriptor = 0;
+	CLIPFORMAT cf_filecontents = 0;
+	String tmp_path;
+
+	bool is_valid_filedescriptor();
+	HRESULT handle_hdrop_format(Vector<String> *p_files, IDataObject *pDataObj);
+	HRESULT handle_filedescriptor_format(Vector<String> *p_files, IDataObject *pDataObj);
+	HRESULT save_as_file(const String &p_out_dir, FILEDESCRIPTORW *p_file_desc, IDataObject *pDataObj, int p_file_idx);
+
 public:
-	enum Status {
-		STATUS_PLAY,
-		STATUS_PAUSED,
-		STATUS_STOP
-	};
+	DropTargetWindows(DisplayServerWindows::WindowData *p_window_data);
+	virtual ~DropTargetWindows() {}
 
-	List<OS::ProcessID> pids;
+	// IUnknown
+	HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) override;
+	ULONG STDMETHODCALLTYPE AddRef() override;
+	ULONG STDMETHODCALLTYPE Release() override;
 
-private:
-	Status status;
-	String running_scene;
-
-public:
-	static EditorRunInstanceStarting instance_starting_callback;
-
-	Status get_status() const;
-	String get_running_scene() const;
-
-	Error run(const String &p_scene, const String &p_write_movie = "");
-	void run_native_notify() { status = STATUS_PLAY; }
-	void stop();
-
-	void stop_child_process(OS::ProcessID p_pid);
-	bool has_child_process(OS::ProcessID p_pid) const;
-	int get_child_process_count() const { return pids.size(); }
-	OS::ProcessID get_current_process() const;
-
-	EditorRun();
+	// IDropTarget
+	HRESULT STDMETHODCALLTYPE DragEnter(IDataObject *pDataObj, DWORD grfKeyState, POINTL pt, DWORD *pdwEffect) override;
+	HRESULT STDMETHODCALLTYPE DragOver(DWORD grfKeyState, POINTL pt, DWORD *pdwEffect) override;
+	HRESULT STDMETHODCALLTYPE DragLeave() override;
+	HRESULT STDMETHODCALLTYPE Drop(IDataObject *pDataObj, DWORD grfKeyState, POINTL pt, DWORD *pdwEffect) override;
 };
 
-#endif // EDITOR_RUN_H
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+#endif // DROP_TARGET_WINDOWS_H
