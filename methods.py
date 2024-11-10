@@ -90,35 +90,6 @@ def add_source_files_orig(self, sources, files, allow_gen=False):
         sources.append(obj)
 
 
-# The section name is used for checking
-# the hash table to see whether the folder
-# is included in the SCU build.
-# It will be something like "core/math".
-def _find_scu_section_name(subdir):
-    section_path = os.path.abspath(subdir) + "/"
-
-    folders = []
-    folder = ""
-
-    for i in range(8):
-        folder = os.path.dirname(section_path)
-        folder = os.path.basename(folder)
-        if folder == base_folder_only:
-            break
-        folders += [folder]
-        section_path += "../"
-        section_path = os.path.abspath(section_path) + "/"
-
-    section_name = ""
-    for n in range(len(folders)):
-        # section_name += folders[len(folders) - n - 1] + " "
-        section_name += folders[len(folders) - n - 1]
-        if n != (len(folders) - 1):
-            section_name += "/"
-
-    return section_name
-
-
 def add_source_files_scu(self, sources, files, allow_gen=False):
     if self["scu_build"] and isinstance(files, str):
         if "*." not in files:
@@ -127,10 +98,8 @@ def add_source_files_scu(self, sources, files, allow_gen=False):
         # If the files are in a subdirectory, we want to create the scu gen
         # files inside this subdirectory.
         subdir = os.path.dirname(files)
-        if subdir != "":
-            subdir += "/"
-
-        section_name = _find_scu_section_name(subdir)
+        subdir = subdir if subdir == "" else subdir + "/"
+        section_name = self.Dir(subdir).tpath
         # if the section name is in the hash table?
         # i.e. is it part of the SCU build?
         global _scu_folders
@@ -267,34 +236,6 @@ def get_version_info(module_version_string="", silent=False):
             pass
 
     return version_info
-
-
-def parse_cg_file(fname, uniforms, sizes, conditionals):
-    with open(fname, "r", encoding="utf-8") as fs:
-        line = fs.readline()
-
-        while line:
-            if re.match(r"^\s*uniform", line):
-                res = re.match(r"uniform ([\d\w]*) ([\d\w]*)")
-                type = res.groups(1)
-                name = res.groups(2)
-
-                uniforms.append(name)
-
-                if type.find("texobj") != -1:
-                    sizes.append(1)
-                else:
-                    t = re.match(r"float(\d)x(\d)", type)
-                    if t:
-                        sizes.append(int(t.groups(1)) * int(t.groups(2)))
-                    else:
-                        t = re.match(r"float(\d)", type)
-                        sizes.append(int(t.groups(1)))
-
-                if line.find("[branch]") != -1:
-                    conditionals.append(name)
-
-            line = fs.readline()
 
 
 def get_cmdline_bool(option, default):
@@ -555,40 +496,7 @@ def detect_visual_c_compiler_version(tools_env):
     vc_chosen_compiler_index = -1
     vc_chosen_compiler_str = ""
 
-    # Start with Pre VS 2017 checks which uses VCINSTALLDIR:
-    if "VCINSTALLDIR" in tools_env:
-        # print("Checking VCINSTALLDIR")
-
-        # find() works with -1 so big ifs below are needed... the simplest solution, in fact
-        # First test if amd64 and amd64_x86 compilers are present in the path
-        vc_amd64_compiler_detection_index = tools_env["PATH"].find(tools_env["VCINSTALLDIR"] + "BIN\\amd64;")
-        if vc_amd64_compiler_detection_index > -1:
-            vc_chosen_compiler_index = vc_amd64_compiler_detection_index
-            vc_chosen_compiler_str = "amd64"
-
-        vc_amd64_x86_compiler_detection_index = tools_env["PATH"].find(tools_env["VCINSTALLDIR"] + "BIN\\amd64_x86;")
-        if vc_amd64_x86_compiler_detection_index > -1 and (
-            vc_chosen_compiler_index == -1 or vc_chosen_compiler_index > vc_amd64_x86_compiler_detection_index
-        ):
-            vc_chosen_compiler_index = vc_amd64_x86_compiler_detection_index
-            vc_chosen_compiler_str = "amd64_x86"
-
-        # Now check the 32 bit compilers
-        vc_x86_compiler_detection_index = tools_env["PATH"].find(tools_env["VCINSTALLDIR"] + "BIN;")
-        if vc_x86_compiler_detection_index > -1 and (
-            vc_chosen_compiler_index == -1 or vc_chosen_compiler_index > vc_x86_compiler_detection_index
-        ):
-            vc_chosen_compiler_index = vc_x86_compiler_detection_index
-            vc_chosen_compiler_str = "x86"
-
-        vc_x86_amd64_compiler_detection_index = tools_env["PATH"].find(tools_env["VCINSTALLDIR"] + "BIN\\x86_amd64;")
-        if vc_x86_amd64_compiler_detection_index > -1 and (
-            vc_chosen_compiler_index == -1 or vc_chosen_compiler_index > vc_x86_amd64_compiler_detection_index
-        ):
-            vc_chosen_compiler_index = vc_x86_amd64_compiler_detection_index
-            vc_chosen_compiler_str = "x86_amd64"
-
-    # and for VS 2017 and newer we check VCTOOLSINSTALLDIR:
+    # VS 2017 and newer should set VCTOOLSINSTALLDIR
     if "VCTOOLSINSTALLDIR" in tools_env:
         # Newer versions have a different path available
         vc_amd64_compiler_detection_index = (
