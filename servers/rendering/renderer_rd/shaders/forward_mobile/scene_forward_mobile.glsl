@@ -1241,13 +1241,8 @@ void main() {
 	if (scene_data.use_ambient_light) {
 		ambient_light = scene_data.ambient_light_color_energy.rgb;
 
-<<<<<<< HEAD
-		if (scene_data.use_ambient_cubemap) {
-			vec3 ambient_dir = scene_data.radiance_inverse_xform * indirect_normal;
-=======
 		if (sc_scene_use_ambient_cubemap()) {
 			vec3 ambient_dir = scene_data.radiance_inverse_xform * normal;
->>>>>>> upstream/master
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
 			vec3 cubemap_ambient = texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ambient_dir, MAX_ROUGHNESS_LOD)).rgb;
 #else
@@ -1415,26 +1410,10 @@ void main() {
 		vec3 ref_vec = normalize(reflect(-view, bent_normal));
 		ref_vec = mix(ref_vec, bent_normal, roughness * roughness);
 
-<<<<<<< HEAD
-		for (uint i = 0; i < 8; i++) {
-			uint reflection_index = reflection_indices & 0xFF;
-			if (i == 3) {
-				reflection_indices = instances.data[draw_call.instance_index].reflection_probes.y;
-			} else {
-				reflection_indices = reflection_indices >> 8;
-			}
-
-			if (reflection_index == 0xFF) {
-				break;
-			}
-
-			reflection_process(reflection_index, vertex, ref_vec, bent_normal, roughness, ambient_light, indirect_specular_light, ambient_accum, reflection_accum);
-=======
 		uvec2 reflection_indices = instances.data[draw_call.instance_index].reflection_probes;
 		for (uint i = 0; i < sc_reflection_probes(); i++) {
 			uint reflection_index = (i > 3) ? ((reflection_indices.y >> ((i - 4) * 8)) & 0xFF) : ((reflection_indices.x >> (i * 8)) & 0xFF);
-			reflection_process(reflection_index, vertex, ref_vec, bent_normal, roughness, ambient_light, specular_light, ambient_accum, reflection_accum);
->>>>>>> upstream/master
+			reflection_process(reflection_index, vertex, ref_vec, bent_normal, roughness, ambient_light, indirect_specular_light, ambient_accum, reflection_accum);
 		}
 
 		if (reflection_accum.a > 0.0) {
@@ -1500,7 +1479,7 @@ void main() {
 #if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED)
 #ifdef USE_VERTEX_LIGHTING
 	diffuse_light += diffuse_light_interp.rgb;
-	specular_light += specular_light_interp.rgb * f0;
+	indirect_specular_light += specular_light_interp.rgb * f0;
 #endif
 
 	if (sc_directional_lights() > 0) {
@@ -1614,7 +1593,7 @@ void main() {
 
 #ifdef USE_VERTEX_LIGHTING
 				diffuse_light *= mix(1.0, shadow, diffuse_light_interp.a);
-				specular_light *= mix(1.0, shadow, specular_light_interp.a);
+				indirect_specular_light *= mix(1.0, shadow, specular_light_interp.a);
 #endif
 #undef BIAS_FUNC
 			}
@@ -1731,7 +1710,7 @@ void main() {
 				tangent,
 				binormal, anisotropy,
 #endif
-				diffuse_light, specular_light);
+				diffuse_light, direct_specular_light);
 	}
 
 	uvec2 spot_indices = instances.data[draw_call.instance_index].spot_lights;
@@ -1767,14 +1746,8 @@ void main() {
 				tangent,
 				binormal, anisotropy,
 #endif
-<<<<<<< HEAD
-					diffuse_light, direct_specular_light);
-		}
-	} //spot lights
-=======
-				diffuse_light, specular_light);
+				diffuse_light, direct_specular_light);
 	}
->>>>>>> upstream/master
 #endif // !VERTEX_LIGHTING
 
 #endif //!defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED)
