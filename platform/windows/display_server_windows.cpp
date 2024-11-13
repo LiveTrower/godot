@@ -2849,6 +2849,10 @@ Error DisplayServerWindows::embed_process(WindowID p_window, OS::ProcessID p_pid
 		}
 	}
 
+	if (p_rect.size.x < 100 || p_rect.size.y < 100) {
+		p_visible = false;
+	}
+
 	// In Godot, the window position is offset by the screen's origin coordinates.
 	// We need to adjust for this when a screen is positioned in the negative space
 	// (e.g., a screen to the left of the main screen).

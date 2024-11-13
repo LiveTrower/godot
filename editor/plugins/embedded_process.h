@@ -44,6 +44,7 @@ class EmbeddedProcess : public Control {
 	bool _embedding_completed = false;
 	uint64_t _start_embedding_time = 0;
 	bool _updated_embedded_process_queued = false;
+	bool _last_updated_embedded_process_focused = false;
 
 	Window *_window = nullptr;
 	Timer *_timer_embedding = nullptr;

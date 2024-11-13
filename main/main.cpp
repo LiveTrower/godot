@@ -657,7 +657,7 @@ void Main::print_help(const char *p_binary) {
 	print_help_option("--delta-smoothing <enable>", "Enable or disable frame delta smoothing [\"enable\", \"disable\"].\n");
 	print_help_option("--print-fps", "Print the frames per second to the stdout.\n");
 #ifdef TOOLS_ENABLED
-	print_help_option("--editor-pseudolocalization", "Enable pseudolocalization for the editor and the project manager.\n", CLI_OPTION_AVAILABILITY_EDITOR);
+	print_help_option("--editor-pseudolocalization", "Enable pseudolocalization for the editor and the project manager.\n");
 #endif
 
 	print_help_title("Standalone tools");
@@ -1821,7 +1821,7 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 
 		} else if (arg == "--hidden") {
 			init_hidden = true;
-		
+
 		} else if (arg == "--" || arg == "++") {
 			adding_user_args = true;
 		} else {

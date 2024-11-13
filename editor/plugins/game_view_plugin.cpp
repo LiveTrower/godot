@@ -33,6 +33,8 @@
 #include "core/config/project_settings.h"
 #include "core/debugger/debugger_marshalls.h"
 #include "editor/debugger/editor_debugger_node.h"
+#include "editor/editor_command_palette.h"
+#include "editor/editor_interface.h"
 #include "editor/editor_main_screen.h"
 #include "editor/editor_node.h"
 #include "editor/editor_settings.h"
@@ -193,6 +195,10 @@ void GameView::_sessions_changed() {
 }
 
 void GameView::_instance_starting(int p_idx, Array p_arguments) {
+	if (p_idx == 0 && make_floating_on_play && !window_wrapper->get_window_enabled()) {
+		_open_floating_window();
+	}
+
 	_update_arguments_for_instance(p_idx, p_arguments);
 }
 
@@ -202,15 +208,17 @@ void GameView::_play_pressed() {
 		return;
 	}
 
-	screen_index_before_start = EditorNode::get_singleton()->get_editor_main_screen()->get_selected_index();
+	if (!window_wrapper->get_window_enabled()) {
+		screen_index_before_start = EditorNode::get_singleton()->get_editor_main_screen()->get_selected_index();
+	}
 
-	if (embedded_button->is_pressed()) {
+	if (embed_on_play) {
 		// It's important to disable the low power mode when unfocused because otherwise
 		// the button in the editor are not responsive and if the user moves the mouse quickly,
 		// the mouse clicks are not registered.
 		EditorNode::get_singleton()->set_unfocused_low_processor_usage_mode_enabled(false);
 		_update_embed_window_size();
-		if (auto_focus_button->is_pressed() || EditorNode::get_singleton()->get_editor_main_screen()->get_selected_index() == EditorMainScreen::EDITOR_GAME) {
+		if (!window_wrapper->get_window_enabled()) {
 			EditorNode::get_singleton()->get_editor_main_screen()->select(EditorMainScreen::EDITOR_GAME);
 			embedded_process->grab_focus();
 		}
@@ -223,6 +231,10 @@ void GameView::_stop_pressed() {
 	EditorNode::get_singleton()->set_unfocused_low_processor_usage_mode_enabled(true);
 	embedded_process->reset();
 	_update_ui();
+
+	if (close_floating_on_stop && window_wrapper->get_window_enabled()) {
+		window_wrapper->set_window_enabled(false);
+	}
 
 	if (screen_index_before_start >= 0 && EditorNode::get_singleton()->get_editor_main_screen()->get_selected_index() == EditorMainScreen::EDITOR_GAME) {
 		// We go back to the screen where the user was before starting the game.
@@ -290,23 +302,25 @@ void GameView::_select_mode_pressed(int p_option) {
 	debugger->set_select_mode(mode);
 }
 
-void GameView::_embedded_button_pressed() {
-	EditorSettings::get_singleton()->set_project_metadata("game_view", "embedded", embedded_button->is_pressed());
-
-	if (EditorRunBar::get_singleton()->is_playing()) {
-		screen_index_before_start = -1;
-		EditorRunBar::get_singleton()->restart();
+void GameView::_embed_options_menu_menu_id_pressed(int p_id) {
+	switch (p_id) {
+		case EMBED_RUN_GAME_EMBEDDED: {
+			embed_on_play = !embed_on_play;
+			EditorSettings::get_singleton()->set_project_metadata("game_view", "embed_on_play", true);
+		} break;
+		case EMBED_MAKE_FLOATING_ON_PLAY: {
+			make_floating_on_play = !make_floating_on_play;
+			EditorSettings::get_singleton()->set_project_metadata("game_view", "make_floating_on_play", false);
+		} break;
+		case EMBED_CLOSE_FLOATING_ON_STOP: {
+			close_floating_on_stop = !close_floating_on_stop;
+			EditorSettings::get_singleton()->set_project_metadata("game_view", "close_floating_on_stop", false);
+		} break;
 	}
-
-	_update_ui();
-}
-
-void GameView::_auto_focus_button_pressed() {
-	EditorSettings::get_singleton()->set_project_metadata("game_view", "auto_focus", auto_focus_button->is_pressed());
+	_update_embed_menu_options();
 }
 
 void GameView::_keep_aspect_button_pressed() {
-	EditorSettings::get_singleton()->set_project_metadata("game_view", "keep_aspect", keep_aspect_button->is_pressed());
 	embedded_process->set_keep_aspect(keep_aspect_button->is_pressed());
 }
 
@@ -319,11 +333,18 @@ void GameView::_update_ui() {
 		state_label->set_text(TTR("Game starting..."));
 	} else if (EditorRunBar::get_singleton()->is_playing()) {
 		state_label->set_text(TTR("Game running not embedded."));
-	} else if (embedded_button->is_pressed()) {
+	} else if (embed_on_play) {
 		state_label->set_text(TTR("Press play to start the game."));
 	} else {
 		state_label->set_text(TTR("Embedding is disabled."));
 	}
+}
+
+void GameView::_update_embed_menu_options() {
+	PopupMenu *menu = embed_options_menu->get_popup();
+	menu->set_item_checked(menu->get_item_index(EMBED_RUN_GAME_EMBEDDED), embed_on_play);
+	menu->set_item_checked(menu->get_item_index(EMBED_MAKE_FLOATING_ON_PLAY), make_floating_on_play);
+	menu->set_item_checked(menu->get_item_index(EMBED_CLOSE_FLOATING_ON_STOP), close_floating_on_stop);
 }
 
 void GameView::_update_embed_window_size() {
@@ -398,11 +419,8 @@ void GameView::_notification(int p_what) {
 			select_mode_button[RuntimeNodeSelect::SELECT_MODE_LIST]->set_button_icon(get_editor_theme_icon(SNAME("ListSelect")));
 
 			hide_selection->set_button_icon(get_editor_theme_icon(hide_selection->is_pressed() ? SNAME("GuiVisibilityHidden") : SNAME("GuiVisibilityVisible")));
-			embedded_button->set_button_icon(get_editor_theme_icon(SNAME("EmbeddedProcess")));
-			auto_focus_button->set_button_icon(get_editor_theme_icon(SNAME("AutoFocus")));
 			keep_aspect_button->set_button_icon(get_editor_theme_icon(SNAME("KeepAspect")));
-
-			hide_selection->set_button_icon(get_editor_theme_icon(hide_selection->is_pressed() ? SNAME("GuiVisibilityHidden") : SNAME("GuiVisibilityVisible")));
+			embed_options_menu->set_button_icon(get_editor_theme_icon(SNAME("GuiTabMenuHl")));
 
 			camera_override_button->set_button_icon(get_editor_theme_icon(SNAME("Camera")));
 			camera_override_menu->set_button_icon(get_editor_theme_icon(SNAME("GuiTabMenuHl")));
@@ -411,9 +429,11 @@ void GameView::_notification(int p_what) {
 		case NOTIFICATION_READY: {
 			if (DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_WINDOW_EMBEDDING)) {
 				// Embedding available.
-				embedded_button->set_pressed(EditorSettings::get_singleton()->get_project_metadata("game_view", "embedded", true));
-				auto_focus_button->set_pressed(EditorSettings::get_singleton()->get_project_metadata("game_view", "auto_focus", true));
+				embed_on_play = EditorSettings::get_singleton()->get_project_metadata("game_view", "embed_on_play", true);
+				make_floating_on_play = EditorSettings::get_singleton()->get_project_metadata("game_view", "make_floating_on_play", true);
+				close_floating_on_stop = EditorSettings::get_singleton()->get_project_metadata("game_view", "close_floating_on_stop", true);
 				keep_aspect_button->set_pressed(EditorSettings::get_singleton()->get_project_metadata("game_view", "keep_aspect", true));
+				_update_embed_menu_options();
 
 				EditorRunBar::get_singleton()->connect("play_pressed", callable_mp(this, &GameView::_play_pressed));
 				EditorRunBar::get_singleton()->connect("instance_starting", callable_mp(this, &GameView::_instance_starting));
@@ -426,13 +446,17 @@ void GameView::_notification(int p_what) {
 			} else {
 				// Embedding not available.
 				embedding_separator->hide();
-				embedded_button->hide();
-				auto_focus_button->hide();
+				embed_options_menu->hide();
 				keep_aspect_button->hide();
 				keep_aspect_button->hide();
 			}
 
 			_update_ui();
+		} break;
+		case NOTIFICATION_WM_POSITION_CHANGED: {
+			if (window_wrapper->get_window_enabled()) {
+				_update_floating_window_settings();
+			}
 		} break;
 	}
 }
@@ -472,8 +496,40 @@ Dictionary GameView::get_state() const {
 	return d;
 }
 
+void GameView::set_window_layout(Ref<ConfigFile> p_layout) {
+	bool floating_enabled = p_layout->get_value("GameView", "floating_window_enabled", false);
+	if (floating_enabled && (!EDITOR_GET("interface/multi_window/restore_windows_on_load") || !window_wrapper->is_window_available())) {
+		floating_enabled = false;
+	}
+
+	floating_window_rect = p_layout->get_value("GameView", "floating_window_rect", Rect2i());
+	floating_window_screen = p_layout->get_value("GameView", "floating_window_screen", -1);
+	floating_window_screen_rect = p_layout->get_value("GameView", "floating_window_screen_rect", Rect2i());
+
+	if (floating_enabled && floating_window_rect != Rect2i()) {
+		_open_floating_window();
+	}
+}
+
+void GameView::get_window_layout(Ref<ConfigFile> p_layout) {
+	if (window_wrapper->get_window_enabled()) {
+		_update_floating_window_settings();
+	}
+
+	p_layout->set_value("GameView", "floating_window_enabled", window_wrapper->get_window_enabled());
+	p_layout->set_value("GameView", "floating_window_rect", floating_window_rect);
+	p_layout->set_value("GameView", "floating_window_screen", floating_window_screen);
+	p_layout->set_value("GameView", "floating_window_screen_rect", floating_window_screen_rect);
+}
+
+void GameView::_update_floating_window_settings() {
+	floating_window_rect = window_wrapper->get_window_rect();
+	floating_window_screen = window_wrapper->get_window_screen();
+	floating_window_screen_rect = DisplayServer::get_singleton()->screen_get_usable_rect(floating_window_screen);
+}
+
 void GameView::_update_arguments_for_instance(int p_idx, Array p_arguments) {
-	if (p_idx != 0 || !embedded_button->is_pressed() || !DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_WINDOW_EMBEDDING)) {
+	if (p_idx != 0 || !embed_on_play || !DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_WINDOW_EMBEDDING)) {
 		return;
 	}
 
@@ -508,10 +564,6 @@ void GameView::_update_arguments_for_instance(int p_idx, Array p_arguments) {
 	p_arguments.push_back("--wid");
 	p_arguments.push_back(itos(DisplayServer::get_singleton()->window_get_native_handle(DisplayServer::WINDOW_HANDLE, get_window()->get_window_id())));
 
-	if (!embedded_process->is_visible_in_tree() && !auto_focus_button->is_pressed()) {
-		p_arguments.push_back("--hidden");
-	}
-
 	// Be sure to have the correct window size in the embedded_process control.
 	_update_embed_window_size();
 
@@ -522,9 +574,42 @@ void GameView::_update_arguments_for_instance(int p_idx, Array p_arguments) {
 	p_arguments.push_back(itos(rect.size.x) + "x" + itos(rect.size.y));
 }
 
-GameView::GameView(Ref<GameViewDebugger> p_debugger) {
+void GameView::_window_changed(bool p_visible) {
+	make_floating->set_visible(!p_visible);
+	_update_embed_menu_options();
+
+	if (!p_visible && EditorRunBar::get_singleton()->is_playing() && (embedded_process->is_embedding_completed() || embedded_process->is_embedding_in_progress())) {
+		EditorRunBar::get_singleton()->stop_playing();
+	}
+}
+
+void GameView::_request_open_in_screen(int p_screen, bool p_auto_scale) {
+	if (EditorRunBar::get_singleton()->is_playing()) {
+		requested_screen = p_screen;
+		requested_auto_scale = p_auto_scale;
+		make_floating_confirm->popup_centered();
+	} else {
+		_open_floating_window(p_screen, p_auto_scale);
+	}
+}
+
+void GameView::_confirm_open_make_floating() {
+	_open_floating_window(requested_screen, requested_auto_scale);
+	EditorRunBar::get_singleton()->restart();
+}
+
+void GameView::_open_floating_window(int p_screen, bool p_auto_scale) {
+	if (p_screen == -1 || p_screen == floating_window_screen) {
+		window_wrapper->restore_window_from_saved_position(floating_window_rect, floating_window_screen, floating_window_screen_rect);
+	} else {
+		window_wrapper->enable_window_on_screen(p_screen, p_auto_scale);
+	}
+}
+
+GameView::GameView(Ref<GameViewDebugger> p_debugger, WindowWrapper *p_wrapper) {
 	singleton = this;
 	debugger = p_debugger;
+	window_wrapper = p_wrapper;
 
 	// Add some margin to the sides for better aesthetics.
 	// This prevents the first button's hover/pressed effect from "touching" the panel's border,
@@ -635,26 +720,36 @@ GameView::GameView(Ref<GameViewDebugger> p_debugger) {
 	embedding_separator = memnew(VSeparator);
 	main_menu_hbox->add_child(embedding_separator);
 
-	embedded_button = memnew(Button);
-	main_menu_hbox->add_child(embedded_button);
-	embedded_button->set_toggle_mode(true);
-	embedded_button->set_theme_type_variation("FlatButton");
-	embedded_button->set_tooltip_text(TTR("Embed the game process within the editor."));
-	embedded_button->connect(SceneStringName(pressed), callable_mp(this, &GameView::_embedded_button_pressed));
-
-	auto_focus_button = memnew(Button);
-	main_menu_hbox->add_child(auto_focus_button);
-	auto_focus_button->set_toggle_mode(true);
-	auto_focus_button->set_theme_type_variation("FlatButton");
-	auto_focus_button->set_tooltip_text(TTR("Focus the game view when the project runs."));
-	auto_focus_button->connect(SceneStringName(pressed), callable_mp(this, &GameView::_auto_focus_button_pressed));
-
 	keep_aspect_button = memnew(Button);
 	main_menu_hbox->add_child(keep_aspect_button);
 	keep_aspect_button->set_toggle_mode(true);
 	keep_aspect_button->set_theme_type_variation("FlatButton");
 	keep_aspect_button->set_tooltip_text(TTR("Keep the aspect ratio of the embedded game."));
 	keep_aspect_button->connect(SceneStringName(pressed), callable_mp(this, &GameView::_keep_aspect_button_pressed));
+
+	embed_options_menu = memnew(MenuButton);
+	main_menu_hbox->add_child(embed_options_menu);
+	embed_options_menu->set_flat(false);
+	embed_options_menu->set_theme_type_variation("FlatMenuButton");
+	embed_options_menu->set_h_size_flags(SIZE_SHRINK_END);
+	embed_options_menu->set_tooltip_text(TTR("Embedding Options"));
+
+	menu = embed_options_menu->get_popup();
+	menu->connect(SceneStringName(id_pressed), callable_mp(this, &GameView::_embed_options_menu_menu_id_pressed));
+	menu->add_check_item(TTR("Embed game on Play"), EMBED_RUN_GAME_EMBEDDED);
+	menu->add_check_item(TTR("Make Game View floating on Play"), EMBED_MAKE_FLOATING_ON_PLAY);
+	menu->add_check_item(TTR("Close Game View on Stop"), EMBED_CLOSE_FLOATING_ON_STOP);
+
+	main_menu_hbox->add_spacer();
+
+	make_floating = memnew(ScreenSelect);
+	make_floating->set_flat(true);
+	make_floating->connect("request_open_in_screen", callable_mp(this, &GameView::_request_open_in_screen).bind(true));
+	if (!make_floating->is_disabled()) {
+		// Override default ScreenSelect tooltip if multi-window support is available.
+		make_floating->set_tooltip_text(TTR("Make the Game view floating.\nRight-click to open the screen selector."));
+	}
+	main_menu_hbox->add_child(make_floating);
 
 	panel = memnew(Panel);
 	add_child(panel);
@@ -674,10 +769,17 @@ GameView::GameView(Ref<GameViewDebugger> p_debugger) {
 	state_label->set_autowrap_mode(TextServer::AUTOWRAP_WORD);
 	state_label->set_anchors_and_offsets_preset(PRESET_FULL_RECT);
 
+	make_floating_confirm = memnew(ConfirmationDialog);
+	add_child(make_floating_confirm);
+	make_floating_confirm->set_text(TTR("Game is currently curring, it needs to be restarted to enable floating. Do you want to restart the game?"));
+	make_floating_confirm->connect(SceneStringName(confirmed), callable_mp(this, &GameView::_confirm_open_make_floating));
+
 	_update_debugger_buttons();
 
 	p_debugger->connect("session_started", callable_mp(this, &GameView::_sessions_changed));
 	p_debugger->connect("session_stopped", callable_mp(this, &GameView::_sessions_changed));
+
+	p_wrapper->connect("window_visibility_changed", callable_mp(this, &GameView::_window_changed));
 }
 
 GameView::~GameView() {
@@ -687,7 +789,24 @@ GameView::~GameView() {
 ///////
 
 void GameViewPlugin::make_visible(bool p_visible) {
-	game_view->set_visible(p_visible);
+	if (p_visible) {
+		window_wrapper->show();
+	} else {
+		window_wrapper->hide();
+	}
+}
+
+void GameViewPlugin::selected_notify() {
+	window_wrapper->grab_window_focus();
+	_focus_another_editor();
+}
+
+void GameViewPlugin::set_window_layout(Ref<ConfigFile> p_layout) {
+	game_view->set_window_layout(p_layout);
+}
+
+void GameViewPlugin::get_window_layout(Ref<ConfigFile> p_layout) {
+	game_view->get_window_layout(p_layout);
 }
 
 void GameViewPlugin::set_state(const Dictionary &p_state) {
@@ -702,20 +821,49 @@ void GameViewPlugin::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE: {
 			add_debugger_plugin(debugger);
+			connect("main_screen_changed", callable_mp(this, &GameViewPlugin::_save_last_editor));
 		} break;
 		case NOTIFICATION_EXIT_TREE: {
 			remove_debugger_plugin(debugger);
+			disconnect("main_screen_changed", callable_mp(this, &GameViewPlugin::_save_last_editor));
 		} break;
 	}
 }
 
+void GameViewPlugin::_window_visibility_changed(bool p_visible) {
+	_focus_another_editor();
+}
+
+void GameViewPlugin::_save_last_editor(const String &p_editor) {
+	if (p_editor != get_name()) {
+		last_editor = p_editor;
+	}
+}
+
+void GameViewPlugin::_focus_another_editor() {
+	if (window_wrapper->get_window_enabled()) {
+		ERR_FAIL_COND(last_editor.is_empty());
+		EditorInterface::get_singleton()->set_main_screen_editor(last_editor);
+	}
+}
+
 GameViewPlugin::GameViewPlugin() {
+	window_wrapper = memnew(WindowWrapper);
+	window_wrapper->set_window_title(vformat(TTR("%s - Godot Engine"), TTR("Game View")));
+	window_wrapper->set_margins_enabled(true);
+
 	debugger.instantiate();
 
-	game_view = memnew(GameView(debugger));
+	game_view = memnew(GameView(debugger, window_wrapper));
 	game_view->set_v_size_flags(Control::SIZE_EXPAND_FILL);
-	EditorNode::get_singleton()->get_editor_main_screen()->get_control()->add_child(game_view);
-	game_view->hide();
+
+	Ref<Shortcut> make_floating_shortcut = ED_SHORTCUT_AND_COMMAND("game_view/make_floating", TTR("Make Floating"));
+	window_wrapper->set_wrapped_control(game_view, make_floating_shortcut);
+
+	EditorNode::get_singleton()->get_editor_main_screen()->get_control()->add_child(window_wrapper);
+	window_wrapper->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+	window_wrapper->hide();
+	window_wrapper->connect("window_visibility_changed", callable_mp(this, &GameViewPlugin::_window_visibility_changed));
 }
 
 GameViewPlugin::~GameViewPlugin() {

@@ -142,11 +142,9 @@ void WindowWrapper::_notification(int p_what) {
 	}
 	switch (p_what) {
 		case NOTIFICATION_VISIBILITY_CHANGED: {
-			if (get_window_enabled() && is_visible()) {
-				// Grab the focus when WindowWrapper.set_visible(true) is called
-				// and the window is showing.
-				window->grab_focus();
-			}
+			// Grab the focus when WindowWrapper.set_visible(true) is called
+			// and the window is showing.
+			grab_window_focus();
 		} break;
 		case NOTIFICATION_READY: {
 			set_process_shortcut_input(true);
@@ -311,6 +309,12 @@ void WindowWrapper::set_margins_enabled(bool p_enabled) {
 
 		window->add_child(margins);
 		margins->set_anchors_and_offsets_preset(PRESET_FULL_RECT);
+	}
+}
+
+void WindowWrapper::grab_window_focus() {
+	if (get_window_enabled() && is_visible()) {
+		window->grab_focus();
 	}
 }
 
