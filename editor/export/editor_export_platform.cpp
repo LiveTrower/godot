@@ -59,6 +59,17 @@ static int _get_pad(int p_alignment, int p_n) {
 	return pad;
 }
 
+template <typename T>
+static bool _has_pack_path(const T &p_paths, const String &p_path) {
+	for (const String &E : p_paths) {
+		if (E.simplify_path().trim_prefix("res://") == p_path) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 #define PCK_PADDING 16
 
 bool EditorExportPlatform::fill_log_messages(RichTextLabel *p_log, Error p_err) {
@@ -210,21 +221,23 @@ Error EditorExportPlatform::_save_pack_file(void *p_userdata, const String &p_pa
 
 	PackData *pd = (PackData *)p_userdata;
 
+	String simplified_path = p_path.simplify_path();
+
 	SavedData sd;
-	sd.path_utf8 = p_path.utf8();
+	sd.path_utf8 = simplified_path.trim_prefix("res://").utf8();
 	sd.ofs = pd->f->get_position();
 	sd.size = p_data.size();
 	sd.encrypted = false;
 
 	for (int i = 0; i < p_enc_in_filters.size(); ++i) {
-		if (p_path.matchn(p_enc_in_filters[i]) || p_path.replace("res://", "").matchn(p_enc_in_filters[i])) {
+		if (simplified_path.matchn(p_enc_in_filters[i]) || simplified_path.trim_prefix("res://").matchn(p_enc_in_filters[i])) {
 			sd.encrypted = true;
 			break;
 		}
 	}
 
 	for (int i = 0; i < p_enc_ex_filters.size(); ++i) {
-		if (p_path.matchn(p_enc_ex_filters[i]) || p_path.replace("res://", "").matchn(p_enc_ex_filters[i])) {
+		if (simplified_path.matchn(p_enc_ex_filters[i]) || simplified_path.trim_prefix("res://").matchn(p_enc_ex_filters[i])) {
 			sd.encrypted = false;
 			break;
 		}
@@ -982,10 +995,10 @@ Error EditorExportPlatform::_export_project_files(const Ref<EditorExportPreset> 
 	ScriptCallbackData data;
 	data.file_cb = p_save_func;
 	data.so_cb = p_so_func;
-	return export_project_files(p_preset, p_debug, _script_save_file, &data, _script_add_shared_object);
+	return export_project_files(p_preset, p_debug, _script_save_file, nullptr, &data, _script_add_shared_object);
 }
 
-Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &p_preset, bool p_debug, EditorExportSaveFunction p_func, void *p_udata, EditorExportSaveSharedObject p_so_func) {
+Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &p_preset, bool p_debug, EditorExportSaveFunction p_save_func, EditorExportRemoveFunction p_remove_func, void *p_udata, EditorExportSaveSharedObject p_so_func) {
 	//figure out paths of files that will be exported
 	HashSet<String> paths;
 	Vector<String> path_remaps;
@@ -1101,6 +1114,7 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 
 	Error err = OK;
 	Vector<Ref<EditorExportPlugin>> export_plugins = EditorExport::get_singleton()->get_export_plugins();
+	Vector<String> extra_paths;
 
 	struct SortByName {
 		bool operator()(const Ref<EditorExportPlugin> &left, const Ref<EditorExportPlugin> &right) const {
@@ -1125,6 +1139,8 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 			if (err != OK) {
 				return err;
 			}
+
+			extra_paths.push_back(export_plugins[i]->extra_files[j].path);
 		}
 
 		export_plugins.write[i]->_clear();
@@ -1246,6 +1262,8 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 					path_remaps.push_back(path);
 					path_remaps.push_back(export_plugins[i]->extra_files[j].path);
 				}
+
+				extra_paths.push_back(export_plugins[i]->extra_files[j].path);
 			}
 
 			if (export_plugins[i]->skipped) {
@@ -1378,6 +1396,7 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 				Vector<uint8_t> sarr;
 				sarr.resize(cs.size());
 				memcpy(sarr.ptrw(), cs.ptr(), sarr.size());
+
 				err = p_save_func(p_udata, path + ".import", sarr, idx, total, enc_in_filters, enc_ex_filters, key, seed);
 
 				if (err != OK) {
@@ -1524,6 +1543,29 @@ Error EditorExportPlatform::_pack_add_shared_object(void *p_userdata, const Shar
 	return OK;
 }
 
+Error EditorExportPlatform::_remove_pack_file(void *p_userdata, const String &p_path) {
+	PackData *pd = (PackData *)p_userdata;
+
+	SavedData sd;
+	sd.path_utf8 = p_path.utf8();
+	sd.ofs = pd->f->get_position();
+	sd.size = 0;
+	sd.removal = true;
+
+	// This padding will likely never be added, as we should already be aligned when removals are added.
+	int pad = _get_pad(PCK_PADDING, pd->f->get_position());
+	for (int i = 0; i < pad; i++) {
+		pd->f->store_8(0);
+	}
+
+	sd.md5.resize(16);
+	sd.md5.fill(0);
+
+	pd->file_ofs.push_back(sd);
+
+	return OK;
+}
+
 Error EditorExportPlatform::_zip_add_shared_object(void *p_userdata, const SharedObject &p_so) {
 	ZipData *zip_data = (ZipData *)p_userdata;
 	if (zip_data->so_files) {
@@ -1654,7 +1696,7 @@ Dictionary EditorExportPlatform::_save_pack(const Ref<EditorExportPreset> &p_pre
 	Vector<SharedObject> so_files;
 	int64_t embedded_start = 0;
 	int64_t embedded_size = 0;
-	Error err_code = save_pack(p_preset, p_debug, p_path, &so_files, nullptr, p_embed, &embedded_start, &embedded_size);
+	Error err_code = save_pack(p_preset, p_debug, p_path, &so_files, nullptr, nullptr, p_embed, &embedded_start, &embedded_size);
 
 	Dictionary ret;
 	ret["result"] = err_code;
@@ -1740,7 +1782,7 @@ Dictionary EditorExportPlatform::_save_zip_patch(const Ref<EditorExportPreset> &
 	return ret;
 }
 
-Error EditorExportPlatform::save_pack(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, Vector<SharedObject> *p_so_files, EditorExportSaveFunction p_save_func, bool p_embed, int64_t *r_embedded_start, int64_t *r_embedded_size) {
+Error EditorExportPlatform::save_pack(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, Vector<SharedObject> *p_so_files, EditorExportSaveFunction p_save_func, EditorExportRemoveFunction p_remove_func, bool p_embed, int64_t *r_embedded_start, int64_t *r_embedded_size) {
 	EditorProgress ep("savepack", TTR("Packing"), 102, true);
 
 	if (p_save_func == nullptr) {
@@ -1763,7 +1805,7 @@ Error EditorExportPlatform::save_pack(const Ref<EditorExportPreset> &p_preset, b
 	pd.f = ftmp;
 	pd.so_files = p_so_files;
 
-	Error err = export_project_files(p_preset, p_debug, p_save_func, &pd, _pack_add_shared_object);
+	Error err = export_project_files(p_preset, p_debug, p_save_func, p_remove_func, &pd, _pack_add_shared_object);
 
 	// Close temp file.
 	pd.f.unref();
@@ -1930,6 +1972,9 @@ Error EditorExportPlatform::save_pack(const Ref<EditorExportPreset> &p_preset, b
 		if (pd.file_ofs[i].encrypted) {
 			flags |= PACK_FILE_ENCRYPTED;
 		}
+		if (pd.file_ofs[i].removal) {
+			flags |= PACK_FILE_REMOVAL;
+		}
 		fhead->store_32(flags);
 	}
 
@@ -1998,7 +2043,7 @@ Error EditorExportPlatform::save_pack(const Ref<EditorExportPreset> &p_preset, b
 }
 
 Error EditorExportPlatform::save_pack_patch(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, Vector<SharedObject> *p_so_files, bool p_embed, int64_t *r_embedded_start, int64_t *r_embedded_size) {
-	return save_pack(p_preset, p_debug, p_path, p_so_files, _save_pack_patch_file, p_embed, r_embedded_start, r_embedded_size);
+	return save_pack(p_preset, p_debug, p_path, p_so_files, _save_pack_patch_file, _remove_pack_file, p_embed, r_embedded_start, r_embedded_size);
 }
 
 Error EditorExportPlatform::save_zip(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, Vector<SharedObject> *p_so_files, EditorExportSaveFunction p_save_func) {
@@ -2019,7 +2064,7 @@ Error EditorExportPlatform::save_zip(const Ref<EditorExportPreset> &p_preset, bo
 	zd.zip = zip;
 	zd.so_files = p_so_files;
 
-	Error err = export_project_files(p_preset, p_debug, p_save_func, &zd, _zip_add_shared_object);
+	Error err = export_project_files(p_preset, p_debug, p_save_func, nullptr, &zd, _zip_add_shared_object);
 	if (err != OK && err != ERR_SKIP) {
 		add_message(EXPORT_MESSAGE_ERROR, TTR("Save ZIP"), TTR("Failed to export project files."));
 	}

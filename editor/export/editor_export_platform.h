@@ -83,6 +83,7 @@ private:
 		uint64_t ofs = 0;
 		uint64_t size = 0;
 		bool encrypted = false;
+		bool removal = false;
 		Vector<uint8_t> md5;
 		CharString path_utf8;
 
@@ -290,7 +291,7 @@ public:
 	Array get_current_presets() const;
 
 	Error _export_project_files(const Ref<EditorExportPreset> &p_preset, bool p_debug, const Callable &p_save_func, const Callable &p_so_func);
-	Error export_project_files(const Ref<EditorExportPreset> &p_preset, bool p_debug, EditorExportSaveFunction p_func, void *p_udata, EditorExportSaveSharedObject p_so_func = nullptr);
+	Error export_project_files(const Ref<EditorExportPreset> &p_preset, bool p_debug, EditorExportSaveFunction p_save_func, EditorExportRemoveFunction p_remove_func, void *p_udata, EditorExportSaveSharedObject p_so_func = nullptr);
 
 	Dictionary _save_pack(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, bool p_embed = false);
 	Dictionary _save_zip(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path);
@@ -298,7 +299,7 @@ public:
 	Dictionary _save_pack_patch(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path);
 	Dictionary _save_zip_patch(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path);
 
-	Error save_pack(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, Vector<SharedObject> *p_so_files = nullptr, EditorExportSaveFunction p_save_func = nullptr, bool p_embed = false, int64_t *r_embedded_start = nullptr, int64_t *r_embedded_size = nullptr);
+	Error save_pack(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, Vector<SharedObject> *p_so_files = nullptr, EditorExportSaveFunction p_save_func = nullptr, EditorExportRemoveFunction p_remove_func = nullptr, bool p_embed = false, int64_t *r_embedded_start = nullptr, int64_t *r_embedded_size = nullptr);
 	Error save_zip(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, Vector<SharedObject> *p_so_files = nullptr, EditorExportSaveFunction p_save_func = nullptr);
 
 	Error save_pack_patch(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, Vector<SharedObject> *p_so_files = nullptr, bool p_embed = false, int64_t *r_embedded_start = nullptr, int64_t *r_embedded_size = nullptr);
