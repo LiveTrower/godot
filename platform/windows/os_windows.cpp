@@ -43,6 +43,7 @@
 #include "drivers/windows/dir_access_windows.h"
 #include "drivers/windows/file_access_windows.h"
 #include "drivers/windows/file_access_windows_pipe.h"
+#include "drivers/windows/ip_windows.h"
 #include "drivers/windows/net_socket_winsock.h"
 #include "main/main.h"
 #include "servers/audio_server.h"
@@ -69,6 +70,7 @@
 extern "C" {
 __declspec(dllexport) DWORD NvOptimusEnablement = 1;
 __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+__declspec(dllexport) void NoHotPatch() {} // Disable Nahimic code injection.
 }
 
 // Workaround mingw-w64 < 4.0 bug
@@ -274,7 +276,7 @@ void OS_Windows::initialize() {
 	current_pi.pi.hProcess = GetCurrentProcess();
 	process_map->insert(GetCurrentProcessId(), current_pi);
 
-	IPUnix::make_default();
+	IPWindows::make_default();
 	main_loop = nullptr;
 
 	HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown **>(&dwrite_factory));
@@ -815,10 +817,22 @@ double OS_Windows::get_unix_time() const {
 }
 
 void OS_Windows::delay_usec(uint32_t p_usec) const {
-	if (p_usec < 1000) {
-		Sleep(1);
-	} else {
-		Sleep(p_usec / 1000);
+	constexpr uint32_t tolerance = 1000 + 20;
+
+	uint64_t t0 = get_ticks_usec();
+	uint64_t target_time = t0 + p_usec;
+
+	// Calculate sleep duration with a tolerance for fine-tuning.
+	if (p_usec > tolerance) {
+		uint32_t coarse_sleep_usec = p_usec - tolerance;
+		if (coarse_sleep_usec >= 1000) {
+			Sleep(coarse_sleep_usec / 1000);
+		}
+	}
+
+	// Spin-wait until we reach the precise target time.
+	while (get_ticks_usec() < target_time) {
+		YieldProcessor();
 	}
 }
 
@@ -986,7 +1000,7 @@ Dictionary OS_Windows::execute_with_pipe(const String &p_path, const List<String
 	pi.si.StartupInfo.hStdOutput = pipe_out[1];
 	pi.si.StartupInfo.hStdError = pipe_err[1];
 
-	size_t attr_list_size = 0;
+	SIZE_T attr_list_size = 0;
 	InitializeProcThreadAttributeList(nullptr, 1, 0, &attr_list_size);
 	pi.si.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)alloca(attr_list_size);
 	if (!InitializeProcThreadAttributeList(pi.si.lpAttributeList, 1, 0, &attr_list_size)) {
@@ -1082,7 +1096,7 @@ Error OS_Windows::execute(const String &p_path, const List<String> &p_arguments,
 			pi.si.StartupInfo.hStdError = pipe[1];
 		}
 
-		size_t attr_list_size = 0;
+		SIZE_T attr_list_size = 0;
 		InitializeProcThreadAttributeList(nullptr, 1, 0, &attr_list_size);
 		pi.si.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)alloca(attr_list_size);
 		if (!InitializeProcThreadAttributeList(pi.si.lpAttributeList, 1, 0, &attr_list_size)) {
