@@ -293,35 +293,6 @@ void EditorRunBar::play_custom_scene(const String &p_custom) {
 	_run_scene(p_custom);
 }
 
-void EditorRunBar::restart() {
-	if (!is_playing()) {
-		return;
-	}
-
-	RunMode last_current_mode = current_mode;
-	String last_run_custom_filename = run_custom_filename;
-	String last_run_current_filename = run_current_filename;
-
-	stop_playing();
-
-	switch (last_current_mode) {
-		case RunMode::RUN_MAIN: {
-			_run_scene();
-		} break;
-		case RunMode::RUN_CUSTOM: {
-			play_custom_scene(last_run_custom_filename);
-		} break;
-		case RunMode::RUN_CURRENT: {
-			_run_scene(last_run_current_filename);
-		} break;
-		case RunMode::STOPPED: {
-			// Nothing to do.
-		} break;
-	}
-
-	current_mode = last_current_mode;
-}
-
 void EditorRunBar::stop_playing() {
 	if (editor_run.get_status() == EditorRun::STATUS_STOP) {
 		return;

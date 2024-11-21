@@ -88,12 +88,9 @@ class GameView : public VBoxContainer {
 		CAMERA_MODE_INGAME,
 		CAMERA_MODE_EDITORS,
 		EMBED_RUN_GAME_EMBEDDED,
-		EMBED_MAKE_FLOATING_ON_PLAY,
-		EMBED_CLOSE_FLOATING_ON_STOP,
-		EMBED_AUTO_FOCUS_ON_PLAY
+		EMBED_MAKE_FLOATING_ON_PLAY
 	};
 
-	static GameView *singleton;
 	Ref<GameViewDebugger> debugger;
 	WindowWrapper *window_wrapper = nullptr;
 
@@ -102,11 +99,6 @@ class GameView : public VBoxContainer {
 
 	bool embed_on_play = true;
 	bool make_floating_on_play = true;
-	bool close_floating_on_stop = true;
-	bool auto_focus_on_play = true;
-
-	int requested_screen = 0;
-	bool requested_auto_scale = false;
 
 	Rect2i floating_window_rect;
 	int floating_window_screen = -1;
@@ -132,8 +124,6 @@ class GameView : public VBoxContainer {
 	Panel *panel = nullptr;
 	EmbeddedProcess *embedded_process = nullptr;
 	Label *state_label = nullptr;
-
-	ConfirmationDialog *make_floating_confirm = nullptr;
 
 	void _sessions_changed();
 
@@ -163,10 +153,7 @@ class GameView : public VBoxContainer {
 	void _camera_override_button_toggled(bool p_pressed);
 	void _camera_override_menu_id_pressed(int p_id);
 
-	void _open_floating_window(int p_screen = -1, bool p_auto_scale = true);
-	void _request_open_in_screen(int p_screen, bool p_auto_scale);
-	void _confirm_open_make_floating();
-	void _window_changed(bool p_visible);
+	void _window_before_closing();
 	void _update_floating_window_settings();
 
 protected:
@@ -176,13 +163,10 @@ public:
 	void set_state(const Dictionary &p_state);
 	Dictionary get_state() const;
 
-	static GameView *get_singleton();
-
 	void set_window_layout(Ref<ConfigFile> p_layout);
 	void get_window_layout(Ref<ConfigFile> p_layout);
 
 	GameView(Ref<GameViewDebugger> p_debugger, WindowWrapper *p_wrapper);
-	~GameView();
 };
 
 class GameViewPlugin : public EditorPlugin {

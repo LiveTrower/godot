@@ -2895,7 +2895,9 @@ void DisplayServerX11::window_set_flag(WindowFlags p_flag, bool p_enabled, Windo
 			}
 
 			// Preserve window size
-			window_set_size(window_get_size(p_window), p_window);
+			if(!wd.embed_parent) {
+				window_set_size(window_get_size(p_window), p_window);
+			}
 
 			wd.borderless = p_enabled;
 			_update_window_mouse_passthrough(p_window);

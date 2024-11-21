@@ -101,6 +101,12 @@ void WindowWrapper::_set_window_enabled_with_rect(bool p_visible, const Rect2 p_
 
 	Node *parent = _get_wrapped_control_parent();
 
+	// In the GameView plugin, we need to the the signal before the window is actually closed
+	// to prevent the embedded game to be seen the parent window for a fraction of a second.
+	if (!p_visible) {
+		emit_signal("window_before_closing");
+	}
+
 	if (wrapped_control->get_parent() != parent) {
 		// Move the control to the window.
 		wrapped_control->reparent(parent, false);
@@ -131,9 +137,15 @@ void WindowWrapper::_set_window_rect(const Rect2 p_rect) {
 	}
 }
 
+void WindowWrapper::_window_size_changed() {
+	emit_signal("window_size_changed");
+}
+
 void WindowWrapper::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("window_visibility_changed", PropertyInfo(Variant::BOOL, "visible")));
 	ADD_SIGNAL(MethodInfo("window_close_requested"));
+	ADD_SIGNAL(MethodInfo("window_before_closing"));
+	ADD_SIGNAL(MethodInfo("window_size_changed"));
 }
 
 void WindowWrapper::_notification(int p_what) {
@@ -330,6 +342,7 @@ WindowWrapper::WindowWrapper() {
 	window->hide();
 
 	window->connect("close_requested", callable_mp(this, &WindowWrapper::set_window_enabled).bind(false));
+	window->connect("size_changed", callable_mp(this, &WindowWrapper::_window_size_changed));
 
 	ShortcutBin *capturer = memnew(ShortcutBin);
 	window->add_child(capturer);

@@ -96,7 +96,6 @@ public:
 	void play_main_scene(bool p_from_native = false);
 	void play_current_scene(bool p_reload = false);
 	void play_custom_scene(const String &p_custom);
-	void restart();
 
 	void stop_playing();
 	bool is_playing() const;

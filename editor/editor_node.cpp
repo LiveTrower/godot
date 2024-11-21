@@ -2165,7 +2165,7 @@ void EditorNode::_dialog_action(String p_file) {
 			}
 
 			if (ml.is_null()) {
-				ml = Ref<MeshLibrary>(memnew(MeshLibrary));
+				ml.instantiate();
 			}
 
 			MeshLibraryEditor::update_library_file(editor_data.get_edited_scene_root(), ml, merge_with_existing_library, apply_mesh_instance_transforms);
@@ -7712,24 +7712,28 @@ EditorNode::EditorNode() {
 
 	disk_changed = memnew(ConfirmationDialog);
 	{
-		disk_changed->set_title(TTR("Files have been modified on disk"));
+		disk_changed->set_title(TTR("Files have been modified outside Godot"));
 
 		VBoxContainer *vbc = memnew(VBoxContainer);
 		disk_changed->add_child(vbc);
 
 		Label *dl = memnew(Label);
-		dl->set_text(TTR("The following files are newer on disk.\nWhat action should be taken?"));
+		dl->set_text(TTR("The following files are newer on disk:"));
 		vbc->add_child(dl);
 
 		disk_changed_list = memnew(Tree);
 		vbc->add_child(disk_changed_list);
 		disk_changed_list->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 
+		Label *what_action_label = memnew(Label);
+		what_action_label->set_text(TTR("What action should be taken?"));
+		vbc->add_child(what_action_label);
+
 		disk_changed->connect(SceneStringName(confirmed), callable_mp(this, &EditorNode::_reload_modified_scenes));
 		disk_changed->connect(SceneStringName(confirmed), callable_mp(this, &EditorNode::_reload_project_settings));
-		disk_changed->set_ok_button_text(TTR("Discard local changes and reload"));
+		disk_changed->set_ok_button_text(TTR("Reload from disk"));
 
-		disk_changed->add_button(TTR("Keep local changes and overwrite"), !DisplayServer::get_singleton()->get_swap_cancel_ok(), "resave");
+		disk_changed->add_button(TTR("Ignore external changes"), !DisplayServer::get_singleton()->get_swap_cancel_ok(), "resave");
 		disk_changed->connect("custom_action", callable_mp(this, &EditorNode::_resave_scenes));
 	}
 

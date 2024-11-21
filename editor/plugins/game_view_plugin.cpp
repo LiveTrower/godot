@@ -175,12 +175,6 @@ void GameViewDebugger::_bind_methods() {
 
 ///////
 
-GameView *GameView::singleton = nullptr;
-
-GameView *GameView::get_singleton() {
-	return singleton;
-}
-
 void GameView::_sessions_changed() {
 	// The debugger session's `session_started/stopped` signal can be unreliable, so count it manually.
 	active_sessions = 0;
@@ -195,8 +189,8 @@ void GameView::_sessions_changed() {
 }
 
 void GameView::_instance_starting(int p_idx, Array p_arguments) {
-	if (p_idx == 0 && make_floating_on_play && !window_wrapper->get_window_enabled()) {
-		_open_floating_window();
+	if (p_idx == 0 && embed_on_play && make_floating_on_play && !window_wrapper->get_window_enabled() && EditorNode::get_singleton()->is_multi_window_enabled()) {
+		window_wrapper->restore_window_from_saved_position(floating_window_rect, floating_window_screen, floating_window_screen_rect);
 	}
 
 	_update_arguments_for_instance(p_idx, p_arguments);
@@ -232,7 +226,7 @@ void GameView::_stop_pressed() {
 	embedded_process->reset();
 	_update_ui();
 
-	if (close_floating_on_stop && window_wrapper->get_window_enabled()) {
+	if (window_wrapper->get_window_enabled()) {
 		window_wrapper->set_window_enabled(false);
 	}
 
@@ -306,15 +300,11 @@ void GameView::_embed_options_menu_menu_id_pressed(int p_id) {
 	switch (p_id) {
 		case EMBED_RUN_GAME_EMBEDDED: {
 			embed_on_play = !embed_on_play;
-			EditorSettings::get_singleton()->set_project_metadata("game_view", "embed_on_play", true);
+			EditorSettings::get_singleton()->set_project_metadata("game_view", "embed_on_play", embed_on_play);
 		} break;
 		case EMBED_MAKE_FLOATING_ON_PLAY: {
 			make_floating_on_play = !make_floating_on_play;
-			EditorSettings::get_singleton()->set_project_metadata("game_view", "make_floating_on_play", false);
-		} break;
-		case EMBED_CLOSE_FLOATING_ON_STOP: {
-			close_floating_on_stop = !close_floating_on_stop;
-			EditorSettings::get_singleton()->set_project_metadata("game_view", "close_floating_on_stop", false);
+			EditorSettings::get_singleton()->set_project_metadata("game_view", "make_floating_on_play", make_floating_on_play);
 		} break;
 	}
 	_update_embed_menu_options();
@@ -344,7 +334,9 @@ void GameView::_update_embed_menu_options() {
 	PopupMenu *menu = embed_options_menu->get_popup();
 	menu->set_item_checked(menu->get_item_index(EMBED_RUN_GAME_EMBEDDED), embed_on_play);
 	menu->set_item_checked(menu->get_item_index(EMBED_MAKE_FLOATING_ON_PLAY), make_floating_on_play);
-	menu->set_item_checked(menu->get_item_index(EMBED_CLOSE_FLOATING_ON_STOP), close_floating_on_stop);
+
+	// When embed is Off or in single window mode, Make floating is not available.
+	menu->set_item_disabled(menu->get_item_index(EMBED_MAKE_FLOATING_ON_PLAY), !embed_on_play || !EditorNode::get_singleton()->is_multi_window_enabled());
 }
 
 void GameView::_update_embed_window_size() {
@@ -431,7 +423,6 @@ void GameView::_notification(int p_what) {
 				// Embedding available.
 				embed_on_play = EditorSettings::get_singleton()->get_project_metadata("game_view", "embed_on_play", true);
 				make_floating_on_play = EditorSettings::get_singleton()->get_project_metadata("game_view", "make_floating_on_play", true);
-				close_floating_on_stop = EditorSettings::get_singleton()->get_project_metadata("game_view", "close_floating_on_stop", true);
 				keep_aspect_button->set_pressed(EditorSettings::get_singleton()->get_project_metadata("game_view", "keep_aspect", true));
 				_update_embed_menu_options();
 
@@ -497,18 +488,9 @@ Dictionary GameView::get_state() const {
 }
 
 void GameView::set_window_layout(Ref<ConfigFile> p_layout) {
-	bool floating_enabled = p_layout->get_value("GameView", "floating_window_enabled", false);
-	if (floating_enabled && (!EDITOR_GET("interface/multi_window/restore_windows_on_load") || !window_wrapper->is_window_available())) {
-		floating_enabled = false;
-	}
-
 	floating_window_rect = p_layout->get_value("GameView", "floating_window_rect", Rect2i());
 	floating_window_screen = p_layout->get_value("GameView", "floating_window_screen", -1);
 	floating_window_screen_rect = p_layout->get_value("GameView", "floating_window_screen_rect", Rect2i());
-
-	if (floating_enabled && floating_window_rect != Rect2i()) {
-		_open_floating_window();
-	}
 }
 
 void GameView::get_window_layout(Ref<ConfigFile> p_layout) {
@@ -516,16 +498,17 @@ void GameView::get_window_layout(Ref<ConfigFile> p_layout) {
 		_update_floating_window_settings();
 	}
 
-	p_layout->set_value("GameView", "floating_window_enabled", window_wrapper->get_window_enabled());
 	p_layout->set_value("GameView", "floating_window_rect", floating_window_rect);
 	p_layout->set_value("GameView", "floating_window_screen", floating_window_screen);
 	p_layout->set_value("GameView", "floating_window_screen_rect", floating_window_screen_rect);
 }
 
 void GameView::_update_floating_window_settings() {
-	floating_window_rect = window_wrapper->get_window_rect();
-	floating_window_screen = window_wrapper->get_window_screen();
-	floating_window_screen_rect = DisplayServer::get_singleton()->screen_get_usable_rect(floating_window_screen);
+	if (window_wrapper->get_window_enabled()) {
+		floating_window_rect = window_wrapper->get_window_rect();
+		floating_window_screen = window_wrapper->get_window_screen();
+		floating_window_screen_rect = DisplayServer::get_singleton()->screen_get_usable_rect(floating_window_screen);
+	}
 }
 
 void GameView::_update_arguments_for_instance(int p_idx, Array p_arguments) {
@@ -558,7 +541,6 @@ void GameView::_update_arguments_for_instance(int p_idx, Array p_arguments) {
 	p_arguments.erase("--maximized");
 	p_arguments.erase("-t");
 	p_arguments.erase("--always-on-top");
-	p_arguments.erase("--hidden");
 
 	// Add the editor window's native ID so the started game can directly set it as its parent.
 	p_arguments.push_back("--wid");
@@ -574,40 +556,18 @@ void GameView::_update_arguments_for_instance(int p_idx, Array p_arguments) {
 	p_arguments.push_back(itos(rect.size.x) + "x" + itos(rect.size.y));
 }
 
-void GameView::_window_changed(bool p_visible) {
-	make_floating->set_visible(!p_visible);
-	_update_embed_menu_options();
-
-	if (!p_visible && EditorRunBar::get_singleton()->is_playing() && (embedded_process->is_embedding_completed() || embedded_process->is_embedding_in_progress())) {
-		EditorRunBar::get_singleton()->stop_playing();
-	}
-}
-
-void GameView::_request_open_in_screen(int p_screen, bool p_auto_scale) {
-	if (EditorRunBar::get_singleton()->is_playing()) {
-		requested_screen = p_screen;
-		requested_auto_scale = p_auto_scale;
-		make_floating_confirm->popup_centered();
-	} else {
-		_open_floating_window(p_screen, p_auto_scale);
-	}
-}
-
-void GameView::_confirm_open_make_floating() {
-	_open_floating_window(requested_screen, requested_auto_scale);
-	EditorRunBar::get_singleton()->restart();
-}
-
-void GameView::_open_floating_window(int p_screen, bool p_auto_scale) {
-	if (p_screen == -1 || p_screen == floating_window_screen) {
-		window_wrapper->restore_window_from_saved_position(floating_window_rect, floating_window_screen, floating_window_screen_rect);
-	} else {
-		window_wrapper->enable_window_on_screen(p_screen, p_auto_scale);
+void GameView::_window_before_closing() {
+	// Before the parent window closed, we close the embedded game. That prevents
+	// the embedded game to be seen without a parent window for a fraction of second.
+	if (EditorRunBar::get_singleton()->is_playing() && (embedded_process->is_embedding_completed() || embedded_process->is_embedding_in_progress())) {
+		embedded_process->reset();
+		// Call deferred to prevent the _stop_pressed callback to be executed before the wrapper window
+		// actually closes.
+		callable_mp(EditorRunBar::get_singleton(), &EditorRunBar::stop_playing).call_deferred();
 	}
 }
 
 GameView::GameView(Ref<GameViewDebugger> p_debugger, WindowWrapper *p_wrapper) {
-	singleton = this;
 	debugger = p_debugger;
 	window_wrapper = p_wrapper;
 
@@ -737,19 +697,7 @@ GameView::GameView(Ref<GameViewDebugger> p_debugger, WindowWrapper *p_wrapper) {
 	menu = embed_options_menu->get_popup();
 	menu->connect(SceneStringName(id_pressed), callable_mp(this, &GameView::_embed_options_menu_menu_id_pressed));
 	menu->add_check_item(TTR("Embed game on Play"), EMBED_RUN_GAME_EMBEDDED);
-	menu->add_check_item(TTR("Make Game View floating on Play"), EMBED_MAKE_FLOATING_ON_PLAY);
-	menu->add_check_item(TTR("Close Game View on Stop"), EMBED_CLOSE_FLOATING_ON_STOP);
-
-	main_menu_hbox->add_spacer();
-
-	make_floating = memnew(ScreenSelect);
-	make_floating->set_flat(true);
-	make_floating->connect("request_open_in_screen", callable_mp(this, &GameView::_request_open_in_screen).bind(true));
-	if (!make_floating->is_disabled()) {
-		// Override default ScreenSelect tooltip if multi-window support is available.
-		make_floating->set_tooltip_text(TTR("Make the Game view floating.\nRight-click to open the screen selector."));
-	}
-	main_menu_hbox->add_child(make_floating);
+	menu->add_check_item(TTR("Make Game Workspace floating on Play"), EMBED_MAKE_FLOATING_ON_PLAY);
 
 	panel = memnew(Panel);
 	add_child(panel);
@@ -761,6 +709,7 @@ GameView::GameView(Ref<GameViewDebugger> p_debugger, WindowWrapper *p_wrapper) {
 	embedded_process->set_anchors_and_offsets_preset(PRESET_FULL_RECT);
 	embedded_process->connect(SNAME("embedding_failed"), callable_mp(this, &GameView::_embedding_failed));
 	embedded_process->connect(SNAME("embedding_completed"), callable_mp(this, &GameView::_embedding_completed));
+	embedded_process->set_custom_minimum_size(Size2i(100, 100));
 
 	state_label = memnew(Label());
 	panel->add_child(state_label);
@@ -769,21 +718,13 @@ GameView::GameView(Ref<GameViewDebugger> p_debugger, WindowWrapper *p_wrapper) {
 	state_label->set_autowrap_mode(TextServer::AUTOWRAP_WORD);
 	state_label->set_anchors_and_offsets_preset(PRESET_FULL_RECT);
 
-	make_floating_confirm = memnew(ConfirmationDialog);
-	add_child(make_floating_confirm);
-	make_floating_confirm->set_text(TTR("Game is currently curring, it needs to be restarted to enable floating. Do you want to restart the game?"));
-	make_floating_confirm->connect(SceneStringName(confirmed), callable_mp(this, &GameView::_confirm_open_make_floating));
-
 	_update_debugger_buttons();
 
 	p_debugger->connect("session_started", callable_mp(this, &GameView::_sessions_changed));
 	p_debugger->connect("session_stopped", callable_mp(this, &GameView::_sessions_changed));
 
-	p_wrapper->connect("window_visibility_changed", callable_mp(this, &GameView::_window_changed));
-}
-
-GameView::~GameView() {
-	singleton = nullptr;
+	p_wrapper->connect("window_before_closing", callable_mp(this, &GameView::_window_before_closing));
+	p_wrapper->connect("window_size_changed", callable_mp(this, &GameView::_update_floating_window_settings));
 }
 
 ///////
@@ -797,8 +738,10 @@ void GameViewPlugin::make_visible(bool p_visible) {
 }
 
 void GameViewPlugin::selected_notify() {
-	window_wrapper->grab_window_focus();
-	_focus_another_editor();
+	if (window_wrapper->get_window_enabled()) {
+		window_wrapper->grab_window_focus();
+		_focus_another_editor();
+	}
 }
 
 void GameViewPlugin::set_window_layout(Ref<ConfigFile> p_layout) {
@@ -849,7 +792,7 @@ void GameViewPlugin::_focus_another_editor() {
 
 GameViewPlugin::GameViewPlugin() {
 	window_wrapper = memnew(WindowWrapper);
-	window_wrapper->set_window_title(vformat(TTR("%s - Godot Engine"), TTR("Game View")));
+	window_wrapper->set_window_title(vformat(TTR("%s - Godot Engine"), TTR("Game Workspace")));
 	window_wrapper->set_margins_enabled(true);
 
 	debugger.instantiate();
@@ -857,8 +800,7 @@ GameViewPlugin::GameViewPlugin() {
 	game_view = memnew(GameView(debugger, window_wrapper));
 	game_view->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 
-	Ref<Shortcut> make_floating_shortcut = ED_SHORTCUT_AND_COMMAND("game_view/make_floating", TTR("Make Floating"));
-	window_wrapper->set_wrapped_control(game_view, make_floating_shortcut);
+	window_wrapper->set_wrapped_control(game_view, nullptr);
 
 	EditorNode::get_singleton()->get_editor_main_screen()->get_control()->add_child(window_wrapper);
 	window_wrapper->set_v_size_flags(Control::SIZE_EXPAND_FILL);
