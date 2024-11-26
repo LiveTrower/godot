@@ -1377,6 +1377,13 @@ void SSEffects::screen_space_reflection(Ref<RenderSceneBuffersRD> p_render_buffe
 
 	RID default_sampler = material_storage->sampler_rd_get_default(RS::CANVAS_ITEM_TEXTURE_FILTER_LINEAR, RS::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
 
+	Projection correction = Projection::create_depth_correction(false);
+	Projection corrected[RendererSceneRender::MAX_RENDER_VIEWS], corrected_inverse[RendererSceneRender::MAX_RENDER_VIEWS];
+	for (uint32_t v = 0; v < view_count; v++) {
+		corrected[v] = correction * p_projections[v];
+		corrected_inverse[v] = corrected[v].inverse();
+	}
+
 	{
 		// Store some scene data in a UBO, in the near future we will use a UBO shared with other shaders
 		ScreenSpaceReflectionSceneData scene_data;
@@ -1386,8 +1393,8 @@ void SSEffects::screen_space_reflection(Ref<RenderSceneBuffersRD> p_render_buffe
 		}
 
 		for (uint32_t v = 0; v < view_count; v++) {
-			store_camera(p_projections[v], scene_data.projection[v]);
-			store_camera(p_projections[v].inverse(), scene_data.inv_projection[v]);
+			store_camera(corrected[v], scene_data.projection[v]);
+			store_camera(corrected_inverse[v], scene_data.inv_projection[v]);
 			scene_data.eye_offset[v][0] = p_eye_offsets[v].x;
 			scene_data.eye_offset[v][1] = p_eye_offsets[v].y;
 			scene_data.eye_offset[v][2] = p_eye_offsets[v].z;
@@ -1425,10 +1432,7 @@ void SSEffects::screen_space_reflection(Ref<RenderSceneBuffersRD> p_render_buffe
 			RD::get_singleton()->draw_command_begin_label("SSR Scale");
 
 			ScreenSpaceReflectionScalePushConstant push_constant;
-			push_constant.view_index = v;
-			push_constant.camera_z_far = p_projections[v].get_z_far();
-			push_constant.camera_z_near = p_projections[v].get_z_near();
-			push_constant.orthogonal = p_projections[v].is_orthogonal();
+			store_camera(corrected_inverse[v], push_constant.inv_projection);
 			push_constant.filter = false; // Enabling causes artifacts.
 			push_constant.screen_size[0] = p_ssr_buffers.size.x;
 			push_constant.screen_size[1] = p_ssr_buffers.size.y;
@@ -1464,20 +1468,12 @@ void SSEffects::screen_space_reflection(Ref<RenderSceneBuffersRD> p_render_buffe
 
 			ScreenSpaceReflectionPushConstant push_constant;
 			push_constant.view_index = v;
-			push_constant.camera_z_far = p_projections[v].get_z_far();
-			push_constant.camera_z_near = p_projections[v].get_z_near();
-			push_constant.orthogonal = p_projections[v].is_orthogonal();
 			push_constant.screen_size[0] = p_ssr_buffers.size.x;
 			push_constant.screen_size[1] = p_ssr_buffers.size.y;
 			push_constant.curve_fade_in = p_fade_in;
 			push_constant.distance_fade = p_fade_out;
 			push_constant.num_steps = p_max_steps;
 			push_constant.depth_tolerance = p_tolerance;
-			push_constant.use_half_res = true;
-			push_constant.proj_info[0] = -2.0f / (p_ssr_buffers.size.width * p_projections[v].columns[0][0]);
-			push_constant.proj_info[1] = -2.0f / (p_ssr_buffers.size.height * p_projections[v].columns[1][1]);
-			push_constant.proj_info[2] = (1.0f - p_projections[v].columns[0][2]) / p_projections[v].columns[0][0];
-			push_constant.proj_info[3] = (1.0f + p_projections[v].columns[1][2]) / p_projections[v].columns[1][1];
 
 			ScreenSpaceReflectionMode mode = (ssr_roughness_quality != RS::ENV_SSR_ROUGHNESS_QUALITY_DISABLED) ? SCREEN_SPACE_REFLECTION_ROUGH : SCREEN_SPACE_REFLECTION_NORMAL;
 			RID shader = ssr.shader.version_get_shader(ssr.shader_version, mode);
@@ -1523,7 +1519,6 @@ void SSEffects::screen_space_reflection(Ref<RenderSceneBuffersRD> p_render_buffe
 
 			ScreenSpaceReflectionFilterPushConstant push_constant;
 			push_constant.view_index = v;
-			push_constant.orthogonal = p_projections[v].is_orthogonal();
 			push_constant.edge_tolerance = Math::sin(Math::deg_to_rad(15.0));
 			push_constant.proj_info[0] = -2.0f / (p_ssr_buffers.size.width * p_projections[v].columns[0][0]);
 			push_constant.proj_info[1] = -2.0f / (p_ssr_buffers.size.height * p_projections[v].columns[1][1]);
@@ -1638,18 +1633,25 @@ void SSEffects::sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffer
 	p.normal /= p.d;
 	float unit_size = p.normal.x;
 
+	Projection correction;
+	correction.set_depth_correction(false);
+	Projection temp = correction * p_camera;
+
 	{ //scale color and depth to half
 		RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
 
-		sss.push_constant.camera_z_far = p_camera.get_z_far();
-		sss.push_constant.camera_z_near = p_camera.get_z_near();
-		sss.push_constant.orthogonal = p_camera.is_orthogonal();
+		sss.push_constant.proj_zw[0][0] = temp[2][2];
+		sss.push_constant.proj_zw[0][1] = temp[2][3];
+		sss.push_constant.proj_zw[1][0] = temp[3][2];
+		sss.push_constant.proj_zw[1][1] = temp[3][3];
 		sss.push_constant.unit_size = unit_size;
 		sss.push_constant.screen_size[0] = p_screen_size.x;
 		sss.push_constant.screen_size[1] = p_screen_size.y;
 		sss.push_constant.vertical = false;
 		sss.push_constant.scale = sss_scale;
 		sss.push_constant.depth_scale = sss_depth_scale;
+		constexpr int taa_phase_count = 16;
+		sss.push_constant.taa_frame_count = (RSG::rasterizer->get_frame_number() % taa_phase_count) / float(taa_phase_count);
 
 		RID shader = sss.shader.version_get_shader(sss.shader_version, sss_quality - 1);
 		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, sss.pipelines[sss_quality - 1]);

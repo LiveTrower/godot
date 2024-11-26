@@ -6,6 +6,8 @@
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
+#define M_PI 3.14159265359
+
 #ifdef USE_25_SAMPLES
 const int kernel_size = 13;
 
@@ -89,16 +91,15 @@ const vec4 skin_kernel[kernel_size] = vec4[](
 
 layout(push_constant, std430) uniform Params {
 	ivec2 screen_size;
-	float camera_z_far;
-	float camera_z_near;
-
 	bool vertical;
-	bool orthogonal;
 	float unit_size;
-	float scale;
 
+	float proj_zw[2][2]; // Bottom-right 2x2 corner of the projection matrix with reverse-z and z-remap applied
+
+	float scale;
 	float depth_scale;
-	uint pad[3];
+	float taa_frame_count;
+	uint pad[5];
 }
 params;
 
@@ -106,11 +107,20 @@ layout(set = 0, binding = 0) uniform sampler2D source_image;
 layout(rgba16f, set = 1, binding = 0) uniform restrict writeonly image2D dest_image;
 layout(set = 2, binding = 0) uniform sampler2D source_depth;
 
+// Interleaved Gradient Noise
+// https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
+float quick_hash(vec2 pos) {
+	const vec3 magic = vec3(0.06711056f, 0.00583715f, 52.9829189f);
+	return fract(magic.z * fract(dot(pos, magic.xy)));
+}
+
 void do_filter(inout vec3 color_accum, inout vec3 divisor, vec2 uv, vec2 step, bool p_skin) {
 	// Accumulate the other samples:
 	for (int i = 1; i < kernel_size; i++) {
 		// Fetch color and depth for current sample:
-		vec2 offset = uv + kernel[i].y * step;
+		//float dither = quick_hash((uv * params.screen_size) + vec2(params.taa_frame_count * 5.588238));
+		float dither = quick_hash(uv * params.screen_size);
+		vec2 offset = uv + dither * (kernel[i].y * step);
 		vec4 color = texture(source_image, offset);
 
 		if (abs(color.a) < 0.001) {
@@ -148,16 +158,9 @@ void main() {
 		vec2 dir = params.vertical ? vec2(0.0, 1.0) : vec2(1.0, 0.0);
 
 		// Fetch linear depth of current pixel:
-		float depth = texture(source_depth, uv).r * 2.0 - 1.0;
-		float depth_scale;
-
-		if (params.orthogonal) {
-			depth = ((depth + (params.camera_z_far + params.camera_z_near) / (params.camera_z_far - params.camera_z_near)) * (params.camera_z_far - params.camera_z_near)) / 2.0;
-			depth_scale = params.unit_size; //remember depth is negative by default in OpenGL
-		} else {
-			depth = 2.0 * params.camera_z_near * params.camera_z_far / (params.camera_z_far + params.camera_z_near - depth * (params.camera_z_far - params.camera_z_near));
-			depth_scale = params.unit_size / depth; //remember depth is negative by default in OpenGL
-		}
+		float depth = texture(source_depth, uv).r;
+		depth = (params.proj_zw[1][0] - params.proj_zw[1][1] * depth) / (params.proj_zw[0][1] * depth - params.proj_zw[0][0]);
+		float depth_scale = params.unit_size / (params.proj_zw[0][1] * depth + params.proj_zw[1][1]);
 
 		float scale = mix(params.scale, depth_scale, params.depth_scale);
 
