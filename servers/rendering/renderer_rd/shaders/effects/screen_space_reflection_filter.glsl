@@ -18,7 +18,7 @@ layout(r32f, set = 3, binding = 0) uniform restrict readonly image2D source_dept
 
 layout(push_constant, std430) uniform Params {
 	vec4 proj_info;
-	
+
 	uint pad;
 	float edge_tolerance;
 	int increment;
@@ -67,7 +67,7 @@ float gauss_weight(float p_val) {
 vec3 reconstructCSPosition(vec2 screen_pos, float view_z) {
 	if (sc_multiview) {
 		screen_pos = screen_pos / vec2(params.screen_size) * 2.0 - 1.0;
-		vec4 ndc = vec4(screen_pos,	z_ndc_from_view(screen_pos, view_z), 1.0);
+		vec4 ndc = vec4(screen_pos, z_ndc_from_view(screen_pos, view_z), 1.0);
 		vec4 view = scene_data.inv_projection[params.view_index] * ndc;
 		return view.xyz / view.w;
 	} else {

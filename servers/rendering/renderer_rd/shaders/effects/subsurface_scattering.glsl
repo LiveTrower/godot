@@ -6,8 +6,6 @@
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-#define M_PI 3.14159265359
-
 #ifdef USE_25_SAMPLES
 const int kernel_size = 13;
 

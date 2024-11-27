@@ -20,7 +20,7 @@ layout(rgba8, set = 3, binding = 1) uniform restrict writeonly image2D dest_norm
 
 layout(push_constant, std430) uniform Params {
 	mat4 inv_projection;
-	
+
 	ivec2 screen_size;
 	bool filtered;
 	uint pad;
@@ -64,7 +64,7 @@ void main() {
 			}
 			roughness /= (127.0 / 255.0);
 			normal.w += roughness;
-			
+
 			// Store linear depth
 			if (sc_multiview) {
 				vec4 dh = params.inv_projection * vec4((vec2(ofs) + 0.5) / vec2(params.screen_size) * 2.0 - 1.0, d, 1.0);

@@ -80,7 +80,7 @@ void main() {
 	}
 
 	vec3 view_dir;
-	
+
 	if (sc_multiview) {
 		view_dir = normalize(vertex_view + scene_data.eye_offset[params.view_index].xyz);
 	} else {

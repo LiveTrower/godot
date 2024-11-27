@@ -487,19 +487,10 @@ void SSEffects::downsample_depth(Ref<RenderSceneBuffersRD> p_render_buffers, uin
 	correction.set_depth_correction(false);
 	Projection temp = correction * p_projection;
 
-	float depth_linearize_mul = -temp.columns[3][2];
-	float depth_linearize_add = temp.columns[2][2];
-	if (depth_linearize_mul * depth_linearize_add < 0) {
-		depth_linearize_add = -depth_linearize_add;
-	}
-
-	ss_effects.downsample_push_constant.orthogonal = p_projection.is_orthogonal();
-	ss_effects.downsample_push_constant.z_near = depth_linearize_mul;
-	ss_effects.downsample_push_constant.z_far = depth_linearize_add;
-	if (ss_effects.downsample_push_constant.orthogonal) {
-		ss_effects.downsample_push_constant.z_near = p_projection.get_z_near();
-		ss_effects.downsample_push_constant.z_far = p_projection.get_z_far();
-	}
+	ss_effects.downsample_push_constant.proj_zw[0][0] = temp[2][2];
+	ss_effects.downsample_push_constant.proj_zw[0][1] = temp[2][3];
+	ss_effects.downsample_push_constant.proj_zw[1][0] = temp[3][2];
+	ss_effects.downsample_push_constant.proj_zw[1][1] = temp[3][3];
 	ss_effects.downsample_push_constant.pixel_size[0] = 1.0 / full_screen_size.x;
 	ss_effects.downsample_push_constant.pixel_size[1] = 1.0 / full_screen_size.y;
 	ss_effects.downsample_push_constant.radius_sq = 1.0;
@@ -692,8 +683,10 @@ void SSEffects::screen_space_indirect_lighting(Ref<RenderSceneBuffersRD> p_rende
 		ssil.gather_push_constant.NDC_to_view_mul[1] = tan_half_fov_y * -2.0;
 		ssil.gather_push_constant.NDC_to_view_add[0] = tan_half_fov_x * -1.0;
 		ssil.gather_push_constant.NDC_to_view_add[1] = tan_half_fov_y;
-		ssil.gather_push_constant.z_near = p_projection.get_z_near();
-		ssil.gather_push_constant.z_far = p_projection.get_z_far();
+		ssil.gather_push_constant.proj_zw[0][0] = p_projection[2][2];
+		ssil.gather_push_constant.proj_zw[0][1] = p_projection[2][3];
+		ssil.gather_push_constant.proj_zw[1][0] = p_projection[3][2];
+		ssil.gather_push_constant.proj_zw[1][1] = p_projection[3][3];
 		ssil.gather_push_constant.is_orthogonal = p_projection.is_orthogonal();
 
 		ssil.gather_push_constant.radius = p_settings.radius;
