@@ -137,7 +137,6 @@ bool DisplayServerWindows::has_feature(Feature p_feature) const {
 		case FEATURE_SCREEN_CAPTURE:
 		case FEATURE_STATUS_INDICATOR:
 		case FEATURE_WINDOW_EMBEDDING:
-		case FEATURE_WINDOW_HIDDEN:
 			return true;
 		default:
 			return false;
@@ -507,7 +506,7 @@ void DisplayServerWindows::_thread_fd_monitor(void *p_ud) {
 	}
 	if (filter_names.is_empty()) {
 		filter_exts.push_back(String("*.*").utf16());
-		filter_names.push_back((RTR("All Files") + " (*)").utf16());
+		filter_names.push_back((RTR("All Files") + " (*.*)").utf16());
 	}
 
 	Vector<COMDLG_FILTERSPEC> filters;
@@ -574,10 +573,7 @@ void DisplayServerWindows::_thread_fd_monitor(void *p_ud) {
 			}
 		}
 		dir = dir.simplify_path();
-		dir = dir.replace("/", "\\");
-		if (!dir.is_network_share_path() && !dir.begins_with(R"(\\?\)")) {
-			dir = R"(\\?\)" + dir;
-		}
+		dir = dir.trim_prefix(R"(\\?\)").replace("/", "\\");
 
 		IShellItem *shellitem = nullptr;
 		hr = SHCreateItemFromParsingName((LPCWSTR)dir.utf16().ptr(), nullptr, IID_IShellItem, (void **)&shellitem);
@@ -2226,17 +2222,23 @@ void DisplayServerWindows::window_set_mode(WindowMode p_mode, WindowID p_window)
 	ERR_FAIL_COND(!windows.has(p_window));
 	WindowData &wd = windows[p_window];
 
-	ERR_FAIL_COND_MSG(p_mode != WINDOW_MODE_WINDOWED && wd.parent_hwnd, "Embedded window only support Windowed mode.");
+	ERR_FAIL_COND_MSG(p_mode != WINDOW_MODE_WINDOWED && wd.parent_hwnd, "Embedded window only supports Windowed mode.");
+
+	bool was_fullscreen = wd.fullscreen;
+	wd.was_fullscreen_pre_min = false;
 
 	if (wd.fullscreen && p_mode != WINDOW_MODE_FULLSCREEN && p_mode != WINDOW_MODE_EXCLUSIVE_FULLSCREEN) {
 		RECT rect;
 
 		wd.fullscreen = false;
 		wd.multiwindow_fs = false;
-		wd.maximized = wd.was_maximized;
+
+		// Restore previous maximized state.
+		wd.maximized = wd.was_maximized_pre_fs;
 
 		_update_window_style(p_window, false);
 
+		// Restore window rect after exiting fullscreen.
 		if (wd.pre_fs_valid) {
 			rect = wd.pre_fs_rect;
 		} else {
@@ -2244,7 +2246,6 @@ void DisplayServerWindows::window_set_mode(WindowMode p_mode, WindowID p_window)
 			rect.right = wd.width;
 			rect.top = 0;
 			rect.bottom = wd.height;
-			wd.pre_fs_valid = true;
 		}
 
 		ShowWindow(wd.hWnd, SW_RESTORE);
@@ -2272,6 +2273,7 @@ void DisplayServerWindows::window_set_mode(WindowMode p_mode, WindowID p_window)
 		ShowWindow(wd.hWnd, SW_MINIMIZE);
 		wd.maximized = false;
 		wd.minimized = true;
+		wd.was_fullscreen_pre_min = was_fullscreen;
 	}
 
 	if (p_mode == WINDOW_MODE_EXCLUSIVE_FULLSCREEN) {
@@ -2286,10 +2288,14 @@ void DisplayServerWindows::window_set_mode(WindowMode p_mode, WindowID p_window)
 		if (wd.minimized || wd.maximized) {
 			ShowWindow(wd.hWnd, SW_RESTORE);
 		}
-		wd.was_maximized = wd.maximized;
 
-		if (wd.pre_fs_valid) {
+		// Save previous maximized stare.
+		wd.was_maximized_pre_fs = wd.maximized;
+
+		if (!was_fullscreen) {
+			// Save non-fullscreen rect before entering fullscreen.
 			GetWindowRect(wd.hWnd, &wd.pre_fs_rect);
+			wd.pre_fs_valid = true;
 		}
 
 		int cs = window_get_current_screen(p_window);
@@ -2438,6 +2444,9 @@ bool DisplayServerWindows::window_get_flag(WindowFlags p_flag, WindowID p_window
 		} break;
 		case WINDOW_FLAG_ALWAYS_ON_TOP: {
 			return wd.always_on_top;
+		} break;
+		case WINDOW_FLAG_SHARP_CORNERS: {
+			return wd.sharp_corners;
 		} break;
 		case WINDOW_FLAG_TRANSPARENT: {
 			return wd.layered_window;
@@ -2944,7 +2953,7 @@ Error DisplayServerWindows::dialog_show(String p_title, String p_description, Ve
 	config.pszWindowTitle = (LPCWSTR)(title.get_data());
 	config.pszContent = (LPCWSTR)(message.get_data());
 
-	const int button_count = MIN((int)buttons.size(), 8);
+	const int button_count = buttons.size();
 	config.cButtons = button_count;
 
 	// No dynamic stack array size :(
@@ -5363,6 +5372,22 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 						SendMessage(window.hWnd, WM_CLOSE, 0, 0);
 					}
 				}
+
+				if (!window.minimized && window.was_fullscreen_pre_min) {
+					// Restore fullscreen mode if window was in fullscreen before it was minimized.
+					int cs = window_get_current_screen(window_id);
+					Point2 pos = screen_get_position(cs) + _get_screens_origin();
+					Size2 size = screen_get_size(cs);
+
+					window.was_fullscreen_pre_min = false;
+					window.fullscreen = true;
+					window.maximized = false;
+					window.minimized = false;
+
+					_update_window_style(window_id, false);
+
+					MoveWindow(window.hWnd, pos.x, pos.y, size.width, size.height, TRUE);
+				}
 			}
 
 			// Return here to prevent WM_MOVE and WM_SIZE from being sent
@@ -5880,7 +5905,8 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 				wd.multiwindow_fs = true;
 			}
 		}
-		if (p_mode != WINDOW_MODE_FULLSCREEN && p_mode != WINDOW_MODE_EXCLUSIVE_FULLSCREEN) {
+
+		if (p_mode == WINDOW_MODE_FULLSCREEN || p_mode == WINDOW_MODE_EXCLUSIVE_FULLSCREEN) {
 			wd.pre_fs_valid = true;
 		}
 

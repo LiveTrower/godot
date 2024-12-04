@@ -141,7 +141,6 @@ bool DisplayServerX11::has_feature(Feature p_feature) const {
 		case FEATURE_CLIPBOARD_PRIMARY:
 		case FEATURE_TEXT_TO_SPEECH:
 		case FEATURE_WINDOW_EMBEDDING:
-		case FEATURE_WINDOW_HIDDEN:
 			return true;
 		case FEATURE_SCREEN_CAPTURE:
 			return !xwayland;
