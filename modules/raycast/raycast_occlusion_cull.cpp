@@ -80,22 +80,23 @@ void RaycastOcclusionCull::RaycastHZBuffer::resize(const Size2i &p_size) {
 	memset(camera_ray_masks.ptr(), ~0, camera_rays_tile_count * TILE_RAYS * sizeof(uint32_t));
 }
 
-void RaycastOcclusionCull::RaycastHZBuffer::update_camera_rays(const Transform3D &p_cam_transform, const Vector3 &p_near_bottom_left, const Vector2 p_near_extents, float p_z_far, bool p_cam_orthogonal) {
+void RaycastOcclusionCull::RaycastHZBuffer::update_camera_rays(const Transform3D &p_cam_transform, const Projection &p_cam_projection, bool p_cam_orthogonal) {
 	CameraRayThreadData td;
 	td.thread_count = WorkerThreadPool::get_singleton()->get_thread_count();
 
-	td.z_near = -p_near_bottom_left.z;
-	td.z_far = p_z_far * 1.05f;
+	td.z_near = p_cam_projection.get_z_near();
+	td.z_far = p_cam_projection.get_z_far() * 1.05f;
 	td.camera_pos = p_cam_transform.origin;
 	td.camera_dir = -p_cam_transform.basis.get_column(2);
 	td.camera_orthogonal = p_cam_orthogonal;
 
 	// Calculate the world coordinates of the viewport.
-	td.pixel_corner = p_cam_transform.xform(p_near_bottom_left);
-	Vector3 top_corner_world = p_cam_transform.xform(p_near_bottom_left + Vector3(0, p_near_extents.y, 0));
-	Vector3 right_corner_world = p_cam_transform.xform(p_near_bottom_left + Vector3(p_near_extents.x, 0, 0));
+	Vector2 viewport_half = p_cam_projection.get_viewport_half_extents();
+	td.pixel_corner = p_cam_transform.xform(Vector3(-viewport_half.x, -viewport_half.y, -p_cam_projection.get_z_near()));
+	Vector3 top_corner_world = p_cam_transform.xform(Vector3(-viewport_half.x, viewport_half.y, -p_cam_projection.get_z_near()));
+	Vector3 left_corner_world = p_cam_transform.xform(Vector3(viewport_half.x, -viewport_half.y, -p_cam_projection.get_z_near()));
 
-	td.pixel_u_interp = right_corner_world - td.pixel_corner;
+	td.pixel_u_interp = left_corner_world - td.pixel_corner;
 	td.pixel_v_interp = top_corner_world - td.pixel_corner;
 
 	debug_tex_range = td.z_far;
@@ -525,14 +526,14 @@ void RaycastOcclusionCull::buffer_set_size(RID p_buffer, const Vector2i &p_size)
 	buffers[p_buffer].resize(p_size);
 }
 
-Vector2 RaycastOcclusionCull::_jitter_half_extents(const Vector2 &p_half_extents, const Size2i &p_viewport_size) {
+Projection RaycastOcclusionCull::_jitter_projection(const Projection &p_cam_projection, const Size2i &p_viewport_size) {
 	if (!_jitter_enabled) {
-		return p_half_extents;
+		return p_cam_projection;
 	}
 
 	// Prevent divide by zero when using NULL viewport.
 	if ((p_viewport_size.x <= 0) || (p_viewport_size.y <= 0)) {
-		return p_half_extents;
+		return p_cam_projection;
 	}
 
 	int32_t frame = Engine::get_singleton()->get_frames_drawn();
@@ -574,9 +575,11 @@ Vector2 RaycastOcclusionCull::_jitter_half_extents(const Vector2 &p_half_extents
 	// Higher divergence gives fewer false hidden, but more false shown.
 	// False hidden is obvious to viewer, false shown is not.
 	// False shown can lower percentage that are occluded, and therefore performance.
-	jitter *= Vector2(p_half_extents.x / (float)p_viewport_size.x, p_half_extents.y / (float)p_viewport_size.y) * 0.5f;
+	jitter *= Vector2(1 / (float)p_viewport_size.x, 1 / (float)p_viewport_size.y) * 0.9f;
 
-	return p_half_extents + jitter;
+	Projection correction;
+	correction.add_jitter_offset(jitter);
+	return correction * p_cam_projection;
 }
 
 void RaycastOcclusionCull::buffer_update(RID p_buffer, const Transform3D &p_cam_transform, const Projection &p_cam_projection, bool p_cam_orthogonal) {
@@ -593,11 +596,9 @@ void RaycastOcclusionCull::buffer_update(RID p_buffer, const Transform3D &p_cam_
 	Scenario &scenario = scenarios[buffer.scenario_rid];
 	scenario.update();
 
-	Vector2 viewport_half = p_cam_projection.get_viewport_half_extents();
-	Vector2 jitter_viewport_half = _jitter_half_extents(viewport_half, buffer.get_occlusion_buffer_size());
-	Vector3 near_bottom_left = Vector3(-jitter_viewport_half.x, -jitter_viewport_half.y, -p_cam_projection.get_z_near());
+	Projection jittered_proj = _jitter_projection(p_cam_projection, buffer.get_occlusion_buffer_size());
 
-	buffer.update_camera_rays(p_cam_transform, near_bottom_left, 2 * viewport_half, p_cam_projection.get_z_far(), p_cam_orthogonal);
+	buffer.update_camera_rays(p_cam_transform, jittered_proj, p_cam_orthogonal);
 
 	scenario.raycast(buffer.camera_rays, buffer.camera_ray_masks.ptr(), buffer.camera_rays_tile_count);
 	buffer.sort_rays(-p_cam_transform.basis.get_column(2), p_cam_orthogonal);
