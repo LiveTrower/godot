@@ -96,8 +96,7 @@ layout(push_constant, std430) uniform Params {
 
 	float scale;
 	float depth_scale;
-	float taa_frame_count;
-	uint pad[5];
+	uint pad[2];
 }
 params;
 
@@ -116,7 +115,6 @@ void do_filter(inout vec3 color_accum, inout vec3 divisor, vec2 uv, vec2 step, b
 	// Accumulate the other samples:
 	for (int i = 1; i < kernel_size; i++) {
 		// Fetch color and depth for current sample:
-		//float dither = quick_hash((uv * params.screen_size) + vec2(params.taa_frame_count * 5.588238));
 		float dither = quick_hash(uv * params.screen_size);
 		vec2 offset = uv + dither * (kernel[i].y * step);
 		vec4 color = texture(source_image, offset);

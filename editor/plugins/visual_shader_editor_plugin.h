@@ -251,7 +251,7 @@ class VisualShaderEditor : public ShaderEditor {
 	Point2 saved_node_pos;
 	bool saved_node_pos_dirty = false;
 
-	PopupPanel *members_popup = nullptr;
+	ConfirmationDialog *members_dialog = nullptr;
 	VisualShaderNode::PortType members_input_port_type = VisualShaderNode::PORT_TYPE_MAX;
 	VisualShaderNode::PortType members_output_port_type = VisualShaderNode::PORT_TYPE_MAX;
 	PopupMenu *popup_menu = nullptr;
@@ -371,7 +371,7 @@ class VisualShaderEditor : public ShaderEditor {
 	Label *highend_label = nullptr;
 
 	void _tools_menu_option(int p_idx);
-	void _show_members_popup(bool at_mouse_pos, VisualShaderNode::PortType p_input_port_type = VisualShaderNode::PORT_TYPE_MAX, VisualShaderNode::PortType p_output_port_type = VisualShaderNode::PORT_TYPE_MAX);
+	void _show_members_dialog(bool at_mouse_pos, VisualShaderNode::PortType p_input_port_type = VisualShaderNode::PORT_TYPE_MAX, VisualShaderNode::PortType p_output_port_type = VisualShaderNode::PORT_TYPE_MAX);
 
 	void _varying_menu_id_pressed(int p_idx);
 	void _show_add_varying_dialog();

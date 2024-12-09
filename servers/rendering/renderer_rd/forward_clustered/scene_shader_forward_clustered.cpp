@@ -67,6 +67,7 @@ void SceneShaderForwardClustered::ShaderData::set_code(const String &p_code) {
 	uses_normal = false;
 	uses_tangent = false;
 	uses_normal_map = false;
+	uses_bent_normal_map = false;
 	wireframe = false;
 
 	unshaded = false;
@@ -125,6 +126,7 @@ void SceneShaderForwardClustered::ShaderData::set_code(const String &p_code) {
 	actions.usage_flag_pointers["ROUGHNESS"] = &uses_roughness;
 	actions.usage_flag_pointers["NORMAL"] = &uses_normal;
 	actions.usage_flag_pointers["NORMAL_MAP"] = &uses_normal_map;
+	actions.usage_flag_pointers["BENT_NORMAL_MAP"] = &uses_bent_normal_map;
 
 	actions.usage_flag_pointers["POINT_SIZE"] = &uses_point_size;
 	actions.usage_flag_pointers["POINT_COORD"] = &uses_point_size;
@@ -143,7 +145,14 @@ void SceneShaderForwardClustered::ShaderData::set_code(const String &p_code) {
 
 	MutexLock lock(SceneShaderForwardClustered::singleton_mutex);
 	Error err = SceneShaderForwardClustered::singleton->compiler.compile(RS::SHADER_SPATIAL, code, &actions, path, gen_code);
-	ERR_FAIL_COND_MSG(err != OK, "Shader compilation failed.");
+	
+	if (err != OK) {
+		if (version.is_valid()) {
+			SceneShaderForwardClustered::singleton->shader.version_free(version);
+			version = RID();
+		}
+		ERR_FAIL_MSG("Shader compilation failed.");
+	}
 
 	if (version.is_null()) {
 		version = SceneShaderForwardClustered::singleton->shader.version_create();

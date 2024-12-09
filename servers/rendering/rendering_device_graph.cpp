@@ -34,7 +34,6 @@
 #define FORCE_FULL_ACCESS_BITS 0
 #define PRINT_RESOURCE_TRACKER_TOTAL 0
 #define PRINT_COMMAND_RECORDING 0
-#define INSERT_BREADCRUMBS 1
 
 RenderingDeviceGraph::RenderingDeviceGraph() {
 	driver_honors_barriers = false;
@@ -981,7 +980,7 @@ void RenderingDeviceGraph::_run_render_commands(int32_t p_level, const RecordedC
 
 				const RecordedDrawListCommand *draw_list_command = reinterpret_cast<const RecordedDrawListCommand *>(command);
 				const VectorView clear_values(draw_list_command->clear_values(), draw_list_command->clear_values_count);
-#if INSERT_BREADCRUMBS
+#if defined(DEBUG_ENABLED) || defined(DEV_ENABLED)
 				driver->command_insert_breadcrumb(r_command_buffer, draw_list_command->breadcrumb);
 #endif
 				RDD::RenderPassID render_pass;
