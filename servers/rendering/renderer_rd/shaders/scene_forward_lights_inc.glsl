@@ -202,8 +202,7 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 #elif defined(DIFFUSE_TOON)
 			diffuse_brdf_NL = Diffuse_Toon(NdotL, roughness);
 #elif defined(DIFFUSE_BURLEY)
-			float cVdotH = clamp(dot(V, H), 0.0, 1.0);
-			diffuse_brdf_NL = Normalized_Diffuse_Burley(cLdotH, cNdotL, cVdotH, roughness);
+			diffuse_brdf_NL = Normalized_Diffuse_Burley(cNdotV, cNdotL, cLdotH, roughness);
 #else
 			// lambert
 			diffuse_brdf_NL = Diffuse_Lambert(cNdotL);

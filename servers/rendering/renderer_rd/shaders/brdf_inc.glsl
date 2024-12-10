@@ -43,10 +43,6 @@ float SchlickFresnel(float f0, float f90, float u){
 	return f0 + (f90 - f0) * pow5(1.0 - u);
 }
 
-vec3 SchlickFresnelF90(float HdotV, vec3 f0, float f90){
-	return f0 + (f90 - f0) * pow5(1.0 - HdotV);
-}
-
 vec3 F0(float metallic, float specular, vec3 albedo) {
 	float dielectric = 0.16 * specular * specular;
 	// use albedo * metallic as colored specular reflectance at 0 angle for metallic materials;
@@ -91,14 +87,14 @@ float Diffuse_Burley(float LoH, float NoV, float NoL, float roughness){
 
 // Normalized Disney diffuse function taken from Frostbite's PBR course notes (page 10):
 // https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/course-notes-moving-frostbite-to-pbr-v32.pdf
-float Normalized_Diffuse_Burley(float LoH, float NoL, float HoV, float roughness)
+float Normalized_Diffuse_Burley(float NoV, float NoL, float LoH, float roughness)
 {
     float energyBias = mix(0.0, 0.5, roughness);
     float energyFactor = mix(1.0, 1.0/1.51, roughness);
-    float f90 = energyBias + 2.0 * HoV * HoV * roughness;
-	vec3 f0 = vec3(1.0);
-    float lightScatter = SchlickFresnelF90(LoH, f0, f90).x;
-    float viewScatter = SchlickFresnelF90(LoH, f0, f90).x;
+    float f90 = energyBias + 2.0 * LoH * LoH * roughness;
+	float f0 = 1.0;
+    float lightScatter = SchlickFresnel(f0, f90, NoL);
+    float viewScatter = SchlickFresnel(f0, f90, NoV);
 
     return lightScatter * viewScatter * energyFactor * NoL * (1.0 / M_PI);
 }
