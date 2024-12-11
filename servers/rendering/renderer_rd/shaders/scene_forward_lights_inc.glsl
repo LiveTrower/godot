@@ -33,7 +33,7 @@ vec3 sheen_lobe(float sheen_roughness, float sheen, vec3 sheen_color, float cNdo
 	return D * V * sheen_color * sheen * cNdotL;
 }
 
-float clearcoat_lobe(float clearcoat_roughness, float clearcoat, float ccNdotH, float cLdotH, float cNdotL, out float Fcc){
+float clearcoat_lobe(float clearcoat_roughness, float clearcoat, float ccNdotH, float cLdotH, float ccNdotL, out float Fcc){
 	clearcoat_roughness = clamp(clearcoat_roughness, 0.045, 1.0);
 	float alpha_c = clearcoat_roughness * clearcoat_roughness;
 	float D = D_GGX(ccNdotH, alpha_c);
@@ -41,7 +41,7 @@ float clearcoat_lobe(float clearcoat_roughness, float clearcoat, float ccNdotH, 
 	float F = clearcoat * SchlickFresnel(0.04, 1.0, cLdotH);
 
 	Fcc = F;
-	return D * V * F * cNdotL;
+	return D * V * F * ccNdotL;
 }
 
 void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_directional, float attenuation, vec3 f0, uint orms, float specular_amount, vec3 albedo, inout float alpha, vec2 screen_uv,
@@ -157,8 +157,9 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 #if defined(LIGHT_CLEARCOAT_USED)
 		// Clearcoat ignores normal_map, use vertex normal instead
 		float clearcoat_scaling;
+		float ccNdotL = max(min(A + dot(vertex_normal, L), 1.0), 0.0);
 		float ccNdotH = clamp(A + dot(vertex_normal, H), 0.0, 1.0);
-		float clearcoat_specular_brdf_NL = clearcoat_lobe(clearcoat_roughness, clearcoat, ccNdotH, cLdotH, cNdotL, clearcoat_scaling);
+		float clearcoat_specular_brdf_NL = clearcoat_lobe(clearcoat_roughness, clearcoat, ccNdotH, cLdotH, ccNdotL, clearcoat_scaling);
 		// The clear coat layer assumes an IOR of 1.5 (4% reflectance)
 		specular_light *= 1.0 - clearcoat_scaling;
 		specular_light += clearcoat_specular_brdf_NL * light_color * attenuation * specular_amount;

@@ -2011,10 +2011,20 @@ void fragment_shader(in SceneData scene_data) {
 		float f90 = clamp(dot(f0, vec3(50.0 * 0.33)), metallic, 1.0);
 		indirect_specular_light *= f0 * envBRDF.x + f90 * envBRDF.y;
 
+#if defined(LIGHT_CLEARCOAT_USED)
+		vec3 n = normalize(normal_interp); // We want to use geometric normal, not normal_map
+		float c_NdotV = max(dot(n, view), 1e-4);
+		vec2 c_envBRDF = prefiltered_dfg(clearcoat_roughness, c_NdotV).xy;
+		float c_f0 = 0.04;
+		float c_f90 = 1.0;
+		indirect_specular_light *= clearcoat * (c_f0 * c_envBRDF.x + c_f90 * c_envBRDF.y);
+#endif // LIGHT_CLEARCOAT_USED
+
 #if defined(LIGHT_SHEEN_USED)
 		float dfg_sheen = prefiltered_dfg(sheen_roughness, NdotV).z;
-		indirect_specular_light += dfg_sheen * sheen * sheen_color;
+		indirect_specular_light *= dfg_sheen * sheen * sheen_color;
 #endif // LIGHT_SHEEN_USED
+
 #endif // DIFFUSE_TOON
 	}
 
@@ -2272,6 +2282,10 @@ void fragment_shader(in SceneData scene_data) {
 
 			if (!bool(directional_lights.data[i].mask & instances.data[instance_index].layer_mask)) {
 				continue; //not masked
+			}
+
+			if (directional_lights.data[i].bake_mode == LIGHT_BAKE_STATIC && bool(instances.data[instance_index].flags & INSTANCE_FLAGS_USE_LIGHTMAP)) {
+				continue; // Statically baked light and object uses lightmap, skip
 			}
 
 #ifdef LIGHT_TRANSMITTANCE_USED
