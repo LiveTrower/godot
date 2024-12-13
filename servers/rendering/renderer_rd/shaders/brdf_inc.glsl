@@ -102,3 +102,16 @@ float Normalized_Diffuse_Burley(float NoV, float NoL, float LoH, float roughness
 float Diffuse_Toon(float NoL, float roughness){
 	return smoothstep(-roughness, max(roughness, 0.01), NoL) * (1.0 / M_PI);
 }
+
+vec2 Env_BRDF_Approx(float roughness, float ndotv){
+	// scales the specular reflections, needs to be computed before lighting happens,
+	// but after environment, GI, and reflection probes are added
+	// Environment brdf approximation (Lazarov 2013)
+	// see https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
+	const vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022);
+	const vec4 c1 = vec4(1.0, 0.0425, 1.04, -0.04);
+	vec4 r = roughness * c0 + c1;
+	float a004 = min(r.x * r.x, exp2(-9.28 * ndotv)) * r.x + r.y;
+	vec2 env = vec2(-1.04, 1.04) * a004 + r.zw;
+	return env;
+}

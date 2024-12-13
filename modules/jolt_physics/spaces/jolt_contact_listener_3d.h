@@ -68,12 +68,12 @@ class JoltContactListener3D final
 	};
 
 	struct Contact {
-		JPH::RVec3 point_self = JPH::RVec3::sZero();
-		JPH::RVec3 point_other = JPH::RVec3::sZero();
-		JPH::Vec3 normal = JPH::Vec3::sZero();
-		JPH::Vec3 velocity_self = JPH::Vec3::sZero();
-		JPH::Vec3 velocity_other = JPH::Vec3::sZero();
-		JPH::Vec3 impulse = JPH::Vec3::sZero();
+		Vector3 point_self;
+		Vector3 point_other;
+		Vector3 normal;
+		Vector3 velocity_self;
+		Vector3 velocity_other;
+		Vector3 impulse;
 	};
 
 	typedef LocalVector<Contact> Contacts;

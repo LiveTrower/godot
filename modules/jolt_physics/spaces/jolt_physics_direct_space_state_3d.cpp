@@ -841,7 +841,6 @@ Vector3 JoltPhysicsDirectSpaceState3D::get_closest_point_to_object_volume(RID p_
 		JPH::GJKClosestPoint gjk;
 
 		JPH::ConvexShape::SupportBuffer shape_support_buffer;
-
 		const JPH::ConvexShape::Support *shape_support = shape_convex.GetSupportFunction(JPH::ConvexShape::ESupportMode::IncludeConvexRadius, shape_support_buffer, shape_transformed.GetShapeScale());
 
 		const JPH::Quat &shape_rotation = shape_transformed.mShapeRotation;

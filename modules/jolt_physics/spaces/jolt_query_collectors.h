@@ -47,7 +47,7 @@ public:
 	typedef typename TBase::ResultType Hit;
 
 private:
-	LocalVector<Hit> hits;
+	JPH::Array<Hit> hits;
 
 public:
 	bool had_hit() const {
@@ -111,7 +111,7 @@ public:
 	typedef typename TBase::ResultType Hit;
 
 private:
-	LocalVector<Hit> hits;
+	JPH::Array<Hit> hits;
 	int max_hits = 0;
 
 public:
@@ -191,7 +191,7 @@ public:
 	typedef typename TBase::ResultType Hit;
 
 private:
-	LocalVector<Hit> hits;
+	JPH::Array<Hit> hits;
 	int max_hits = 0;
 
 public:
@@ -220,14 +220,14 @@ public:
 	}
 
 	virtual void AddHit(const Hit &p_hit) override {
-		int i = 0;
-		for (; i < (int)hits.size(); i++) {
-			if (p_hit.GetEarlyOutFraction() < hits[i].GetEarlyOutFraction()) {
+		typename JPH::Array<Hit>::const_iterator E = hits.cbegin();
+		for (; E != hits.cend(); ++E) {
+			if (p_hit.GetEarlyOutFraction() < E->GetEarlyOutFraction()) {
 				break;
 			}
 		}
 
-		hits.insert(i, p_hit);
+		hits.insert(E, p_hit);
 
 		if ((int)hits.size() > max_hits) {
 			hits.resize(max_hits);

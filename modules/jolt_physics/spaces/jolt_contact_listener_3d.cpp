@@ -222,21 +222,21 @@ bool JoltContactListener3D::_try_add_contacts(const JPH::Body &p_body1, const JP
 		const JPH::Vec3 combined_impulse = contact_impulse + friction_impulse1 + friction_impulse2;
 
 		Contact contact1;
-		contact1.point_self = world_point1;
-		contact1.point_other = world_point2;
-		contact1.normal = -p_manifold.mWorldSpaceNormal;
-		contact1.velocity_self = velocity1;
-		contact1.velocity_other = velocity2;
-		contact1.impulse = -combined_impulse;
+		contact1.point_self = to_godot(world_point1);
+		contact1.point_other = to_godot(world_point2);
+		contact1.normal = to_godot(-p_manifold.mWorldSpaceNormal);
+		contact1.velocity_self = to_godot(velocity1);
+		contact1.velocity_other = to_godot(velocity2);
+		contact1.impulse = to_godot(-combined_impulse);
 		manifold.contacts1.push_back(contact1);
 
 		Contact contact2;
-		contact2.point_self = world_point2;
-		contact2.point_other = world_point1;
-		contact2.normal = p_manifold.mWorldSpaceNormal;
-		contact2.velocity_self = velocity2;
-		contact2.velocity_other = velocity1;
-		contact2.impulse = combined_impulse;
+		contact2.point_self = to_godot(world_point2);
+		contact2.point_other = to_godot(world_point1);
+		contact2.normal = to_godot(p_manifold.mWorldSpaceNormal);
+		contact2.velocity_self = to_godot(velocity2);
+		contact2.velocity_other = to_godot(velocity1);
+		contact2.impulse = to_godot(combined_impulse);
 		manifold.contacts2.push_back(contact2);
 	}
 
@@ -420,11 +420,11 @@ void JoltContactListener3D::_flush_contacts() {
 		const int shape_index2 = body2->find_shape_index(shape_pair.GetSubShapeID2());
 
 		for (const Contact &contact : manifold.contacts1) {
-			body1->add_contact(body2, manifold.depth, shape_index1, shape_index2, to_godot(contact.normal), to_godot(contact.point_self), to_godot(contact.point_other), to_godot(contact.velocity_self), to_godot(contact.velocity_other), to_godot(contact.impulse));
+			body1->add_contact(body2, manifold.depth, shape_index1, shape_index2, contact.normal, contact.point_self, contact.point_other, contact.velocity_self, contact.velocity_other, contact.impulse);
 		}
 
 		for (const Contact &contact : manifold.contacts2) {
-			body2->add_contact(body1, manifold.depth, shape_index2, shape_index1, to_godot(contact.normal), to_godot(contact.point_self), to_godot(contact.point_other), to_godot(contact.velocity_self), to_godot(contact.velocity_other), to_godot(contact.impulse));
+			body2->add_contact(body1, manifold.depth, shape_index2, shape_index1, contact.normal, contact.point_self, contact.point_other, contact.velocity_self, contact.velocity_other, contact.impulse);
 		}
 
 		manifold.contacts1.clear();

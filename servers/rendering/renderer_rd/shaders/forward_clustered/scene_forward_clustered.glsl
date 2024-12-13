@@ -1597,65 +1597,6 @@ void fragment_shader(in SceneData scene_data) {
 	ambient_light = mix(ambient_light, custom_irradiance.rgb, custom_irradiance.a);
 #endif
 
-#ifdef LIGHT_SHEEN_USED
-
-	if (scene_data.use_reflection_cubemap) {
-		vec3 ref_vec = reflect(-view, normal);
-		float NdotV = max(dot(normal, view), 1e-4);
-		float dfg_sheen = prefiltered_dfg(sheen_roughness, NdotV).z;
-		// Albedo scaling of the base layer before we layer sheen on top
-		float sheen_scaling = 1.0 - max3(sheen_color) * dfg_sheen;
-		ambient_light *= sheen_scaling * sheen;
-		indirect_specular_light *= sheen_scaling;
-
-		ref_vec = mix(ref_vec, normal, sheen_roughness * sheen_roughness);
-		ref_vec = scene_data.radiance_inverse_xform * ref_vec;
-		float horizon = min(1.0 + dot(ref_vec, indirect_normal), 1.0);
-#ifdef USE_RADIANCE_CUBEMAP_ARRAY
-
-		float lod, blend;
-		blend = modf(sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD, lod);
-		vec3 sheen_light = texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ref_vec, lod)).rgb;
-		sheen_light = mix(sheen_light, texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ref_vec, lod + 1)).rgb, blend);
-
-#else
-		vec3 sheen_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_vec, sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD).rgb;
-
-#endif //USE_RADIANCE_CUBEMAP_ARRAY
-		indirect_specular_light += sheen_light * sheen * horizon * horizon * scene_data.ambient_light_color_energy.a;
-	}
-#endif
-
-#ifdef LIGHT_CLEARCOAT_USED
-
-	if (scene_data.use_reflection_cubemap) {
-		vec3 n = normalize(normal_interp); // We want to use geometric normal, not normal_map
-		float NoV = max(dot(n, view), 1e-4);
-		vec3 ref_vec = reflect(-view, n);
-		// The clear coat layer assumes an IOR of 1.5 (4% reflectance)
-		float Fc = clearcoat * SchlickFresnel(0.04, 1.0, NoV);
-		float attenuation = 1.0 - Fc;
-		ambient_light *= attenuation;
-		indirect_specular_light *= attenuation;
-
-		ref_vec = mix(ref_vec, n, clearcoat_roughness * clearcoat_roughness);
-		float horizon = min(1.0 + dot(ref_vec, indirect_normal), 1.0);
-		ref_vec = scene_data.radiance_inverse_xform * ref_vec;
-		float roughness_lod = sqrt(clearcoat_roughness) * MAX_ROUGHNESS_LOD;
-#ifdef USE_RADIANCE_CUBEMAP_ARRAY
-
-		float lod, blend;
-		blend = modf(roughness_lod, lod);
-		vec3 clearcoat_light = texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ref_vec, lod)).rgb;
-		clearcoat_light = mix(clearcoat_light, texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ref_vec, lod + 1)).rgb, blend);
-
-#else
-		vec3 clearcoat_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_vec, roughness_lod).rgb;
-
-#endif //USE_RADIANCE_CUBEMAP_ARRAY
-		indirect_specular_light += clearcoat_light * horizon * horizon * Fc * scene_data.ambient_light_color_energy.a;
-	}
-#endif // LIGHT_CLEARCOAT_USED
 #endif // !AMBIENT_LIGHT_DISABLED
 #endif //!defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED)
 
@@ -2008,21 +1949,60 @@ void fragment_shader(in SceneData scene_data) {
 		ambient_light *= energy_compensation;
 		indirect_specular_light *= energy_compensation;
 
+		// Base layer
 		float f90 = clamp(dot(f0, vec3(50.0 * 0.33)), metallic, 1.0);
 		indirect_specular_light *= f0 * envBRDF.x + f90 * envBRDF.y;
 
 #if defined(LIGHT_CLEARCOAT_USED)
-		vec3 n = normalize(normal_interp); // We want to use geometric normal, not normal_map
-		float c_NdotV = max(dot(n, view), 1e-4);
-		vec2 c_envBRDF = prefiltered_dfg(clearcoat_roughness, c_NdotV).xy;
-		float c_f0 = 0.04;
-		float c_f90 = 1.0;
-		indirect_specular_light *= clearcoat * (c_f0 * c_envBRDF.x + c_f90 * c_envBRDF.y);
+		if (scene_data.use_reflection_cubemap) {
+			vec3 n = normalize(normal_interp); // We want to use geometric normal, not normal_map
+			float NoV = max(dot(n, view), 1e-4);
+			vec3 ref_vec = reflect(-view, n);
+			vec2 c_envBRDF = Env_BRDF_Approx(clearcoat_roughness, NoV);
+			// The clear coat layer assumes an IOR of 1.5 (4% reflectance)
+			float Fc = clearcoat * SchlickFresnel(0.04, 1.0, NoV);
+			float attenuation = 1.0 - Fc;
+			ambient_light *= attenuation;
+			indirect_specular_light *= attenuation;
+
+			ref_vec = mix(ref_vec, n, clearcoat_roughness * clearcoat_roughness);
+			float horizon = min(1.0 + dot(ref_vec, indirect_normal), 1.0);
+			ref_vec = scene_data.radiance_inverse_xform * ref_vec;
+			float roughness_lod = sqrt(clearcoat_roughness) * MAX_ROUGHNESS_LOD;
+#ifdef USE_RADIANCE_CUBEMAP_ARRAY
+			float lod, blend;
+			blend = modf(roughness_lod, lod);
+			vec3 clearcoat_light = texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ref_vec, lod)).rgb;
+			clearcoat_light = mix(clearcoat_light, texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ref_vec, lod + 1)).rgb, blend);
+#else
+			vec3 clearcoat_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_vec, roughness_lod).rgb;
+#endif //USE_RADIANCE_CUBEMAP_ARRAY
+			indirect_specular_light += clearcoat_light * (Fc * c_envBRDF.x + c_envBRDF.y) * clearcoat * horizon * horizon * scene_data.ambient_light_color_energy.a;
+		}
 #endif // LIGHT_CLEARCOAT_USED
 
 #if defined(LIGHT_SHEEN_USED)
-		float dfg_sheen = prefiltered_dfg(sheen_roughness, NdotV).z;
-		indirect_specular_light *= dfg_sheen * sheen * sheen_color;
+		if (scene_data.use_reflection_cubemap) {
+			vec3 ref_vec = reflect(-view, normal);
+			float dfg_sheen = prefiltered_dfg(sheen_roughness, NdotV).z;
+			// Albedo scaling of the base layer before we layer sheen on top
+			float sheen_scaling = (1.0 - max3(sheen_color) * dfg_sheen) * sheen;
+			ambient_light *= sheen_scaling;
+			indirect_specular_light *= sheen_scaling;
+
+			ref_vec = mix(ref_vec, normal, sheen_roughness * sheen_roughness);
+			ref_vec = scene_data.radiance_inverse_xform * ref_vec;
+			float horizon = min(1.0 + dot(ref_vec, indirect_normal), 1.0);
+#ifdef USE_RADIANCE_CUBEMAP_ARRAY
+			float lod, blend;
+			blend = modf(sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD, lod);
+			vec3 sheen_light = texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ref_vec, lod)).rgb;
+			sheen_light = mix(sheen_light, texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ref_vec, lod + 1)).rgb, blend);
+#else
+			vec3 sheen_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_vec, sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD).rgb;
+#endif //USE_RADIANCE_CUBEMAP_ARRAY
+			indirect_specular_light += sheen_light * dfg_sheen * sheen_color * sheen * horizon * horizon * scene_data.ambient_light_color_energy.a;
+		}
 #endif // LIGHT_SHEEN_USED
 
 #endif // DIFFUSE_TOON

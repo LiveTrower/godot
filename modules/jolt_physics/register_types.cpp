@@ -54,7 +54,7 @@ void initialize_jolt_physics_module(ModuleInitializationLevel p_level) {
 		} break;
 		case MODULE_INITIALIZATION_LEVEL_SERVERS: {
 			jolt_initialize();
-			PhysicsServer3DManager::get_singleton()->register_server("JoltPhysics", callable_mp_static(&create_jolt_physics_server));
+			PhysicsServer3DManager::get_singleton()->register_server("Jolt Physics", callable_mp_static(&create_jolt_physics_server));
 			JoltProjectSettings::register_settings();
 		} break;
 		case MODULE_INITIALIZATION_LEVEL_SCENE: {

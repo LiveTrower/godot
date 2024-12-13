@@ -140,15 +140,6 @@ thirdparty_sources = [
     "Jolt/TriangleSplitter/TriangleSplitterLongestAxis.cpp",
     "Jolt/TriangleSplitter/TriangleSplitterMean.cpp",
     "Jolt/TriangleSplitter/TriangleSplitterMorton.cpp",
-    # We don't need ObjectStream/RTTI, so we omit those files. See `ENABLE_OBJECT_STREAM` in `Jolt/Jolt.cmake` upstream.
-    # "Jolt/ObjectStream/ObjectStream.cpp",
-    # "Jolt/ObjectStream/ObjectStreamBinaryIn.cpp",
-    # "Jolt/ObjectStream/ObjectStreamBinaryOut.cpp",
-    # "Jolt/ObjectStream/ObjectStreamIn.cpp",
-    # "Jolt/ObjectStream/ObjectStreamOut.cpp",
-    # "Jolt/ObjectStream/ObjectStreamTextIn.cpp",
-    # "Jolt/ObjectStream/ObjectStreamTextOut.cpp",
-    # "Jolt/ObjectStream/TypeDeclarations.cpp",
 ]
 
 thirdparty_sources = [thirdparty_dir + file for file in thirdparty_sources]
