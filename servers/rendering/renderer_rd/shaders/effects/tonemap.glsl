@@ -297,15 +297,15 @@ vec3 agx(vec3 val) {
 }
 
 vec3 agx_eotf(vec3 val) {
-	const mat3 agx_mat_out = inverse(mat3(
-			0.899796955911611, 0.11142098895748, 0.11142098895748,
-			0.0871996192028351, 0.875575586156966, 0.0871996192028349,
-			0.013003424885555, 0.0130034248855548, 0.801379391839686));
+	const mat3 agx_mat_out = mat3(
+			1.1271005818144368, -0.1413297634984383, -0.1413297634984383,
+			-0.1106066430966032, 1.1578237022162720, -0.1106066430966029,
+			-0.0164939387178346, -0.0164939387178343, 1.2519364065950405);
 
 	val = agx_mat_out * val;
 
-	// Convert back to linear so we can escape rec 2020.
-	val = pow(val, vec3(2.2));
+	// Convert back to linear so we can escape Rec 2020.
+	val = pow(val, vec3(2.4));
 
 	val = LINEAR_REC2020_TO_LINEAR_SRGB * val;
 

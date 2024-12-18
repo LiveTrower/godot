@@ -713,6 +713,12 @@ elif env.msvc:
         )
         Exit(255)
 
+# Default architecture flags.
+if env["arch"] == "x86_32":
+    if env.msvc:
+        env.Append(CCFLAGS=["/arch:SSE2"])
+    else:
+        env.Append(CCFLAGS=["-msse2"])
 
 # Set optimize and debug_symbols flags.
 # "custom" means do nothing and let users set their own optimization flags.
@@ -737,7 +743,10 @@ if env.msvc:
 else:
     if env["debug_symbols"]:
         if env["platform"] == "windows":
-            env.Append(CCFLAGS=["-gdwarf-5"])
+            if methods.using_clang(env):
+                env.Append(CCFLAGS=["-gdwarf-4"])  # clang dwarf-5 symbols are broken on Windows.
+            else:
+                env.Append(CCFLAGS=["-gdwarf-5"])  # For gcc, only dwarf-5 symbols seem usable by libbacktrace.
         else:
             # Adding dwarf-4 explicitly makes stacktraces work with clang builds,
             # otherwise addr2line doesn't understand them
