@@ -173,15 +173,8 @@ private:
 		RID texture;
 	} best_fit_normal;
 
-	struct IntegrateDfgPushConstant {
-		int32_t size_x;
-		int32_t size_y;
-		uint32_t pad[2];
-	};
-
 	struct IntegrateDFG {
 		IntegrateDfgShaderRD shader;
-		IntegrateDfgPushConstant push_constant;
 		RID shader_version;
 		RID pipeline;
 		RID texture;

@@ -5,11 +5,6 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(rgba16f, set = 0, binding = 0) uniform restrict writeonly image2D current_image;
 
-layout(push_constant, std430) uniform Params {
-	vec2 texture_size;
-	vec2 pad2;
-} params;
-
 #define M_PI 3.14159265359
 #define SAMPLE_COUNT 1024
 #define SIZE 128
@@ -159,14 +154,11 @@ float integrate_cloth_brdf(float n_dot_v, float roughness) {
 
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
-    if (pos.x > params.texture_size.x || pos.y > params.texture_size.y) {
-        return;
-    }
-	float roughness = float(pos.y + 0.5f) / params.texture_size.x;
-    float NdotV = float(pos.x + 0.5f) / params.texture_size.x;
+	float roughness = float(pos.y + 0.5f) / SIZE;
+    float NdotV = float(pos.x + 0.5f) / SIZE;
     vec4 color = vec4(1.0);
     color.rg = integrate_brdf(NdotV, roughness);
     color.b = integrate_cloth_brdf(NdotV, roughness);
-    ivec2 out_pos = ivec2(pos.x, (params.texture_size.x - 1) - pos.y);
+    ivec2 out_pos = ivec2(pos.x, (SIZE - 1) - pos.y);
     imageStore(current_image, out_pos, color);
 }

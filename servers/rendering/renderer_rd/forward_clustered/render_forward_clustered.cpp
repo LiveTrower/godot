@@ -4880,13 +4880,9 @@ RenderForwardClustered::RenderForwardClustered() {
 		}
 		RID uniform_set = RD::get_singleton()->uniform_set_create(uniforms, shader, 0);
 
-		dfg_lut.push_constant.size_x = tformat.width;
-		dfg_lut.push_constant.size_y = tformat.height;
-
 		RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
 		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, dfg_lut.pipeline);
 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set, 0);
-		RD::get_singleton()->compute_list_set_push_constant(compute_list, &dfg_lut.push_constant, sizeof(IntegrateDfgPushConstant));
 		RD::get_singleton()->compute_list_dispatch_threads(compute_list, tformat.width, tformat.height, 1);
 		RD::get_singleton()->compute_list_end();
 
