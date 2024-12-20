@@ -986,6 +986,10 @@ layout(std140) uniform MultiviewData { // ubo:8
 multiview_data;
 #endif
 
+uniform highp mat4 world_transform;
+uniform highp uint instance_offset;
+uniform highp uint model_flags;
+
 /* clang-format off */
 
 #GLOBALS
@@ -1218,10 +1222,7 @@ ivec2 multiview_uv(ivec2 uv) {
 }
 #endif
 
-uniform highp mat4 world_transform;
 uniform mediump float opaque_prepass_threshold;
-uniform highp uint model_flags;
-uniform highp uint instance_offset;
 
 #if defined(RENDER_MATERIAL)
 layout(location = 0) out vec4 albedo_output_buffer;
@@ -1619,21 +1620,15 @@ void reflection_process(samplerCube reflection_map,
 		return;
 	}
 
-	vec3 inner_pos = abs(local_pos / box_extents);
-	vec3 blend_axes = vec3(0.0, 0.0, 0.0);
-	float blend = 0.0;
-	if (blend_distance != 0) {
-		for (int i = 0; i < 3; i++) {
-			float axis_blend_distance = min(blend_distance, box_extents[i]);
-			blend_axes[i] = (inner_pos[i] * box_extents[i]) - box_extents[i] + axis_blend_distance;
-			blend_axes[i] = blend_axes[i] / axis_blend_distance;
-			blend_axes[i] = clamp(blend_axes[i], 0.0, 1.0);
-		}
-		blend = pow((1.0 - blend_axes.x) * (1.0 - blend_axes.y) * (1.0 - blend_axes.z), 2);
-		blend = 1 - blend;
+	float blend = 1.0;
+	if (blend_distance != 0.0) {
+		vec3 axis_blend_distance = min(vec3(blend_distance), box_extents);
+		vec3 blend_axes = abs(local_pos) - box_extents + axis_blend_distance;
+		blend_axes /= axis_blend_distance;
+		blend_axes = clamp(1.0 - blend_axes, vec3(0.0), vec3(1.0));
+
+		blend = pow(blend_axes.x * blend_axes.y * blend_axes.z, 2.0);
 	}
-	blend = max(0.0, 1.0 - blend);
-	blend = clamp(blend, 0.0, 1.0);
 
 	//reflect and make local
 	vec3 ref_normal = normalize(reflect(vertex, normal));
@@ -2143,7 +2138,7 @@ void main() {
 			continue;
 		}
 #endif
-		light_compute(normal, normalize(directional_lights[i].direction), normalize(view), directional_lights[i].size, directional_lights[i].color * directional_lights[i].energy, true, 1.0, f0, roughness, metallic, 1.0, albedo, alpha, screen_uv,
+		light_compute(normal, normalize(directional_lights[i].direction), normalize(view), directional_lights[i].size, directional_lights[i].color * directional_lights[i].energy, true, 1.0, f0, roughness, metallic, directional_lights[i].specular, albedo, alpha, screen_uv,
 #ifdef LIGHT_BACKLIGHT_USED
 				backlight,
 #endif
@@ -2445,7 +2440,7 @@ void main() {
 #endif // SHADOWS_DISABLED
 
 #ifndef USE_VERTEX_LIGHTING
-	light_compute(normal, normalize(directional_lights[directional_shadow_index].direction), normalize(view), directional_lights[directional_shadow_index].size, directional_lights[directional_shadow_index].color * directional_lights[directional_shadow_index].energy, true, directional_shadow, f0, roughness, metallic, 1.0, albedo, alpha, screen_uv,
+	light_compute(normal, normalize(directional_lights[directional_shadow_index].direction), normalize(view), directional_lights[directional_shadow_index].size, directional_lights[directional_shadow_index].color * directional_lights[directional_shadow_index].energy, true, directional_shadow, f0, roughness, metallic, directional_lights[directional_shadow_index].specular, albedo, alpha, screen_uv,
 #ifdef LIGHT_BACKLIGHT_USED
 			backlight,
 #endif

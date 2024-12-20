@@ -103,6 +103,14 @@ bool EditorSettings::_set_only(const StringName &p_name, const Variant &p_value)
 
 			builtin_action_overrides[action_name].clear();
 			for (int ev_idx = 0; ev_idx < events.size(); ev_idx++) {
+#ifndef DISABLE_DEPRECATED
+				// -3 was introduced in GH-97707 as a way to prevent a clash in device IDs, but as reported in GH-99243, this leads to problems.
+				// -3 was used during dev-releases, so this conversion helps to revert such affected editor shortcuts.
+				Ref<InputEvent> x = events[ev_idx];
+				if (x.is_valid() && x->get_device() == -3) {
+					x->set_device(-1);
+				}
+#endif // DISABLE_DEPRECATED
 				im->action_add_event(action_name, events[ev_idx]);
 				builtin_action_overrides[action_name].push_back(events[ev_idx]);
 			}
@@ -724,6 +732,7 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 
 	// Completion
 	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "text_editor/completion/idle_parse_delay", 1.5, "0.1,10,0.01")
+	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "text_editor/completion/idle_parse_delay_with_errors_found", 0.5, "0.1,5,0.01")
 	_initial_set("text_editor/completion/auto_brace_complete", true, true);
 	_initial_set("text_editor/completion/code_complete_enabled", true, true);
 	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "text_editor/completion/code_complete_delay", 0.3, "0.01,5,0.01,or_greater")
