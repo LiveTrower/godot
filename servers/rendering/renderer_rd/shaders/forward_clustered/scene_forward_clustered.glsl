@@ -457,6 +457,8 @@ void vertex_shader(vec3 vertex_input,
 
 	vertex_interp = vertex;
 
+	// Normalize TBN vectors before interpolation, per MikkTSpace.
+	// See: http://www.mikktspace.com/
 #ifdef NORMAL_USED
 	normal_interp = normalize(normal);
 #endif
@@ -1174,14 +1176,13 @@ void fragment_shader(in SceneData scene_data) {
 
 #ifdef NORMAL_USED
 	vec3 normal = normal_interp;
-
 #if defined(DO_SIDE_CHECK)
 	if (!gl_FrontFacing) {
 		normal = -normal;
 	}
-#endif
+#endif // DO_SIDE_CHECK
 	vec3 geo_normal = normalize(normal);
-#endif //NORMAL_USED
+#endif // NORMAL_USED
 
 #ifdef UV_USED
 	vec2 uv = uv_interp;
@@ -1268,21 +1269,37 @@ void fragment_shader(in SceneData scene_data) {
 #ifndef USE_SHADOW_TO_OPACITY
 
 #ifdef ALPHA_SCISSOR_USED
+#ifdef MODE_RENDER_MATERIAL
+	if (alpha < alpha_scissor_threshold) {
+		alpha = 0.0;
+	} else {
+		alpha = 1.0;
+	}
+#else
 	if (alpha < alpha_scissor_threshold) {
 		discard;
 	}
+#endif // MODE_RENDER_MATERIAL
 #endif // ALPHA_SCISSOR_USED
 
 // alpha hash can be used in unison with alpha antialiasing
 #ifdef ALPHA_HASH_USED
 	vec3 object_pos = (inverse(read_model_matrix) * inv_view_matrix * vec4(vertex, 1.0)).xyz;
+#ifdef MODE_RENDER_MATERIAL
+	if (alpha < compute_alpha_hash_threshold(object_pos, alpha_hash_scale)) {
+		alpha = 0.0;
+	} else {
+		alpha = 1.0;
+	}
+#else
 	if (alpha < compute_alpha_hash_threshold(object_pos, alpha_hash_scale)) {
 		discard;
 	}
+#endif // MODE_RENDER_MATERIAL
 #endif // ALPHA_HASH_USED
 
 // If we are not edge antialiasing, we need to remove the output alpha channel from scissor and hash
-#if (defined(ALPHA_SCISSOR_USED) || defined(ALPHA_HASH_USED)) && !defined(ALPHA_ANTIALIASING_EDGE_USED)
+#if (defined(ALPHA_SCISSOR_USED) || defined(ALPHA_HASH_USED)) && !defined(ALPHA_ANTIALIASING_EDGE_USED) && !defined(MODE_RENDER_MATERIAL)
 	alpha = 1.0;
 #endif
 
@@ -1310,7 +1327,7 @@ void fragment_shader(in SceneData scene_data) {
 
 	// Tangent-space transformation is performed using unnormalized TBN vectors, per MikkTSpace.
 	// See: http://www.mikktspace.com/
-	normal = normalize(mix(geo_normal, tangent * normal_map.x + binormal * normal_map.y + normal * normal_map.z, normal_map_depth));
+	normal = normalize(mix(normal, tangent * normal_map.x + binormal * normal_map.y + normal * normal_map.z, normal_map_depth));
 #elif defined(NORMAL_USED)
 	normal = geo_normal;
 #endif // NORMAL_MAP_USED
@@ -1326,7 +1343,7 @@ void fragment_shader(in SceneData scene_data) {
 
 	if (anisotropy > 0.01) {
 		mat3 rot = mat3(normalize(tangent), normalize(binormal), normal);
-		//make local to space
+		// Make local to space.
 		tangent = normalize(rot * vec3(anisotropy_flow.x, anisotropy_flow.y, 0.0));
 		binormal = normalize(rot * vec3(-anisotropy_flow.y, anisotropy_flow.x, 0.0));
 	}
@@ -1334,10 +1351,21 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 
 #ifdef ENABLE_CLIP_ALPHA
+#ifdef MODE_RENDER_MATERIAL
+	if (albedo.a < 0.99) {
+		// Used for doublepass and shadowmapping.
+		albedo.a = 0.0;
+		alpha = 0.0;
+	} else {
+		albedo.a = 1.0;
+		alpha = 1.0;
+	}
+#else
 	if (albedo.a < 0.99) {
 		//used for doublepass and shadowmapping
 		discard;
 	}
+#endif // MODE_RENDER_MATERIAL
 #endif
 
 	/////////////////////// FOG //////////////////////
@@ -2398,7 +2426,6 @@ void fragment_shader(in SceneData scene_data) {
 					float z = trans_coord.z * directional_lights.data[i].shadow_z_range.z;
 
 					transmittance_z = z - shadow_z;
-
 				} else {
 					vec4 trans_vertex = vec4(vertex - geo_normal * directional_lights.data[i].shadow_transmittance_bias.w, 1.0);
 					vec4 trans_coord = directional_lights.data[i].shadow_matrix4 * trans_vertex;
@@ -2625,9 +2652,17 @@ void fragment_shader(in SceneData scene_data) {
 	alpha = min(alpha, clamp(length(ambient_light), 0.0, 1.0));
 
 #if defined(ALPHA_SCISSOR_USED)
+#ifdef MODE_RENDER_MATERIAL
+	if (alpha < alpha_scissor_threshold) {
+		alpha = 0.0;
+	} else {
+		alpha = 1.0;
+	}
+#else
 	if (alpha < alpha_scissor_threshold) {
 		discard;
 	}
+#endif // MODE_RENDER_MATERIAL
 #endif // ALPHA_SCISSOR_USED
 
 #endif // !MODE_RENDER_DEPTH
