@@ -120,15 +120,6 @@
 		<member name="backlight_texture" type="Texture2D" setter="set_texture" getter="get_texture">
 			Texture used to control the backlight effect per-pixel. Added to [member backlight].
 		</member>
-		<member name="bent_normal_enabled" type="bool" setter="set_feature" getter="get_feature" default="false">
-			If [code]true[/code], bent normal mapping is enabled. This allows for more accurate specular occlusion and indirect lighting.
-		</member>
-		<member name="bent_normal_texture" type="Texture2D" setter="set_texture" getter="get_texture">
-			Texture used to specify the bent normal at a given pixel. The [member bent_normal_texture] only uses the red and green channels; the blue and alpha channels are ignored. The normal read from [member bent_normal_texture] is oriented around the surface normal provided by the [Mesh].
-			[b]Note:[/b] The mesh must have both normals and tangents defined in its vertex data. Otherwise, the normal map won't render correctly and will only appear to darken the whole surface. If creating geometry with [SurfaceTool], you can use [method SurfaceTool.generate_normals] and [method SurfaceTool.generate_tangents] to automatically generate normals and tangents respectively.
-			[b]Note:[/b] Godot expects the normal map to use X+, Y+, and Z+ coordinates. See [url=http://wiki.polycount.com/wiki/Normal_Map_Technical_Details#Common_Swizzle_Coordinates]this page[/url] for a comparison of normal map coordinates expected by popular engines.
-			[b]Note:[/b] The normals must be cosine weighted to function correctly.
-		</member>
 		<member name="billboard_keep_scale" type="bool" setter="set_flag" getter="get_flag" default="false">
 			If [code]true[/code], the shader will keep the scale set for the mesh. Otherwise, the scale is lost when billboarding. Only applies when [member billboard_mode] is not [constant BILLBOARD_DISABLED].
 		</member>
@@ -233,10 +224,6 @@
 		<member name="grow_amount" type="float" setter="set_grow" getter="get_grow" default="0.0">
 			Grows object vertices in the direction of their normals. Only effective if [member grow] is [code]true[/code].
 		</member>
-		<member name="heightmap_correct_shadow_receive" type="bool" setter="set_heightmap_deep_parallax_correct_shadow_receive" getter="is_heightmap_deep_parallax_correcting_shadow_receive">
-			If [code]true[/code], makes the material receive shadows at the correct height according to the deep parallax effect. This means the silhouette from the received shadows will match the material's shape. This also allows the material to receive self-shadowing from lights, which can be visible at grazing angles if the shadow is sharp enough (this works best with [OmniLight3D] and [SpotLight3D]). This internally makes the deep parallax effect write to [code]LIGHT_VERTEX[/code] in the shader. Enabling this has a small performance impact.
-			[b]Note:[/b] Enabling this can result in self-shadowing artifacts if the lights have a shadow bias that is too low, or if the material has a [member heightmap_scale] that is too high. Enabling [member heightmap_write_depth] at the same time can alleviate those self-shadowing artifacts, with the associated performance cost of that feature.
-		</member>
 		<member name="heightmap_deep_parallax" type="bool" setter="set_heightmap_deep_parallax" getter="is_heightmap_deep_parallax_enabled" default="false">
 			If [code]true[/code], uses parallax occlusion mapping to represent depth in the material instead of simple offset mapping (see [member heightmap_enabled]). This results in a more convincing depth effect, but is much more expensive on the GPU. Only enable this on materials where it makes a significant visual difference.
 		</member>
@@ -270,15 +257,6 @@
 			The texture to use as a height map. See also [member heightmap_enabled].
 			For best results, the texture should be normalized (with [member heightmap_scale] reduced to compensate). In [url=https://gimp.org]GIMP[/url], this can be done using [b]Colors &gt; Auto &gt; Equalize[/b]. If the texture only uses a small part of its available range, the parallax effect may look strange, especially when the camera moves.
 			[b]Note:[/b] To reduce memory usage and improve loading times, you may be able to use a lower-resolution heightmap texture as most heightmaps are only comprised of low-frequency data.
-		</member>
-		<member name="heightmap_trim_edges" type="bool" setter="set_heightmap_deep_parallax_trim_edges" getter="is_heightmap_deep_parallax_trimming_edges">
-			If [code]true[/code], makes the material able to change its silhouette according to the deep parallax effect. shadows at the correct height according to the deep parallax effect. This means the silhouette from the received shadows will match the material's shape. This internally makes the deep parallax effect write to [code]LIGHT_VERTEX[/code] in the shader. See also [member heightmap_write_depth].
-			[b]Note:[/b] Enabling this can result in artifacts depending on the mesh's UV layout. This effect may not look correct on all meshes as a result.
-			[b]Note:[/b] Enabling this prevents the depth prepass from working, which has a moderate performance impact.
-		</member>
-		<member name="heightmap_write_depth" type="bool" setter="set_heightmap_deep_parallax_write_depth" getter="is_heightmap_deep_parallax_writing_depth">
-			If [code]true[/code], makes the material's silhouette able to correctly interact with other meshes in the scene according to the deep parallax effect. This allows the material to better blend in with other materials in the scene, regardless of whether the other material has deep parallax enabled. This internally makes the deep parallax effect write to [code]DEPTH[/code] in the shader. See also [member heightmap_trim_edges].
-			[b]Note:[/b] Enabling this enables depth writing and prevents the depth prepass from working, which has a significant performance impact
 		</member>
 		<member name="metallic" type="float" setter="set_metallic" getter="get_metallic" default="0.0">
 			A high value makes the material appear more like a metal. Non-metals use their albedo as the diffuse color and add diffuse to the specular reflection. With non-metals, the reflection appears on top of the albedo color. Metals use their albedo as a multiplier to the specular reflection and set the diffuse color to black resulting in a tinted reflection. Materials work better when fully metal or fully non-metal, values between [code]0[/code] and [code]1[/code] should only be used for blending between metal and non-metal sections. To alter the amount of reflection use [member roughness].
@@ -480,9 +458,6 @@
 		<constant name="TEXTURE_NORMAL" value="4" enum="TextureParam">
 			Texture specifying per-pixel normal vector.
 		</constant>
-		<constant name="TEXTURE_BENT_NORMAL" value="18" enum="TextureParam">
-			Texture specifying per-pixel bent normal vector.
-		</constant>
 		<constant name="TEXTURE_RIM" value="5" enum="TextureParam">
 			Texture specifying per-pixel rim value.
 		</constant>
@@ -522,7 +497,7 @@
 		<constant name="TEXTURE_ORM" value="17" enum="TextureParam">
 			Texture holding ambient occlusion, roughness, and metallic.
 		</constant>
-		<constant name="TEXTURE_MAX" value="19" enum="TextureParam">
+		<constant name="TEXTURE_MAX" value="18" enum="TextureParam">
 			Represents the size of the [enum TextureParam] enum.
 		</constant>
 		<constant name="TEXTURE_FILTER_NEAREST" value="0" enum="TextureFilter">
@@ -618,10 +593,7 @@
 		<constant name="FEATURE_DETAIL" value="11" enum="Feature">
 			Constant for setting [member detail_enabled].
 		</constant>
-		<constant name="FEATURE_BENT_NORMAL_MAPPING" value="12" enum="Feature">
-			Constant for setting [member bent_normal_enabled].
-		</constant>
-		<constant name="FEATURE_MAX" value="13" enum="Feature">
+		<constant name="FEATURE_MAX" value="12" enum="Feature">
 			Represents the size of the [enum Feature] enum.
 		</constant>
 		<constant name="BLEND_MODE_MIX" value="0" enum="BlendMode">

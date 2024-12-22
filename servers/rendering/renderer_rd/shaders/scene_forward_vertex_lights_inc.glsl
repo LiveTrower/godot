@@ -33,10 +33,9 @@ void light_compute_vertex(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, boo
 	// Normalized blinn always unless disabled.
 	vec3 H = normalize(V + L);
 	float cNdotH = clamp(A + dot(N, H), 0.0, 1.0);
-	float cLdotH = clamp(A + dot(L, H), 0.0, 1.0);
 	float shininess = roughness_to_shininess(roughness);
 	float blinn = pow(cNdotH, shininess);
-	blinn *= (shininess + 8.0) * (1.0 / (8.0 * M_PI)) * (0.25 / max(0.0001, cLdotH * cLdotH)) * cNdotL * specular_amount;
+	blinn *= (shininess + 8.0) * (1.0 / (8.0 * M_PI)) * cNdotL * specular_amount;
 	specular_brdf_NL = blinn;
 	specular_light += specular_brdf_NL * light_color;
 #endif

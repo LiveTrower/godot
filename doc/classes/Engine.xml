@@ -243,7 +243,7 @@
 		<method name="is_embedded_in_editor" qualifiers="const">
 			<return type="bool" />
 			<description>
-				Returns [code]true[/code] if the game is running embedded in the editor, otherwise returns [code]false[/code]. This is useful to prevent attempting to update window mode or window flags that are not supported when running embedded in the editor.
+				Returns [code]true[/code] if the engine is running embedded in the editor. This is useful to prevent attempting to update window mode or window flags that are not supported when running the project embedded in the editor.
 			</description>
 		</method>
 		<method name="is_in_physics_frame" qualifiers="const">

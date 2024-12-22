@@ -1340,14 +1340,17 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 
 #ifdef LIGHT_ANISOTROPY_USED
+	// Tangent basis must be reconstructed from per-pixel normal and normalized, otherwise specular highlights become warped.
+	// This has the added benefit of allowing normal maps to affect anisotropic specularity.
+	tangent = normalize(cross(binormal, normal));
+	binormal = cross(normal, tangent); // No need to normalize, as the cross product of two orthogonal normalized vectors is itself normalized.
 
-	if (anisotropy > 0.01) {
-		mat3 rot = mat3(normalize(tangent), normalize(binormal), normal);
-		// Make local to space.
-		tangent = normalize(rot * vec3(anisotropy_flow.x, anisotropy_flow.y, 0.0));
-		binormal = normalize(rot * vec3(-anisotropy_flow.y, anisotropy_flow.x, 0.0));
+	if (abs(anisotropy) > 0.01) { // Make anisotropic basis local to view space.
+		mat3 rot = mat3(tangent, binormal, normal);
+		anisotropy_flow = normalize(anisotropy_flow);
+		tangent = rot * vec3(anisotropy_flow.x, anisotropy_flow.y, 0.0);
+		binormal = rot * vec3(-anisotropy_flow.y, anisotropy_flow.x, 0.0);
 	}
-
 #endif
 
 #ifdef ENABLE_CLIP_ALPHA
@@ -1605,26 +1608,26 @@ void fragment_shader(in SceneData scene_data) {
 	vec3 anisotropic_direction = anisotropy >= 0.0 ? binormal : tangent;
 	vec3 anisotropic_tangent = cross(anisotropic_direction, view);
 	vec3 anisotropic_normal = cross(anisotropic_tangent, anisotropic_direction);
-	vec3 bent_normal = normalize(mix(normal, anisotropic_normal, abs(anisotropy) * 0.75 * clamp(5.0 * perceptual_roughness, 0.0, 1.0)));
+	vec3 bent_normal = normalize(mix(normal, anisotropic_normal, abs(anisotropy) * 0.75 * clamp(5.0 * roughness, 0.0, 1.0)));
 #else
 	vec3 bent_normal = normal;
 #endif // LIGHT_ANISOTROPY_USED
-	vec3 reflect_vec = reflect(-view, bent_normal);
-	vec3 dominant_reflect = mix(reflect_vec, bent_normal, roughness * roughness);
-		
 	if (scene_data.use_reflection_cubemap) {
-		vec3 radiance_ref_vec = scene_data.radiance_inverse_xform * dominant_reflect;
+		vec3 ref_vec = reflect(-view, bent_normal);
+		ref_vec = mix(ref_vec, bent_normal, roughness * roughness);
 
+		float horizon = min(1.0 + dot(ref_vec, normal), 1.0);
+		ref_vec = scene_data.radiance_inverse_xform * ref_vec;
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
 		float lod, blend;
 		blend = modf(perceptual_roughness * MAX_ROUGHNESS_LOD, lod);
-		indirect_specular_light = texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(radiance_ref_vec, lod)).rgb;
-		indirect_specular_light = mix(indirect_specular_light, texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(radiance_ref_vec, lod + 1)).rgb, blend);
+		indirect_specular_light = texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ref_vec, lod)).rgb;
+		indirect_specular_light = mix(indirect_specular_light, texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ref_vec, lod + 1)).rgb, blend);
 #else // USE_RADIANCE_CUBEMAP_ARRAY
-		indirect_specular_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), radiance_ref_vec, perceptual_roughness * MAX_ROUGHNESS_LOD).rgb;
+		indirect_specular_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_vec, perceptual_roughness * MAX_ROUGHNESS_LOD).rgb;
 #endif // USE_RADIANCE_CUBEMAP_ARRAY
 
-		indirect_specular_light *= scene_data.IBL_exposure_normalization * scene_data.ambient_light_color_energy.a;
+		indirect_specular_light *= scene_data.IBL_exposure_normalization * horizon * horizon * scene_data.ambient_light_color_energy.a;
 	}
 
 #if defined(CUSTOM_RADIANCE_USED)
@@ -1956,6 +1959,18 @@ void fragment_shader(in SceneData scene_data) {
 		item_to = subgroupBroadcastFirst(subgroupMax(item_to));
 #endif
 
+#ifdef LIGHT_ANISOTROPY_USED
+		// https://google.github.io/filament/Filament.html#lighting/imagebasedlights/anisotropy
+		vec3 anisotropic_direction = anisotropy >= 0.0 ? binormal : tangent;
+		vec3 anisotropic_tangent = cross(anisotropic_direction, view);
+		vec3 anisotropic_normal = cross(anisotropic_tangent, anisotropic_direction);
+		vec3 bent_normal = normalize(mix(normal, anisotropic_normal, abs(anisotropy) * 0.75 * clamp(5.0 * roughness, 0.0, 1.0)));
+#else
+		vec3 bent_normal = normal;
+#endif
+		vec3 ref_vec = reflect(-view, bent_normal);
+		ref_vec = mix(ref_vec, bent_normal, roughness * roughness);
+
 		for (uint i = item_from; i < item_to; i++) {
 			uint mask = cluster_buffer.data[cluster_reflection_offset + i];
 			mask &= cluster_get_range_clip_mask(i, item_min, item_max);
@@ -1979,7 +1994,7 @@ void fragment_shader(in SceneData scene_data) {
 					continue; //not masked
 				}
 
-				reflection_process(reflection_index, vertex, dominant_reflect, normal, roughness, ambient_light, indirect_specular_light,
+				reflection_process(reflection_index, vertex, ref_vec, normal, roughness, ambient_light, indirect_specular_light,
 #ifdef LIGHT_CLEARCOAT_USED
 				cc_specular_light, cc_ref_vec, cc_perceptual_roughness, cc_reflection_accum,
 #endif
@@ -2051,9 +2066,7 @@ void fragment_shader(in SceneData scene_data) {
 
 		// Base layer
 		float f90 = clamp(dot(f0, vec3(50.0 * 0.333)), metallic, 1.0);
-		float horizon = clamp(1.0 + dot(reflect_vec, geo_normal), 0.0, 1.0);
-		horizon *= horizon;
-		indirect_specular_light *= (f0 * envBRDF.x + f90 * envBRDF.y) * horizon;
+		indirect_specular_light *= f0 * envBRDF.x + f90 * envBRDF.y;
 
 #ifdef LIGHT_CLEARCOAT_USED
 		// The clearcoat layer assumes an IOR of 1.5 (4% reflectance).
@@ -2493,8 +2506,7 @@ void fragment_shader(in SceneData scene_data) {
 					clearcoat, cc_roughness, geo_normal,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
-					binormal,
-					tangent, anisotropy,
+					tangent, binormal, anisotropy,
 #endif
 					diffuse_light,
 					direct_specular_light);
@@ -2637,8 +2649,7 @@ void fragment_shader(in SceneData scene_data) {
 						clearcoat, cc_roughness, geo_normal,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
-						tangent,
-						binormal, anisotropy,
+						tangent, binormal, anisotropy,
 #endif
 						diffuse_light, direct_specular_light);
 			}

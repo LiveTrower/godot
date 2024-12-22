@@ -154,7 +154,7 @@ float integrate_cloth_brdf(float n_dot_v, float roughness) {
 
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
-	float roughness = float(pos.y + 0.5f) / SIZE;
+    float roughness = float(pos.y + 0.5f) / SIZE;
     float NdotV = float(pos.x + 0.5f) / SIZE;
     vec4 color = vec4(1.0);
     color.rg = integrate_brdf(NdotV, roughness);

@@ -2513,7 +2513,7 @@
 			<param index="0" name="mesh" type="RID" />
 			<param index="1" name="surface" type="int" />
 			<description>
-				Removes a mesh's surface at position surf_idx, shifting greater surfaces one surf_idx slot down.
+				Removes the surface at the given index from the Mesh, shifting surfaces with higher index down by one.
 			</description>
 		</method>
 		<method name="mesh_surface_set_material">
@@ -5348,9 +5348,6 @@
 			Use the Academy Color Encoding System tonemapper. ACES is slightly more expensive than other options, but it handles bright lighting in a more realistic fashion by desaturating it as it becomes brighter. ACES typically has a more contrasted output compared to [constant ENV_TONE_MAPPER_REINHARD] and [constant ENV_TONE_MAPPER_FILMIC].
 			[b]Note:[/b] This tonemapping operator is called "ACES Fitted" in Godot 3.x.
 		</constant>
-		<constant name="ENV_TONE_MAPPER_AGX" value="4" enum="EnvironmentToneMapper">
-			Use the AgX tonemapper. AgX is slightly more expensive than other options, but it handles bright lighting in a more realistic fashion by desaturating it as it becomes brighter. AgX is less likely to darken parts of the scene compared to [constant ENV_TONE_MAPPER_ACES], and can match [constant ENV_TONE_MAPPER_FILMIC] more closely.
-		</constant>
 		<constant name="ENV_SSR_ROUGHNESS_QUALITY_DISABLED" value="0" enum="EnvironmentSSRRoughnessQuality">
 			Lowest quality of roughness filter for screen-space reflections. Rough materials will not have blurrier screen-space reflections compared to smooth (non-rough) materials. This is the fastest option.
 		</constant>
@@ -5783,7 +5780,10 @@
 		<constant name="GLOBAL_VAR_TYPE_SAMPLERCUBE" value="27" enum="GlobalShaderParameterType">
 			Cubemap sampler global shader parameter ([code]global uniform samplerCube ...[/code]). Exposed as a [Cubemap] in the editor UI.
 		</constant>
-		<constant name="GLOBAL_VAR_TYPE_MAX" value="28" enum="GlobalShaderParameterType">
+		<constant name="GLOBAL_VAR_TYPE_SAMPLEREXT" value="28" enum="GlobalShaderParameterType">
+			External sampler global shader parameter ([code]global uniform samplerExternalOES ...[/code]). Exposed as a [ExternalTexture] in the editor UI.
+		</constant>
+		<constant name="GLOBAL_VAR_TYPE_MAX" value="29" enum="GlobalShaderParameterType">
 			Represents the size of the [enum GlobalShaderParameterType] enum.
 		</constant>
 		<constant name="RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME" value="0" enum="RenderingInfo">

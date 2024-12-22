@@ -3,10 +3,14 @@
 vec3 specular_lobe(float metallic, vec3 f0, float anisotropy, vec3 T, vec3 B, float roughness, vec3 H, vec3 V, vec3 L, float cNdotH, float cNdotL, float cNdotV, float cLdotH){
 	float alpha_ggx = roughness * roughness;
 #if defined(LIGHT_ANISOTROPY_USED)
-	float aspect = sqrt_IEEE_int_approximation(1.0 - anisotropy * 0.9);
+	float aspect = sqrt_IEEE_int_approximation(1.0 - abs(anisotropy) * 0.9);
 	float ax = alpha_ggx / aspect;
 	float ay = alpha_ggx * aspect;
-
+	if (anisotropy < 0.0) {
+		float atemp = ax;
+		ax = ay;
+		ay = atemp;
+	}
 	float TdotV = dot(T, V);
 	float BdotV = dot(B, V);
 	float TdotL = dot(T, L);
@@ -62,7 +66,7 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 		float clearcoat, float clearcoat_roughness, vec3 vertex_normal,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
-		vec3 B, vec3 T, float anisotropy,
+		vec3 T, vec3 B, float anisotropy,
 #endif
 		inout vec3 diffuse_light, inout vec3 specular_light) {
 	vec4 orms_unpacked = unpackUnorm4x8(orms);
@@ -391,7 +395,7 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 		float clearcoat, float clearcoat_roughness, vec3 vertex_normal,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
-		vec3 binormal, vec3 tangent, float anisotropy,
+		vec3 tangent, vec3 binormal, float anisotropy,
 #endif
 		inout vec3 diffuse_light, inout vec3 specular_light) {
 	const float EPSILON = 1e-3f;
@@ -654,7 +658,7 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 			clearcoat, clearcoat_roughness, vertex_normal,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
-			binormal, tangent, anisotropy,
+			tangent, binormal, anisotropy,
 #endif
 			diffuse_light,
 			specular_light);
@@ -691,7 +695,7 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 		float clearcoat, float clearcoat_roughness, vec3 vertex_normal,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
-		vec3 binormal, vec3 tangent, float anisotropy,
+		vec3 tangent, vec3 binormal, float anisotropy,
 #endif
 		inout vec3 diffuse_light,
 		inout vec3 specular_light) {
@@ -860,7 +864,7 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 			clearcoat, clearcoat_roughness, vertex_normal,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
-			binormal, tangent, anisotropy,
+			tangent, binormal, anisotropy,
 #endif
 			diffuse_light, specular_light);
 }
