@@ -114,6 +114,7 @@
 #include "scene/resources/bone_map.h"
 #include "scene/resources/camera_attributes.h"
 #include "scene/resources/camera_texture.h"
+#include "scene/resources/canvas_item_material.h"
 #include "scene/resources/color_palette.h"
 #include "scene/resources/compositor.h"
 #include "scene/resources/compressed_texture.h"
@@ -146,7 +147,6 @@
 #include "scene/resources/style_box_texture.h"
 #include "scene/resources/surface_tool.h"
 #include "scene/resources/syntax_highlighter.h"
-#include "scene/resources/text_file.h"
 #include "scene/resources/text_line.h"
 #include "scene/resources/text_paragraph.h"
 #include "scene/resources/texture.h"
@@ -686,8 +686,6 @@ void register_scene_types() {
 	GDREGISTER_CLASS(VisualShaderNodeColorOp);
 	GDREGISTER_CLASS(VisualShaderNodeTransformOp);
 	GDREGISTER_CLASS(VisualShaderNodeTransformVecMult);
-	GDREGISTER_CLASS(VisualShaderNodeTransformVectorMultiply);
-	GDREGISTER_CLASS(VisualShaderNodeVectorCoordinateTransform);
 	GDREGISTER_CLASS(VisualShaderNodeFloatFunc);
 	GDREGISTER_CLASS(VisualShaderNodeIntFunc);
 	GDREGISTER_CLASS(VisualShaderNodeUIntFunc);

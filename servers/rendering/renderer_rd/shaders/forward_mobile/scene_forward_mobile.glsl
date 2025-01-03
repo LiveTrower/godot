@@ -902,7 +902,6 @@ void main() {
 		normal = -normal;
 	}
 #endif // DO_SIDE_CHECK
-	vec3 geo_normal = normalize(normal);
 #endif // NORMAL_USED
 
 #ifdef UV_USED
@@ -983,6 +982,10 @@ void main() {
 	view = -normalize(vertex);
 #endif //USE_MULTIVIEW
 #endif //LIGHT_VERTEX_USED
+
+#ifdef NORMAL_USED
+	vec3 geo_normal = normalize(normal);
+#endif // NORMAL_USED
 
 #ifdef LIGHT_TRANSMITTANCE_USED
 #ifdef SSS_MODE_SKIN

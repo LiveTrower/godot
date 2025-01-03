@@ -45,12 +45,14 @@
 #include "core/io/stream_peer.h"
 #include "core/object/object_id.h"
 #include "core/version.h"
+#include "scene/2d/node_2d.h"
 #include "scene/3d/bone_attachment_3d.h"
 #include "scene/3d/camera_3d.h"
 #include "scene/3d/importer_mesh_instance_3d.h"
 #include "scene/3d/light_3d.h"
 #include "scene/3d/mesh_instance_3d.h"
 #include "scene/3d/multimesh_instance_3d.h"
+#include "scene/animation/animation_player.h"
 #include "scene/resources/3d/skin.h"
 #include "scene/resources/image_texture.h"
 #include "scene/resources/portable_compressed_texture.h"
@@ -3151,7 +3153,7 @@ Error GLTFDocument::_serialize_meshes(Ref<GLTFState> p_state) {
 				v = instance_materials.get(surface_i);
 			}
 			Ref<Material> mat = v;
-			if (!mat.is_valid()) {
+			if (mat.is_null()) {
 				mat = import_mesh->get_surface_material(surface_i);
 			}
 			if (mat.is_valid()) {

@@ -1,6 +1,6 @@
 #include "brdf_inc.glsl"
 
-vec3 specular_lobe(float metallic, vec3 f0, float anisotropy, vec3 T, vec3 B, float roughness, vec3 H, vec3 V, vec3 L, float cNdotH, float cNdotL, float cNdotV, float cLdotH){
+vec3 specular_lobe(float metallic, vec3 f0, float anisotropy, vec3 T, vec3 B, float roughness, vec3 H, vec3 V, vec3 L, float cNdotH, float cNdotL, float cNdotV, float cLdotH, vec3 energy_compensation){
 	float alpha_ggx = roughness * roughness;
 #if defined(LIGHT_ANISOTROPY_USED)
 	float aspect = sqrt_IEEE_int_approximation(1.0 - abs(anisotropy) * 0.9);
@@ -28,7 +28,7 @@ vec3 specular_lobe(float metallic, vec3 f0, float anisotropy, vec3 T, vec3 B, fl
 	// https://google.github.io/filament/Filament.html#lighting/occlusion/specularocclusion
 	float f90 = clamp(dot(f0, vec3(50.0 * 0.333)), metallic, 1.0);
 	vec3 F = SchlickFresnel(f0, f90, cLdotH);
-	return D * G * F * cNdotL;
+	return energy_compensation * (D * G * F * cNdotL);
 }
 
 vec3 sheen_lobe(float sheen_roughness, float sheen, vec3 sheen_color, float cNdotH, float cNdotV, float cNdotL){
@@ -181,9 +181,9 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 #else
 			0.0, vec3(0.0), vec3(0.0),
 #endif
-			roughness, H, V, L, cNdotH, cNdotL, cNdotV, cLdotH);
+			roughness, H, V, L, cNdotH, cNdotL, cNdotV, cLdotH, energy_compensation);
 
-			specular_light += specular_brdf_NL * energy_compensation * light_color * attenuation * cc_attenuation * sh_attenuation * specular_amount;
+			specular_light += specular_brdf_NL * light_color * attenuation * cc_attenuation * sh_attenuation * specular_amount;
 #endif
 		}
 
@@ -202,7 +202,7 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 			diffuse_brdf_NL = Diffuse_Lambert(cNdotL);
 #endif
 			//apply diffuse
-			diffuse_light += light_color * energy_compensation * diffuse_brdf_NL * attenuation;
+			diffuse_light += light_color * diffuse_brdf_NL * attenuation;
 #if defined(LIGHT_BACKLIGHT_USED)
 			diffuse_light += light_color * ((1.0 - diffuse_brdf_NL) * backlight * attenuation * cc_attenuation * sh_attenuation * (1.0 / M_PI));
 #endif

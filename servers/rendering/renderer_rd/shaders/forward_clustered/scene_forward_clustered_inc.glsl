@@ -472,8 +472,13 @@ vec3 get_energy_compensation(vec3 f0, vec2 env){
     // which is the integral of microfacet BRDF by assuming fresnel term F == 1 that represents total single scattering reflectance
     // for more information about compensation term please see:
     // https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf
-	vec3 compensation = f0 * ((1.0 / (env.x + env.y)) - 1.0);
-	return compensation + 1.0;
+#ifdef SPECULAR_MULTISCATTERING_GGX
+	//vec3 compensation = f0 * ((1.0 / (env.x + env.y)) - 1.0);
+	//return compensation + 1.0;
+	return 1.0 + f0 * (1.0 / env.y - 1.0);
+#else
+	return vec3(1.0);
+#endif
 }
 
 /*float compute_micro_shadowing(float NoL, float visibility) {

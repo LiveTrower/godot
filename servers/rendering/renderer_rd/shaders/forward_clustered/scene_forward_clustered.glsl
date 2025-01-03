@@ -1181,7 +1181,6 @@ void fragment_shader(in SceneData scene_data) {
 		normal = -normal;
 	}
 #endif // DO_SIDE_CHECK
-	vec3 geo_normal = normalize(normal);
 #endif // NORMAL_USED
 
 #ifdef UV_USED
@@ -1265,6 +1264,10 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef LIGHT_TRANSMITTANCE_USED
 	transmittance_color.a *= sss_strength;
 #endif
+
+#ifdef NORMAL_USED
+	vec3 geo_normal = normalize(normal);
+#endif // NORMAL_USED
 
 #ifndef USE_SHADOW_TO_OPACITY
 
@@ -2058,15 +2061,12 @@ void fragment_shader(in SceneData scene_data) {
 #else
 		float NdotV = clamp(dot(normal, view), 0.0001, 1.0);
 		vec2 envBRDF = prefiltered_dfg(roughness, NdotV).xy;
-
-		// Multiscattering
 		vec3 energy_compensation = get_energy_compensation(f0, envBRDF.xy);
-		ambient_light *= energy_compensation;
-		indirect_specular_light *= energy_compensation;
 
 		// Base layer
-		float f90 = clamp(dot(f0, vec3(50.0 * 0.333)), metallic, 1.0);
-		indirect_specular_light *= f0 * envBRDF.x + f90 * envBRDF.y;
+		//float f90 = clamp(dot(f0, vec3(50.0 * 0.333)), metallic, 1.0);
+		//indirect_specular_light *= energy_compensation * (f0 * envBRDF.x + f90 * envBRDF.y);
+		indirect_specular_light *= energy_compensation * mix(envBRDF.xxx, envBRDF.yyy, f0);
 
 #ifdef LIGHT_CLEARCOAT_USED
 		// The clearcoat layer assumes an IOR of 1.5 (4% reflectance).

@@ -15,12 +15,12 @@ layout(rgba16f, set = 0, binding = 0) uniform restrict writeonly image2D current
 // efficient VanDerCorpus calculation
 float radical_inverse_vdc(uint bits)
 {
-     bits = (bits << 16u) | (bits >> 16u);
-     bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
-     bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
-     bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
-     bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
-     return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+    bits = (bits << 16u) | (bits >> 16u);
+    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+    return float(bits) * 2.3283064365386963e-10; // / 0x100000000
 }
 
 vec2 hammersley(uint i, float n)
@@ -98,8 +98,12 @@ vec2 integrate_brdf(float n_dot_v, float roughness)
             float G_Vis = (G * v_dot_h) / (n_dot_h * n_dot_v);
             float Fc    = pow(1.0 - v_dot_h, 5.0);
 
-            A += (1.0 - Fc) * G_Vis;
-            B += Fc * G_Vis;
+            //A += (1.0 - Fc) * G_Vis;
+            //B += Fc * G_Vis;
+            // Multiscatter DFG term from filament:
+            //https://google.github.io/filament/Filament.html#listing_multiscatteriblevaluation
+            A += Fc * G_Vis;
+            B += G_Vis;
         }
     }
     
@@ -130,6 +134,7 @@ float visibility_ashikhmin(float NoV, float NoL) {
     return 1 / (4 * (NoL + NoV - NoL * NoV));
 }
 
+// Cloth BRDF from 
 float integrate_cloth_brdf(float n_dot_v, float roughness) {
     float r = 0.0;
     vec3 v = vec3(sqrt(1.0 - n_dot_v * n_dot_v), 0, n_dot_v);

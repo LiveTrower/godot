@@ -19,3 +19,7 @@ float pow5(float x) {
 float max3(const vec3 v) {
     return max(v.x, max(v.y, v.z));
 }
+
+vec3 rcp(vec3 x) {
+    return 1.0 / x;
+}

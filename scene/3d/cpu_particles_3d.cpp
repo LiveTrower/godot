@@ -35,7 +35,6 @@
 #include "scene/main/viewport.h"
 #include "scene/resources/curve_texture.h"
 #include "scene/resources/gradient_texture.h"
-#include "scene/resources/image_texture.h"
 #include "scene/resources/particle_process_material.h"
 
 AABB CPUParticles3D::get_aabb() const {
@@ -310,7 +309,7 @@ real_t CPUParticles3D::get_param_max(Parameter p_param) const {
 
 static void _adjust_curve_range(const Ref<Curve> &p_curve, real_t p_min, real_t p_max) {
 	Ref<Curve> curve = p_curve;
-	if (!curve.is_valid()) {
+	if (curve.is_null()) {
 		return;
 	}
 
