@@ -26,7 +26,7 @@ vec3 specular_lobe(float metallic, vec3 f0, float anisotropy, vec3 T, vec3 B, fl
 #endif
 	// Calculate Fresnel using specular occlusion term from Filament:
 	// https://google.github.io/filament/Filament.html#lighting/occlusion/specularocclusion
-	float f90 = clamp(dot(f0, vec3(50.0 * 0.333)), metallic, 1.0);
+	float f90 = clamp(dot(f0, vec3(50.0 * 0.33)), metallic, 1.0);
 	vec3 F = SchlickFresnel(f0, f90, cLdotH);
 	return energy_compensation * (D * G * F * cNdotL);
 }
@@ -130,7 +130,7 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 
 		//Multiscattering
 		vec2 dfg = prefiltered_dfg(roughness, cNdotV).xy;
-		vec3 energy_compensation = get_energy_compensation(f0, dfg);
+		vec3 energy_compensation = get_energy_compensation(f0, dfg.y);
 
 #if defined(DIFFUSE_BURLEY) || defined(SPECULAR_SCHLICK_GGX) || defined(LIGHT_CLEARCOAT_USED)
 		vec3 H = normalize(V + L);

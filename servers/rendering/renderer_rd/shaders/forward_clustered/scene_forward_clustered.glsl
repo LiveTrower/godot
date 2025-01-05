@@ -1252,6 +1252,10 @@ void fragment_shader(in SceneData scene_data) {
 #CODE : FRAGMENT
 	}
 
+#ifdef LIGHT_TRANSMITTANCE_USED
+	transmittance_color.a *= sss_strength;
+#endif
+
 #ifdef LIGHT_VERTEX_USED
 	vertex = light_vertex;
 #ifdef USE_MULTIVIEW
@@ -1260,10 +1264,6 @@ void fragment_shader(in SceneData scene_data) {
 	view = -normalize(vertex);
 #endif //USE_MULTIVIEW
 #endif //LIGHT_VERTEX_USED
-
-#ifdef LIGHT_TRANSMITTANCE_USED
-	transmittance_color.a *= sss_strength;
-#endif
 
 #ifdef NORMAL_USED
 	vec3 geo_normal = normalize(normal);
@@ -1661,6 +1661,7 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef LIGHT_CLEARCOAT_USED
 	// Note: We want to use geometric normal for clearcoat reflections/BRDF, ie. we ignore the normal map.
 	vec3 cc_ref_vec = reflect(-view, geo_normal);
+	cc_ref_vec = mix(cc_ref_vec, geo_normal, cc_roughness * cc_roughness);
 
 	if (scene_data.use_reflection_cubemap) {
 		vec3 cc_radiance_ref_vec = scene_data.radiance_inverse_xform * cc_ref_vec;
@@ -1671,7 +1672,7 @@ void fragment_shader(in SceneData scene_data) {
 		vec3 clearcoat_light = texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(cc_radiance_ref_vec, lod)).rgb;
 		clearcoat_light = mix(clearcoat_light, texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(cc_radiance_ref_vec, lod + 1)).rgb, blend);
 #else // USE_RADIANCE_CUBEMAP_ARRAY
-		vec3 clearcoat_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), cc_radiance_ref_vec, roughness_lod).rgb;
+		vec3 clearcoat_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), cc_radiance_ref_vec, cc_perceptual_roughness * MAX_ROUGHNESS_LOD).rgb;
 #endif // USE_RADIANCE_CUBEMAP_ARRAY
 
 		cc_specular_light += clearcoat_light * (scene_data.IBL_exposure_normalization * scene_data.ambient_light_color_energy.a);
@@ -1680,10 +1681,10 @@ void fragment_shader(in SceneData scene_data) {
 
 #if defined(LIGHT_SHEEN_USED)
 	vec3 sh_ref_vec = reflect(-view, normal);
-	vec3 sh_dominant_reflect = mix(sh_ref_vec, normal, sheen_roughness * sheen_roughness);
+	sh_ref_vec = mix(sh_ref_vec, normal, sheen_roughness * sheen_roughness);
 
 	if (scene_data.use_reflection_cubemap) {
-		vec3 sh_radiance_ref_vec = scene_data.radiance_inverse_xform * sh_dominant_reflect;
+		vec3 sh_radiance_ref_vec = scene_data.radiance_inverse_xform * sh_ref_vec;
 
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
 		float lod, blend;
@@ -2002,7 +2003,7 @@ void fragment_shader(in SceneData scene_data) {
 				cc_specular_light, cc_ref_vec, cc_perceptual_roughness, cc_reflection_accum,
 #endif
 #ifdef LIGHT_SHEEN_USED
-				sh_specular_light, sh_dominant_reflect, sheen_perceptual_roughness, sh_reflection_accum,
+				sh_specular_light, sh_ref_vec, sheen_perceptual_roughness, sh_reflection_accum,
 #endif
 				ambient_accum, reflection_accum);
 			}
@@ -2061,12 +2062,11 @@ void fragment_shader(in SceneData scene_data) {
 #else
 		float NdotV = clamp(dot(normal, view), 0.0001, 1.0);
 		vec2 envBRDF = prefiltered_dfg(roughness, NdotV).xy;
-		vec3 energy_compensation = get_energy_compensation(f0, envBRDF.xy);
+		vec3 energy_compensation = get_energy_compensation(f0, envBRDF.y);
 
-		// Base layer
-		//float f90 = clamp(dot(f0, vec3(50.0 * 0.333)), metallic, 1.0);
-		//indirect_specular_light *= energy_compensation * (f0 * envBRDF.x + f90 * envBRDF.y);
-		indirect_specular_light *= energy_compensation * mix(envBRDF.xxx, envBRDF.yyy, f0);
+		// Base Layer
+		float f90 = clamp(50.0 * f0.g, 0.0, 1.0);
+		indirect_specular_light *= energy_compensation * (f90 * envBRDF.x + f0 * envBRDF.y);
 
 #ifdef LIGHT_CLEARCOAT_USED
 		// The clearcoat layer assumes an IOR of 1.5 (4% reflectance).
@@ -2077,7 +2077,7 @@ void fragment_shader(in SceneData scene_data) {
 		indirect_specular_light *= cc_attenuation;
 
 		float cc_env = BRDF_Aprox_Nonmetal(cc_roughness, geo_ndotv);
-		indirect_specular_light += cc_specular_light * (cc_env * clearcoat * ao);
+		indirect_specular_light += cc_specular_light * (cc_env * clearcoat);
 #endif
 
 #ifdef LIGHT_SHEEN_USED
@@ -2088,7 +2088,6 @@ void fragment_shader(in SceneData scene_data) {
 		indirect_specular_light *= sh_attenuation;
 
 		vec3 reflectance = dfg_sheen * sheen_color;
-		reflectance *= ao;
 		indirect_specular_light += sh_specular_light * (reflectance * sheen);
 #endif
 

@@ -461,21 +461,11 @@ vec3 prefiltered_dfg(float lod, float NoV) {
     return textureLod(sampler2D(dfg, SAMPLER_LINEAR_CLAMP), vec2(NoV, 1.0 - lod), 0.0).rgb;
 }
 
-// Multiscatter from https://github.com/o3de/o3de/blob/development/Gems/Atom/Feature/Common/Assets/ShaderLib/Atom/Features/PBR/LightingUtils.azsli
-vec3 get_energy_compensation(vec3 f0, vec2 env){
-	// returned values of BRDF are formed by split sum approximation as shown below
-    // brdf.x = integral{(BRDF / F) * (1 - (1 - VdotH)^5) * NdotL dL} 
-    // brdf.y = integral{(BRDF / F) * (1 - VdotH)^5 * NdotL dL}
-    // brdf.x + brdf.y = integral{ (BRDF / F) * (1 - alpha + alpha) * NdotL dL }
-    //                 = integral{ (BRDF / F) * NdotL dL }
-    //                 = integral{ ((GD / 4 * NdotL * NdotV)) * NdotL dL }
-    // which is the integral of microfacet BRDF by assuming fresnel term F == 1 that represents total single scattering reflectance
-    // for more information about compensation term please see:
-    // https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf
+vec3 get_energy_compensation(vec3 f0, float env) {
 #ifdef SPECULAR_MULTISCATTERING_GGX
 	//vec3 compensation = f0 * ((1.0 / (env.x + env.y)) - 1.0);
 	//return compensation + 1.0;
-	return 1.0 + f0 * (1.0 / env.y - 1.0);
+	return 1.0 + f0 * (1.0 / env - 1.0);
 #else
 	return vec3(1.0);
 #endif
