@@ -2083,7 +2083,7 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef LIGHT_SHEEN_USED
 		float dfg_sheen = prefiltered_dfg(sheen_roughness, NdotV).z;
 		// Albedo scaling of the base layer before we layer sheen on top
-		float sh_attenuation = (1.0 - max3(sheen_color) * dfg_sheen) * sheen;
+		float sh_attenuation = 1.0 - sheen * max3(sheen_color) * dfg_sheen;
 		ambient_light *= sh_attenuation;
 		indirect_specular_light *= sh_attenuation;
 

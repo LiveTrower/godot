@@ -635,6 +635,7 @@ void BaseMaterial3D::init_shaders() {
 
 	shader_names->metallic_texture_channel = "metallic_texture_channel";
 	shader_names->ao_texture_channel = "ao_texture_channel";
+	shader_names->sheen_texture_channel = "sheen_texture_channel";
 	shader_names->clearcoat_texture_channel = "clearcoat_texture_channel";
 	shader_names->rim_texture_channel = "rim_texture_channel";
 	shader_names->heightmap_texture_channel = "heightmap_texture_channel";
@@ -651,6 +652,7 @@ void BaseMaterial3D::init_shaders() {
 	shader_names->texture_names[TEXTURE_NORMAL] = "texture_normal";
 	shader_names->texture_names[TEXTURE_BENT_NORMAL] = "texture_bent_normal";
 	shader_names->texture_names[TEXTURE_RIM] = "texture_rim";
+	shader_names->texture_names[TEXTURE_SHEEN] = "texture_sheen";
 	shader_names->texture_names[TEXTURE_CLEARCOAT] = "texture_clearcoat";
 	shader_names->texture_names[TEXTURE_FLOWMAP] = "texture_flowmap";
 	shader_names->texture_names[TEXTURE_AMBIENT_OCCLUSION] = "texture_ambient_occlusion";
@@ -1036,11 +1038,13 @@ uniform sampler2D texture_rim : hint_default_white, %s;
 				texfilter_str);
 	}
 	if (features[FEATURE_SHEEN]) {
-		code += R"(
+		code += vformat(R"(
 uniform float sheen : hint_range(0.0, 1.0, 0.01);
 uniform float sheen_roughness : hint_range(0.0, 1.0, 0.01);
 uniform vec3 sheen_color : source_color;
-)";
+uniform sampler2D texture_sheen : hint_default_white, %s;
+)",
+				texfilter_str);
 	}
 	if (features[FEATURE_CLEARCOAT]) {
 		code += vformat(R"(
@@ -1811,7 +1815,13 @@ void fragment() {)";
 	if (features[FEATURE_SHEEN]) {
 		code += R"(
 	// Sheen: Enabled
-	SHEEN = sheen;
+)";
+		if (flags[FLAG_UV1_USE_TRIPLANAR]) {
+			code += "	vec2 sheen_tex = triplanar_texture(texture_sheen, uv1_power_normal, uv1_triplanar_pos).xy;\n";
+		} else {
+			code += "	vec2 sheen_tex = texture(texture_sheen, base_uv).xy;\n";
+		}
+		code += R"( SHEEN = sheen * sheen_tex.x;
 	SHEEN_ROUGHNESS = sheen_roughness;
 	SHEEN_COLOR = sheen_color;
 )";
@@ -3324,6 +3334,7 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sheen", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_sheen", "get_sheen");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sheen_roughness", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_sheen_roughness", "get_sheen_roughness");
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "sheen_color", PROPERTY_HINT_COLOR_NO_ALPHA), "set_sheen_color", "get_sheen_color");
+	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "sheen_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_SHEEN);
 
 	ADD_GROUP("Clearcoat", "clearcoat_");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "clearcoat_enabled"), "set_feature", "get_feature", FEATURE_CLEARCOAT);
@@ -3443,6 +3454,7 @@ void BaseMaterial3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(TEXTURE_NORMAL);
 	BIND_ENUM_CONSTANT(TEXTURE_BENT_NORMAL);
 	BIND_ENUM_CONSTANT(TEXTURE_RIM);
+	BIND_ENUM_CONSTANT(TEXTURE_SHEEN);
 	BIND_ENUM_CONSTANT(TEXTURE_CLEARCOAT);
 	BIND_ENUM_CONSTANT(TEXTURE_FLOWMAP);
 	BIND_ENUM_CONSTANT(TEXTURE_AMBIENT_OCCLUSION);

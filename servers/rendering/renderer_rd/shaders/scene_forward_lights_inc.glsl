@@ -31,9 +31,12 @@ vec3 specular_lobe(float metallic, vec3 f0, float anisotropy, vec3 T, vec3 B, fl
 	return energy_compensation * (D * G * F * cNdotL);
 }
 
-vec3 sheen_lobe(float sheen_roughness, float sheen, vec3 sheen_color, float cNdotH, float cNdotV, float cNdotL){
+vec3 sheen_lobe(float sheen_roughness, float sheen, vec3 sheen_color, float cNdotH, float cNdotV, float cNdotL, out float attenuation){
 	float D = D_Charlie(sheen_roughness, cNdotH);
 	float V = V_Neubelt(cNdotV, cNdotL);
+	float dfg_sheen = prefiltered_dfg(sheen_roughness, cNdotV).z;
+	// Albedo scaling of the base layer before we layer sheen on top
+	attenuation = 1.0 - max3(sheen_color) * dfg_sheen * sheen;
 	return D * V * sheen_color * sheen * cNdotL;
 }
 
@@ -132,7 +135,7 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 		vec2 dfg = prefiltered_dfg(roughness, cNdotV).xy;
 		vec3 energy_compensation = get_energy_compensation(f0, dfg.y);
 
-#if defined(DIFFUSE_BURLEY) || defined(SPECULAR_SCHLICK_GGX) || defined(LIGHT_CLEARCOAT_USED)
+#if defined(DIFFUSE_BURLEY) || defined(SPECULAR_SCHLICK_GGX) || defined(LIGHT_CLEARCOAT_USED) || defined(LIGHT_SHEEN_USED)
 		vec3 H = normalize(V + L);
 		float cLdotH = clamp(A + dot(L, H), 0.0, 1.0);
 #endif
@@ -145,11 +148,8 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 		float cc_attenuation = 1.0;
 		float sh_attenuation = 1.0;
 #if defined(LIGHT_SHEEN_USED)
-		float dfg_sheen = prefiltered_dfg(sheen_roughness, cNdotV).z;
-		vec3 sheen_specular_brdf_NL = sheen_lobe(sheen_roughness, sheen, sheen_color, cNdotH, cNdotV, cNdotL);
+		vec3 sheen_specular_brdf_NL = sheen_lobe(sheen_roughness, sheen, sheen_color, cNdotH, cNdotV, cNdotL, sh_attenuation);
 		specular_light += sheen_specular_brdf_NL * light_color * attenuation * specular_amount;
-		// Albedo scaling of the base layer before we layer sheen on top
-		sh_attenuation = 1.0 - max(sheen_color.x, max(sheen_color.y, sheen_color.z)) * dfg_sheen;
 #endif
 
 #if defined(LIGHT_CLEARCOAT_USED)

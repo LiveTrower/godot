@@ -152,6 +152,7 @@ public:
 		TEXTURE_NORMAL,
 		TEXTURE_BENT_NORMAL,
 		TEXTURE_RIM,
+		TEXTURE_SHEEN,
 		TEXTURE_CLEARCOAT,
 		TEXTURE_FLOWMAP,
 		TEXTURE_AMBIENT_OCCLUSION,
@@ -460,6 +461,7 @@ private:
 
 		StringName metallic_texture_channel;
 		StringName ao_texture_channel;
+		StringName sheen_texture_channel;
 		StringName clearcoat_texture_channel;
 		StringName rim_texture_channel;
 		StringName heightmap_texture_channel;
