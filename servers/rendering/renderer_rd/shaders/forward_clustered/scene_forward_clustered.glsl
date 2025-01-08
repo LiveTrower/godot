@@ -1998,6 +1998,10 @@ void fragment_shader(in SceneData scene_data) {
 					continue; //not masked
 				}
 
+				if (reflection_accum.a >= 1.0 && ambient_accum.a >= 1.0) {
+					break;
+				}			
+
 				reflection_process(reflection_index, vertex, ref_vec, normal, roughness, ambient_light, indirect_specular_light,
 #ifdef LIGHT_CLEARCOAT_USED
 				cc_specular_light, cc_ref_vec, cc_perceptual_roughness, cc_reflection_accum,
@@ -2009,19 +2013,27 @@ void fragment_shader(in SceneData scene_data) {
 			}
 		}
 
+		if (ambient_accum.a < 1.0) {
+			ambient_accum.rgb = mix(ambient_light, ambient_accum.rgb, ambient_accum.a);
+		}
+
+		if (reflection_accum.a < 1.0) {
+			reflection_accum.rgb = mix(indirect_specular_light, reflection_accum.rgb, reflection_accum.a);
+		}
+
 		if (reflection_accum.a > 0.0) {
-			indirect_specular_light = reflection_accum.rgb / reflection_accum.a;
+			indirect_specular_light = reflection_accum.rgb;
 #ifdef LIGHT_CLEARCOAT_USED
-			cc_specular_light = cc_reflection_accum / reflection_accum.a;
+			cc_specular_light = cc_reflection_accum.rgb;
 #endif
 #ifdef LIGHT_SHEEN_USED
-			sh_specular_light = sh_reflection_accum / reflection_accum.a;
+			sh_specular_light = sh_reflection_accum.rgb;
 #endif
 		}
 
 #if !defined(USE_LIGHTMAP)
 		if (ambient_accum.a > 0.0) {
-			ambient_light = ambient_accum.rgb / ambient_accum.a;
+			ambient_light = ambient_accum.rgb;
 		}
 #endif
 	}
