@@ -32,6 +32,7 @@
 #define LIGHTMAP_GI_H
 
 #include "core/templates/local_vector.h"
+#include "modules/modules_enabled.gen.h"
 #include "scene/3d/light_3d.h"
 #include "scene/3d/lightmapper.h"
 #include "scene/3d/visual_instance_3d.h"
