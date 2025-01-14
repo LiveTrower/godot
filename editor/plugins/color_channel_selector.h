@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  window_wrapper.h                                                      */
+/*  color_channel_selector.h                                              */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,86 +28,38 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef WINDOW_WRAPPER_H
-#define WINDOW_WRAPPER_H
+#ifndef COLOR_CHANNEL_SELECTOR_H
+#define COLOR_CHANNEL_SELECTOR_H
 
-#include "core/math/rect2.h"
-#include "scene/gui/margin_container.h"
-#include "scene/gui/menu_button.h"
+#include "scene/gui/box_container.h"
 
-class Window;
-class HBoxContainer;
+class PanelContainer;
+class Button;
 
-class WindowWrapper : public MarginContainer {
-	GDCLASS(WindowWrapper, MarginContainer);
+class ColorChannelSelector : public HBoxContainer {
+	GDCLASS(ColorChannelSelector, HBoxContainer);
 
-	Control *wrapped_control = nullptr;
-	MarginContainer *margins = nullptr;
-	Window *window = nullptr;
-	ObjectID window_id;
-
-	Panel *window_background = nullptr;
-
-	Ref<Shortcut> enable_shortcut;
-
-	Rect2 _get_default_window_rect() const;
-	Node *_get_wrapped_control_parent() const;
-
-	void _set_window_enabled_with_rect(bool p_visible, const Rect2 p_rect);
-	void _set_window_rect(const Rect2 p_rect);
-	void _window_size_changed();
-
-protected:
-	static void _bind_methods();
-	void _notification(int p_what);
-
-	virtual void shortcut_input(const Ref<InputEvent> &p_event) override;
+	static const unsigned int CHANNEL_COUNT = 4;
 
 public:
-	void set_wrapped_control(Control *p_control, const Ref<Shortcut> &p_enable_shortcut = Ref<Shortcut>());
-	Control *get_wrapped_control() const;
-	Control *release_wrapped_control();
+	ColorChannelSelector();
 
-	bool is_window_available() const;
+	void set_available_channels_mask(uint32_t p_mask);
+	uint32_t get_selected_channels_mask() const;
+	Vector4 get_selected_channel_factors() const;
 
-	bool get_window_enabled() const;
-	void set_window_enabled(bool p_enabled);
-
-	Rect2i get_window_rect() const;
-	int get_window_screen() const;
-
-	void restore_window(const Rect2i &p_rect, int p_screen = -1);
-	void restore_window_from_saved_position(const Rect2 p_window_rect, int p_screen, const Rect2 p_screen_rect);
-	void enable_window_on_screen(int p_screen = -1, bool p_auto_scale = false);
-
-	void set_window_title(const String &p_title);
-	void set_margins_enabled(bool p_enabled);
-	void grab_window_focus();
-
-	WindowWrapper();
-	~WindowWrapper();
-};
-
-class ScreenSelect : public Button {
-	GDCLASS(ScreenSelect, Button);
-
-	Popup *popup = nullptr;
-	HBoxContainer *screen_list = nullptr;
-
-	void _build_advanced_menu();
-
-	void _emit_screen_signal(int p_screen_idx);
-	void _handle_mouse_shortcut(const Ref<InputEvent> &p_event);
-	void _show_popup();
-
-protected:
-	virtual void pressed() override;
-	static void _bind_methods();
-
+private:
 	void _notification(int p_what);
 
-public:
-	ScreenSelect();
+	void on_channel_button_toggled(bool p_unused_pressed);
+	void create_button(unsigned int p_channel_index, const String &p_text, Control *p_parent);
+	void on_toggled(bool p_pressed);
+
+	static void _bind_methods();
+
+	Button *channel_buttons[CHANNEL_COUNT] = {};
+	PanelContainer *panel = nullptr;
+	Button *toggle_button = nullptr;
 };
 
-#endif // WINDOW_WRAPPER_H
+#endif // COLOR_CHANNEL_SELECTOR_H
