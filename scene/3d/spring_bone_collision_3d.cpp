@@ -30,12 +30,14 @@
 
 #include "spring_bone_collision_3d.h"
 
+#include "scene/3d/spring_bone_simulator_3d.h"
+
 PackedStringArray SpringBoneCollision3D::get_configuration_warnings() const {
 	PackedStringArray warnings = Node3D::get_configuration_warnings();
 
 	SpringBoneSimulator3D *parent = Object::cast_to<SpringBoneSimulator3D>(get_parent());
 	if (!parent) {
-		warnings.push_back(RTR("Parent node is not a SpringBoneSimulator3D node!"));
+		warnings.push_back(RTR("Parent node should be a SpringBoneSimulator3D node."));
 	}
 
 	return warnings;
@@ -45,13 +47,13 @@ void SpringBoneCollision3D::_validate_property(PropertyInfo &p_property) const {
 	if (p_property.name == "bone_name") {
 		Skeleton3D *sk = get_skeleton();
 		if (sk) {
-			p_property.hint = PROPERTY_HINT_ENUM;
+			p_property.hint = PROPERTY_HINT_ENUM_SUGGESTION;
 			p_property.hint_string = sk->get_concatenated_bone_names();
 		} else {
 			p_property.hint = PROPERTY_HINT_NONE;
 			p_property.hint_string = "";
 		}
-	} else if (p_property.name.begins_with("offset/") && bone < 0) {
+	} else if (bone < 0 && (p_property.name == "position_offset" || p_property.name == "rotation_offset")) {
 		p_property.usage = PROPERTY_USAGE_NONE;
 	}
 }
@@ -130,10 +132,10 @@ void SpringBoneCollision3D::sync_pose() {
 	if (bone >= 0) {
 		Skeleton3D *sk = get_skeleton();
 		if (sk) {
-			Transform3D tr = sk->get_bone_global_pose(bone);
+			Transform3D tr = sk->get_global_transform() * sk->get_bone_global_pose(bone);
 			tr.origin += tr.basis.get_rotation_quaternion().xform(position_offset);
 			tr.basis *= Basis(rotation_offset);
-			set_transform(tr);
+			set_global_transform(tr);
 		}
 	}
 }
@@ -166,8 +168,9 @@ void SpringBoneCollision3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "bone_name"), "set_bone_name", "get_bone_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "bone", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_bone", "get_bone");
 
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "offset/position"), "set_position_offset", "get_position_offset");
-	ADD_PROPERTY(PropertyInfo(Variant::QUATERNION, "offset/rotation"), "set_rotation_offset", "get_rotation_offset");
+	ADD_GROUP("Offset", "");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "position_offset"), "set_position_offset", "get_position_offset");
+	ADD_PROPERTY(PropertyInfo(Variant::QUATERNION, "rotation_offset"), "set_rotation_offset", "get_rotation_offset");
 }
 
 Vector3 SpringBoneCollision3D::collide(const Transform3D &p_center, float p_bone_radius, float p_bone_length, const Vector3 &p_current) const {

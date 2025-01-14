@@ -31,7 +31,7 @@
 #ifndef SPRING_BONE_COLLISION_3D_H
 #define SPRING_BONE_COLLISION_3D_H
 
-#include "scene/3d/spring_bone_simulator_3d.h"
+#include "scene/3d/skeleton_3d.h"
 
 class SpringBoneCollision3D : public Node3D {
 	GDCLASS(SpringBoneCollision3D, Node3D);

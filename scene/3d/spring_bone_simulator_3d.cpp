@@ -543,7 +543,11 @@ Vector3 SpringBoneSimulator3D::get_end_bone_axis(int p_end_bone, BoneDirection p
 
 void SpringBoneSimulator3D::set_center_from(int p_index, CenterFrom p_center_from) {
 	ERR_FAIL_INDEX(p_index, settings.size());
+	bool center_changed = settings[p_index]->center_from != p_center_from;
 	settings[p_index]->center_from = p_center_from;
+	if (center_changed) {
+		reset();
+	}
 	notify_property_list_changed();
 }
 
@@ -554,7 +558,11 @@ SpringBoneSimulator3D::CenterFrom SpringBoneSimulator3D::get_center_from(int p_i
 
 void SpringBoneSimulator3D::set_center_node(int p_index, const NodePath &p_node_path) {
 	ERR_FAIL_INDEX(p_index, settings.size());
+	bool center_changed = settings[p_index]->center_node != p_node_path;
 	settings[p_index]->center_node = p_node_path;
+	if (center_changed) {
+		reset();
+	}
 }
 
 NodePath SpringBoneSimulator3D::get_center_node(int p_index) const {
@@ -578,7 +586,7 @@ String SpringBoneSimulator3D::get_center_bone_name(int p_index) const {
 
 void SpringBoneSimulator3D::set_center_bone(int p_index, int p_bone) {
 	ERR_FAIL_INDEX(p_index, settings.size());
-	bool changed = settings[p_index]->center_bone != p_bone;
+	bool center_changed = settings[p_index]->center_bone != p_bone;
 	settings[p_index]->center_bone = p_bone;
 	Skeleton3D *sk = get_skeleton();
 	if (sk) {
@@ -589,8 +597,8 @@ void SpringBoneSimulator3D::set_center_bone(int p_index, int p_bone) {
 			settings[p_index]->center_bone_name = sk->get_bone_name(settings[p_index]->center_bone);
 		}
 	}
-	if (changed) {
-		_update_joint_array(p_index);
+	if (center_changed) {
+		reset();
 	}
 }
 
