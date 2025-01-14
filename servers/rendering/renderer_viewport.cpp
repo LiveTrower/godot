@@ -832,6 +832,8 @@ void RendererViewport::draw_viewports(bool p_swap_buffers) {
 					viewport_set_force_motion_vectors(vp->self, false);
 				}
 
+				RSG::texture_storage->render_target_set_render_region(vp->render_target, xr_interface->get_render_region());
+
 				// render...
 				RSG::scene->set_debug_draw_mode(vp->debug_draw);
 
@@ -876,17 +878,16 @@ void RendererViewport::draw_viewports(bool p_swap_buffers) {
 					blit.dst_rect.size = vp->size;
 				}
 
-				Vector<BlitToScreen> *blits = blit_to_screen_list.getptr(vp->viewport_to_screen);
-				if (blits == nullptr) {
-					blits = &blit_to_screen_list.insert(vp->viewport_to_screen, Vector<BlitToScreen>())->value;
-				}
-
 				if (OS::get_singleton()->get_current_rendering_driver_name().begins_with("opengl3")) {
 					Vector<BlitToScreen> blit_to_screen_vec;
 					blit_to_screen_vec.push_back(blit);
 					RSG::rasterizer->blit_render_targets_to_screen(vp->viewport_to_screen, blit_to_screen_vec.ptr(), 1);
 					RSG::rasterizer->gl_end_frame(p_swap_buffers);
 				} else {
+					Vector<BlitToScreen> *blits = blit_to_screen_list.getptr(vp->viewport_to_screen);
+					if (blits == nullptr) {
+						blits = &blit_to_screen_list.insert(vp->viewport_to_screen, Vector<BlitToScreen>())->value;
+					}
 					blits->push_back(blit);
 				}
 			}

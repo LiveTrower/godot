@@ -183,7 +183,7 @@ void BaseButton::on_action_event(Ref<InputEvent> p_event) {
 		}
 	}
 
-	if (status.pressed_down_with_focus && !p_event->is_pressed()) {
+	if (!p_event->is_pressed()) {
 		status.press_attempt = false;
 		status.pressing_inside = false;
 		if (status.pressed_down_with_focus) {

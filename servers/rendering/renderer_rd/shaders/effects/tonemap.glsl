@@ -257,10 +257,11 @@ vec3 tonemap_aces(vec3 color, float white) {
 vec3 agx_default_contrast_approx(vec3 x) {
 	// Generated with Excel trendline
 	// Input data: Generated using python sigmoid with EaryChow's configuration and 57 steps
+	// Additional padding values were added to give correct intersections at 0.0 and 1.0
 	// 6th order, intercept of 0.0 to remove an operation and ensure intersection at 0.0
 	vec3 x2 = x * x;
 	vec3 x4 = x2 * x2;
-	return -0.20687445 * x + 6.80888933 * x2 - 37.60519607 * x2 * x + 93.32681938 * x4 - 95.2780858 * x4 * x + 33.96372259 * x4 * x2;
+	return 0.021 * x + 4.0111 * x2 - 25.682 * x2 * x + 70.359 * x4 - 74.778 * x4 * x + 27.069 * x4 * x2;
 }
 
 const mat3 LINEAR_SRGB_TO_LINEAR_REC2020 = mat3(
