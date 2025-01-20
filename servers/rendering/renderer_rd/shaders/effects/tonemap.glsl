@@ -293,7 +293,6 @@ vec3 tonemap_agx(vec3 color) {
 			-0.10886710826831608324, -0.027084020983874825605, 1.402665347143271889);
 
 	// LOG2_MIN      = -10.0
-	// LOG2_MAX      =  +6.5
 	// MIDDLE_GRAY   =  0.18
 	const float min_ev = -12.4739311883324; // log2(pow(2, LOG2_MIN) * MIDDLE_GRAY)
 	const float max_ev = 4.02606881166759; // log2(pow(2, LOG2_MAX) * MIDDLE_GRAY)
@@ -337,6 +336,25 @@ vec3 tonemap_agx(vec3 color) {
 	return color;
 }
 
+vec3 tonemap_pbr_neutral(vec3 color) {
+	float startCompression = 0.8f - 0.04f;
+    float desaturation = 0.15f;
+
+    float x = min(color.r, min(color.g, color.b));
+    float offset = x < 0.08f ? x - 6.25f * x * x : 0.04f;
+    color -= offset;
+
+    float peak = max(color.r, max(color.g, color.b));
+    if (peak < startCompression) return color;
+
+    float d = 1.0f - startCompression;
+    float newPeak = 1.0f - d * d / (peak + d - startCompression);
+    color *= newPeak / peak;
+
+    float g = 1.0f - 1.0f / (desaturation * (peak - newPeak) + 1.0f);
+    return mix(color, vec3(1.0f), g);
+}
+
 vec3 linear_to_srgb(vec3 color) {
 	//if going to srgb, clamp from 0 to 1.
 	color = clamp(color, vec3(0.0), vec3(1.0));
@@ -349,6 +367,7 @@ vec3 linear_to_srgb(vec3 color) {
 #define TONEMAPPER_FILMIC 2
 #define TONEMAPPER_ACES 3
 #define TONEMAPPER_AGX 4
+#define TONEMAPPER_PBR_NEUTRAL 5
 
 vec3 apply_tonemapping(vec3 color, float white) { // inputs are LINEAR
 	// Ensure color values passed to tonemappers are positive.
@@ -361,8 +380,10 @@ vec3 apply_tonemapping(vec3 color, float white) { // inputs are LINEAR
 		return tonemap_filmic(max(vec3(0.0f), color), white);
 	} else if (params.tonemapper == TONEMAPPER_ACES) {
 		return tonemap_aces(max(vec3(0.0f), color), white);
-	} else { // TONEMAPPER_AGX
+	} else if (params.tonemapper == TONEMAPPER_AGX) {
 		return tonemap_agx(color);
+	} else { // TONEMAPPER_PBR_NEUTRAL
+		return tonemap_pbr_neutral(color);
 	}
 }
 
