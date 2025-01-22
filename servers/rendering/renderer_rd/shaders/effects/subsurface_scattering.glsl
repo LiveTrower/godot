@@ -115,8 +115,8 @@ void do_filter(inout vec3 color_accum, inout vec3 divisor, vec2 uv, vec2 step, b
 	// Accumulate the other samples:
 	for (int i = 1; i < kernel_size; i++) {
 		// Fetch color and depth for current sample:
-		float dither = quick_hash(uv * params.screen_size);
-		vec2 offset = uv + dither * (kernel[i].y * step);
+		float dither = quick_hash(uv * params.screen_size) * 2.0 - 1.0;
+		vec2 offset = uv + dither * (kernel[i].y * step * 0.5);
 		vec4 color = texture(source_image, offset);
 
 		if (abs(color.a) < 0.001) {
