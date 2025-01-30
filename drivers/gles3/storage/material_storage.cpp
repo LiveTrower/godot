@@ -1393,7 +1393,7 @@ MaterialStorage::MaterialStorage() {
 
 		actions.renames["COLOR"] = "out_color";
 		actions.renames["VELOCITY"] = "out_velocity_flags.xyz";
-		//actions.renames["MASS"] = "mass"; ?
+		actions.renames["MASS"] = "mass";
 		actions.renames["ACTIVE"] = "particle_active";
 		actions.renames["RESTART"] = "restart";
 		actions.renames["CUSTOM"] = "out_custom";
