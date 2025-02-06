@@ -31,7 +31,7 @@
 #include "texture_editor_plugin.h"
 
 #include "editor/editor_string_names.h"
-#include "editor/plugins/color_channel_selector.h"
+#include "editor/plugins/texture_channel_mip_selector.h"
 #include "editor/themes/editor_scale.h"
 #include "scene/gui/aspect_ratio_container.h"
 #include "scene/gui/color_rect.h"
@@ -49,6 +49,7 @@ shader_type canvas_item;
 render_mode blend_mix;
 
 uniform vec4 u_channel_factors = vec4(1.0);
+uniform float u_lod = 0.0;
 
 vec4 filter_preview_colors(vec4 input_color, vec4 factors) {
 	// Filter RGB.
@@ -69,7 +70,7 @@ vec4 filter_preview_colors(vec4 input_color, vec4 factors) {
 }
 
 void fragment() {
-	COLOR = filter_preview_colors(texture(TEXTURE, UV), u_channel_factors);
+	COLOR = filter_preview_colors(textureLod(TEXTURE, UV, u_lod), u_channel_factors);
 }
 )";
 
@@ -148,6 +149,9 @@ void TexturePreview::_update_metadata_label_text() {
 
 	const String format_name = format != Image::FORMAT_MAX ? Image::get_format_name(format) : texture->get_class();
 
+	// Null can be passed by `Camera3DPreview` (which immediately after sets a texture anyways).
+	const uint32_t components_mask = format != Image::FORMAT_MAX ? Image::get_format_component_mask(format) : 0xf;
+
 	const Vector2i resolution = texture->get_size();
 	const int mipmaps = get_texture_mipmaps_count(texture);
 
@@ -192,10 +196,24 @@ void TexturePreview::_update_metadata_label_text() {
 						texture->get_height(),
 						format_name));
 	}
+
+	if (is_power_of_2(components_mask) && mipmaps == 0) {
+		channel_mip_selector->hide();
+	} else {
+		channel_mip_selector->set_available_channels_mask(components_mask);
+		channel_mip_selector->set_channel_buttons_container_visibility(!is_power_of_2(components_mask));
+
+		channel_mip_selector->set_available_mip_levels(mipmaps);
+		channel_mip_selector->set_mip_level_container_visibility(mipmaps != 0 ? true : false);
+	}
 }
 
 void TexturePreview::on_selected_channels_changed() {
-	material->set_shader_parameter("u_channel_factors", channel_selector->get_selected_channel_factors());
+	material->set_shader_parameter("u_channel_factors", channel_mip_selector->get_selected_channel_factors());
+}
+
+void TexturePreview::on_selected_mip_level_changed() {
+	material->set_shader_parameter("u_lod", channel_mip_selector->get_selected_mip_level());
 }
 
 TexturePreview::TexturePreview(Ref<Texture2D> p_texture, bool p_show_metadata) {
@@ -250,21 +268,15 @@ TexturePreview::TexturePreview(Ref<Texture2D> p_texture, bool p_show_metadata) {
 		p_texture->connect_changed(callable_mp(this, &TexturePreview::_update_texture_display_ratio));
 	}
 
-	// Null can be passed by `Camera3DPreview` (which immediately after sets a texture anyways).
-	const Image::Format format = p_texture.is_valid() ? get_texture_2d_format(p_texture.ptr()) : Image::FORMAT_MAX;
-	const uint32_t components_mask = format != Image::FORMAT_MAX ? Image::get_format_component_mask(format) : 0xf;
-
-	// Add color channel selector at the bottom left if more than 1 channel is available.
-	if (p_show_metadata && !is_power_of_2(components_mask)) {
-		channel_selector = memnew(ColorChannelSelector);
-		channel_selector->connect("selected_channels_changed", callable_mp(this, &TexturePreview::on_selected_channels_changed));
-		channel_selector->set_h_size_flags(Control::SIZE_SHRINK_BEGIN);
-		channel_selector->set_v_size_flags(Control::SIZE_SHRINK_BEGIN);
-		channel_selector->set_available_channels_mask(components_mask);
-		add_child(channel_selector);
-	}
-
 	if (p_show_metadata) {
+		// Add texture channel mip selector at the bottom left if more than 1 channel is available.
+		channel_mip_selector = memnew(TextureChannelMipSelector);
+		channel_mip_selector->connect("selected_channels_changed", callable_mp(this, &TexturePreview::on_selected_channels_changed));
+		channel_mip_selector->connect("selected_mip_level_changed", callable_mp(this, &TexturePreview::on_selected_mip_level_changed));
+		channel_mip_selector->set_h_size_flags(Control::SIZE_SHRINK_BEGIN);
+		channel_mip_selector->set_v_size_flags(Control::SIZE_SHRINK_BEGIN);
+		add_child(channel_mip_selector);
+
 		metadata_label = memnew(Label);
 
 		if (p_texture.is_valid()) {

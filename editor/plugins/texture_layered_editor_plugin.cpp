@@ -31,7 +31,7 @@
 #include "texture_layered_editor_plugin.h"
 
 #include "editor/editor_string_names.h"
-#include "editor/plugins/color_channel_selector.h"
+#include "editor/plugins/texture_channel_mip_selector.h"
 #include "editor/themes/editor_scale.h"
 #include "scene/gui/label.h"
 
@@ -42,9 +42,10 @@ constexpr const char *array_2d_shader = R"(
 
 	shader_type canvas_item;
 
-	uniform sampler2DArray tex;
+	uniform sampler2DArray tex : filter_nearest_mipmap;
 	uniform float layer;
 	uniform vec4 u_channel_factors = vec4(1.0);
+	uniform float u_lod = 0.0;
 
 	vec4 filter_preview_colors(vec4 input_color, vec4 factors) {
 		// Filter RGB.
@@ -65,7 +66,7 @@ constexpr const char *array_2d_shader = R"(
 	}
 
 	void fragment() {
-		COLOR = textureLod(tex, vec3(UV, layer), 0.0);
+		COLOR = textureLod(tex, vec3(UV, layer), u_lod);
 		COLOR = filter_preview_colors(COLOR, u_channel_factors);
 	}
 )";
@@ -75,11 +76,12 @@ constexpr const char *cubemap_shader = R"(
 
 	shader_type canvas_item;
 
-	uniform samplerCube tex;
+	uniform samplerCube tex : filter_nearest_mipmap;
 	uniform vec3 normal;
 	uniform mat3 rot;
 
 	uniform vec4 u_channel_factors = vec4(1.0);
+	uniform float u_lod = 0.0;
 
 	vec4 filter_preview_colors(vec4 input_color, vec4 factors) {
 		// Filter RGB.
@@ -101,7 +103,7 @@ constexpr const char *cubemap_shader = R"(
 
 	void fragment() {
 		vec3 n = rot * normalize(vec3(normal.xy * (UV * 2.0 - 1.0), normal.z));
-		COLOR = textureLod(tex, n, 0.0);
+		COLOR = textureLod(tex, n, u_lod);
 		COLOR = filter_preview_colors(COLOR, u_channel_factors);
 	}
 )";
@@ -110,12 +112,13 @@ constexpr const char *cubemap_array_shader = R"(
 	// TextureLayeredEditor preview shader (cubemap array).
 
 	shader_type canvas_item;
-	uniform samplerCubeArray tex;
+	uniform samplerCubeArray tex : filter_nearest_mipmap;
 	uniform vec3 normal;
 	uniform mat3 rot;
 	uniform float layer;
 
 	uniform vec4 u_channel_factors = vec4(1.0);
+	uniform float u_lod = 0.0;
 
 	vec4 filter_preview_colors(vec4 input_color, vec4 factors) {
 		// Filter RGB.
@@ -137,7 +140,7 @@ constexpr const char *cubemap_array_shader = R"(
 
 	void fragment() {
 		vec3 n = rot * normalize(vec3(normal.xy * (UV * 2.0 - 1.0), normal.z));
-		COLOR = textureLod(tex, vec4(n, layer), 0.0);
+		COLOR = textureLod(tex, vec4(n, layer), u_lod);
 		COLOR = filter_preview_colors(COLOR, u_channel_factors);
 	}
 )";
@@ -168,6 +171,8 @@ void TextureLayeredEditor::_update_gui() {
 	const Image::Format format = texture->get_format();
 	const String format_name = Image::get_format_name(format);
 	String texture_info;
+
+	const int mip_count = Image::get_image_required_mipmaps(texture->get_width(), texture->get_height(), format);
 
 	switch (texture->get_layered_type()) {
 		case TextureLayered::LAYERED_TYPE_2D_ARRAY: {
@@ -205,7 +210,6 @@ void TextureLayeredEditor::_update_gui() {
 	}
 
 	if (texture->has_mipmaps()) {
-		const int mip_count = Image::get_image_required_mipmaps(texture->get_width(), texture->get_height(), format);
 		const int memory = Image::get_image_data_size(texture->get_width(), texture->get_height(), format, true) * texture->get_layers();
 
 		texture_info += vformat(TTR("%s Mipmaps") + "\n" + TTR("Memory: %s"),
@@ -222,12 +226,14 @@ void TextureLayeredEditor::_update_gui() {
 	info->set_text(texture_info);
 
 	const uint32_t components_mask = Image::get_format_component_mask(format);
-	if (is_power_of_2(components_mask)) {
-		// Only one channel available, no point in showing a channel selector.
-		channel_selector->hide();
+	if (is_power_of_2(components_mask) && !texture->has_mipmaps()) {
+		channel_mip_selector->hide();
 	} else {
-		channel_selector->show();
-		channel_selector->set_available_channels_mask(components_mask);
+		channel_mip_selector->set_available_channels_mask(components_mask);
+		channel_mip_selector->set_channel_buttons_container_visibility(!is_power_of_2(components_mask));
+
+		channel_mip_selector->set_available_mip_levels(mip_count);
+		channel_mip_selector->set_mip_level_container_visibility(texture->has_mipmaps());
 	}
 }
 
@@ -286,13 +292,15 @@ void TextureLayeredEditor::_update_material(bool p_texture_changed) {
 		materials[texture->get_layered_type()]->set_shader_parameter("tex", texture->get_rid());
 	}
 
-	const Vector4 channel_factors = channel_selector->get_selected_channel_factors();
+	const Vector4 channel_factors = channel_mip_selector->get_selected_channel_factors();
+	const double mip_level = channel_mip_selector->get_selected_mip_level();
 	for (unsigned int i = 0; i < 3; ++i) {
 		materials[i]->set_shader_parameter("u_channel_factors", channel_factors);
+		materials[i]->set_shader_parameter("u_lod", mip_level);
 	}
 }
 
-void TextureLayeredEditor::on_selected_channels_changed() {
+void TextureLayeredEditor::on_selected_channels_mipmaps_changed() {
 	_update_material(false);
 }
 
@@ -391,10 +399,11 @@ TextureLayeredEditor::TextureLayeredEditor() {
 
 	add_child(layer);
 
-	channel_selector = memnew(ColorChannelSelector);
-	channel_selector->connect("selected_channels_changed", callable_mp(this, &TextureLayeredEditor::on_selected_channels_changed));
-	channel_selector->set_anchors_and_offsets_preset(Control::PRESET_TOP_LEFT);
-	add_child(channel_selector);
+	channel_mip_selector = memnew(TextureChannelMipSelector);
+	channel_mip_selector->connect("selected_channels_changed", callable_mp(this, &TextureLayeredEditor::on_selected_channels_mipmaps_changed));
+	channel_mip_selector->connect("selected_mip_level_changed", callable_mp(this, &TextureLayeredEditor::on_selected_channels_mipmaps_changed));
+	channel_mip_selector->set_anchors_and_offsets_preset(Control::PRESET_TOP_LEFT);
+	add_child(channel_mip_selector);
 
 	info = memnew(Label);
 	info->add_theme_color_override(SceneStringName(font_color), Color(1, 1, 1));

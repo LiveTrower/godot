@@ -40,7 +40,7 @@ class AspectRatioContainer;
 class ColorRect;
 class TextureRect;
 class ShaderMaterial;
-class ColorChannelSelector;
+class TextureChannelMipSelector;
 
 class TexturePreview : public MarginContainer {
 	GDCLASS(TexturePreview, MarginContainer);
@@ -56,7 +56,7 @@ private:
 	Label *metadata_label = nullptr;
 	Ref<ShaderMaterial> material;
 
-	ColorChannelSelector *channel_selector = nullptr;
+	TextureChannelMipSelector *channel_mip_selector = nullptr;
 
 	Color cached_outline_color;
 
@@ -68,6 +68,7 @@ protected:
 	void _update_texture_display_ratio();
 
 	void on_selected_channels_changed();
+	void on_selected_mip_level_changed();
 
 public:
 	TextureRect *get_texture_display();

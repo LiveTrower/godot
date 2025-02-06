@@ -37,7 +37,7 @@
 #include "scene/resources/shader.h"
 #include "scene/resources/texture.h"
 
-class ColorChannelSelector;
+class TextureChannelMipSelector;
 
 class TextureLayeredEditor : public Control {
 	GDCLASS(TextureLayeredEditor, Control);
@@ -55,7 +55,7 @@ class TextureLayeredEditor : public Control {
 
 	bool setting = false;
 
-	ColorChannelSelector *channel_selector = nullptr;
+	TextureChannelMipSelector *channel_mip_selector = nullptr;
 
 	void _make_shaders();
 	void _update_material(bool p_texture_changed);
@@ -73,7 +73,7 @@ class TextureLayeredEditor : public Control {
 
 	void _update_gui();
 
-	void on_selected_channels_changed();
+	void on_selected_channels_mipmaps_changed();
 
 protected:
 	void _notification(int p_what);

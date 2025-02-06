@@ -37,7 +37,7 @@
 #include "scene/resources/shader.h"
 #include "scene/resources/texture.h"
 
-class ColorChannelSelector;
+class TextureChannelMipSelector;
 
 class Texture3DEditor : public Control {
 	GDCLASS(Texture3DEditor, Control);
@@ -51,7 +51,7 @@ class Texture3DEditor : public Control {
 
 	Control *texture_rect = nullptr;
 
-	ColorChannelSelector *channel_selector = nullptr;
+	TextureChannelMipSelector *channel_mip_selector = nullptr;
 
 	bool setting = false;
 
@@ -72,6 +72,7 @@ class Texture3DEditor : public Control {
 	void _update_gui();
 
 	void on_selected_channels_changed();
+	void on_selected_mip_level_changed(double p_lod);
 
 protected:
 	void _notification(int p_what);

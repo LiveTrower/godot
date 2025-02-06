@@ -31,7 +31,7 @@
 #include "texture_3d_editor_plugin.h"
 
 #include "editor/editor_string_names.h"
-#include "editor/plugins/color_channel_selector.h"
+#include "editor/plugins/texture_channel_mip_selector.h"
 #include "editor/themes/editor_scale.h"
 #include "scene/gui/label.h"
 
@@ -117,7 +117,7 @@ void Texture3DEditor::_update_material(bool p_texture_changed) {
 		material->set_shader_parameter("tex", texture->get_rid());
 	}
 
-	material->set_shader_parameter("u_channel_factors", channel_selector->get_selected_channel_factors());
+	material->set_shader_parameter("u_channel_factors", channel_mip_selector->get_selected_channel_factors());
 }
 
 void Texture3DEditor::_make_shaders() {
@@ -190,11 +190,11 @@ void Texture3DEditor::_update_gui() {
 
 	const uint32_t components_mask = Image::get_format_component_mask(format);
 	if (is_power_of_2(components_mask)) {
-		// Only one channel available, no point in showing a channel selector.
-		channel_selector->hide();
+		channel_mip_selector->hide();
 	} else {
-		channel_selector->show();
-		channel_selector->set_available_channels_mask(components_mask);
+		channel_mip_selector->set_available_channels_mask(components_mask);
+		// Mip level is disabled because it doesn't work properly in 2D preview.
+		channel_mip_selector->set_mip_level_container_visibility(false);
 	}
 }
 
@@ -253,10 +253,10 @@ Texture3DEditor::Texture3DEditor() {
 
 	add_child(layer);
 
-	channel_selector = memnew(ColorChannelSelector);
-	channel_selector->connect("selected_channels_changed", callable_mp(this, &Texture3DEditor::on_selected_channels_changed));
-	channel_selector->set_anchors_preset(Control::PRESET_TOP_LEFT);
-	add_child(channel_selector);
+	channel_mip_selector = memnew(TextureChannelMipSelector);
+	channel_mip_selector->connect("selected_channels_changed", callable_mp(this, &Texture3DEditor::on_selected_channels_changed));
+	channel_mip_selector->set_anchors_preset(Control::PRESET_TOP_LEFT);
+	add_child(channel_mip_selector);
 
 	info = memnew(Label);
 	info->add_theme_color_override(SceneStringName(font_color), Color(1, 1, 1));

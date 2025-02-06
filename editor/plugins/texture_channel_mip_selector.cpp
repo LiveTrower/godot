@@ -28,19 +28,22 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#include "color_channel_selector.h"
+#include "texture_channel_mip_selector.h"
 
 #include "editor/themes/editor_scale.h"
 #include "scene/gui/box_container.h"
 #include "scene/gui/button.h"
+#include "scene/gui/spin_box.h"
+#include "scene/gui/label.h"
+#include "scene/gui/separator.h"
 #include "scene/gui/panel_container.h"
 #include "scene/resources/style_box_flat.h"
 
-ColorChannelSelector::ColorChannelSelector() {
+TextureChannelMipSelector::TextureChannelMipSelector() {
 	toggle_button = memnew(Button);
 	toggle_button->set_flat(true);
 	toggle_button->set_toggle_mode(true);
-	toggle_button->connect(SceneStringName(toggled), callable_mp(this, &ColorChannelSelector::on_toggled));
+	toggle_button->connect(SceneStringName(toggled), callable_mp(this, &TextureChannelMipSelector::on_toggled));
 	toggle_button->add_theme_style_override("focus", memnew(StyleBoxEmpty));
 	add_child(toggle_button);
 
@@ -48,12 +51,24 @@ ColorChannelSelector::ColorChannelSelector() {
 	panel->hide();
 
 	HBoxContainer *container = memnew(HBoxContainer);
-	container->add_theme_constant_override("separation", 0);
+	container->add_theme_constant_override("separation", 10);
 
-	create_button(0, "R", container);
-	create_button(1, "G", container);
-	create_button(2, "B", container);
-	create_button(3, "A", container);
+	channel_buttons_container = memnew(HBoxContainer);
+	channel_buttons_container->add_theme_constant_override("separation", 0);
+
+	mip_level_container = memnew(HBoxContainer);
+	mip_level_container->add_theme_constant_override("separation", 0);
+
+	container->add_child(channel_buttons_container);
+
+	create_button(0, "R");
+	create_button(1, "G");
+	create_button(2, "B");
+	create_button(3, "A");
+	
+	container->add_child(mip_level_container);
+
+	create_mip_level_selector();
 
 	// Use a bit of transparency to be less distracting.
 	set_modulate(Color(1, 1, 1, 0.7));
@@ -63,7 +78,7 @@ ColorChannelSelector::ColorChannelSelector() {
 	add_child(panel);
 }
 
-void ColorChannelSelector::_notification(int p_what) {
+void TextureChannelMipSelector::_notification(int p_what) {
 	if (p_what == NOTIFICATION_THEME_CHANGED) {
 		// PanelContainer's background is invisible in the editor. We need a background.
 		// And we need this in turn because buttons don't look good without background (for example, hover is transparent).
@@ -83,7 +98,7 @@ void ColorChannelSelector::_notification(int p_what) {
 	}
 }
 
-void ColorChannelSelector::set_available_channels_mask(uint32_t p_mask) {
+void TextureChannelMipSelector::set_available_channels_mask(uint32_t p_mask) {
 	for (unsigned int i = 0; i < CHANNEL_COUNT; ++i) {
 		const bool available = (p_mask & (1u << i)) != 0;
 		Button *button = channel_buttons[i];
@@ -91,11 +106,35 @@ void ColorChannelSelector::set_available_channels_mask(uint32_t p_mask) {
 	}
 }
 
-void ColorChannelSelector::on_channel_button_toggled(bool p_unused_pressed) {
+void TextureChannelMipSelector::set_available_mip_levels(int p_lod) {
+	spin_box->set_max(p_lod);
+}
+
+void TextureChannelMipSelector::on_channel_button_toggled(bool p_unused_pressed) {
 	emit_signal("selected_channels_changed");
 }
 
-uint32_t ColorChannelSelector::get_selected_channels_mask() const {
+void TextureChannelMipSelector::on_mip_level_value_changed(double p_unused_value) {
+	emit_signal("selected_mip_level_changed");
+}
+
+void TextureChannelMipSelector::set_channel_buttons_container_visibility(bool p_visible) {
+	if (p_visible) {
+		channel_buttons_container->show();
+	} else {
+		channel_buttons_container->hide();
+	}
+}
+
+void TextureChannelMipSelector::set_mip_level_container_visibility(bool p_visible) {
+	if (p_visible) {
+		mip_level_container->show();
+	} else {
+		mip_level_container->hide();
+	}
+}
+
+uint32_t TextureChannelMipSelector::get_selected_channels_mask() const {
 	uint32_t mask = 0;
 	for (unsigned int i = 0; i < CHANNEL_COUNT; ++i) {
 		Button *button = channel_buttons[i];
@@ -107,7 +146,7 @@ uint32_t ColorChannelSelector::get_selected_channels_mask() const {
 }
 
 // Helper
-Vector4 ColorChannelSelector::get_selected_channel_factors() const {
+Vector4 TextureChannelMipSelector::get_selected_channel_factors() const {
 	Vector4 channel_factors;
 	const uint32_t mask = get_selected_channels_mask();
 	for (unsigned int i = 0; i < 4; ++i) {
@@ -118,7 +157,12 @@ Vector4 ColorChannelSelector::get_selected_channel_factors() const {
 	return channel_factors;
 }
 
-void ColorChannelSelector::create_button(unsigned int p_channel_index, const String &p_text, Control *p_parent) {
+// Helper
+double TextureChannelMipSelector::get_selected_mip_level() const {
+	return spin_box->get_value();
+}
+
+void TextureChannelMipSelector::create_button(unsigned int p_channel_index, const String &p_text) {
 	ERR_FAIL_COND(p_channel_index >= CHANNEL_COUNT);
 	ERR_FAIL_COND(channel_buttons[p_channel_index] != nullptr);
 	Button *button = memnew(Button);
@@ -132,15 +176,32 @@ void ColorChannelSelector::create_button(unsigned int p_channel_index, const Str
 	// Make it look similar to toolbar buttons.
 	button->set_theme_type_variation(SceneStringName(FlatButton));
 
-	button->connect(SceneStringName(toggled), callable_mp(this, &ColorChannelSelector::on_channel_button_toggled));
-	p_parent->add_child(button);
+	button->connect(SceneStringName(toggled), callable_mp(this, &TextureChannelMipSelector::on_channel_button_toggled));
+	channel_buttons_container->add_child(button);
 	channel_buttons[p_channel_index] = button;
 }
 
-void ColorChannelSelector::on_toggled(bool p_pressed) {
+void TextureChannelMipSelector::create_mip_level_selector() {
+	//VSeparator *v_separator = memnew(VSeparator);
+	Label *mip_label = memnew(Label);
+	spin_box = memnew(SpinBox);
+
+	//v_separator->add_theme_constant_override("separation", 10);
+
+	mip_label->set_text("Mip level: ");
+
+	spin_box->connect(SceneStringName(value_changed), callable_mp(this, &TextureChannelMipSelector::on_mip_level_value_changed));
+
+	//mip_level_container->add_child(v_separator);
+	mip_level_container->add_child(mip_label);
+	mip_level_container->add_child(spin_box);
+}
+
+void TextureChannelMipSelector::on_toggled(bool p_pressed) {
 	panel->set_visible(p_pressed);
 }
 
-void ColorChannelSelector::_bind_methods() {
+void TextureChannelMipSelector::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("selected_channels_changed"));
+	ADD_SIGNAL(MethodInfo("selected_mip_level_changed"));
 }
