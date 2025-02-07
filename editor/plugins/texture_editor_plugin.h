@@ -69,6 +69,7 @@ protected:
 
 	void on_selected_channels_changed();
 	void on_selected_mip_level_changed();
+	void on_selected_filter_changed(bool p_toggled_on);
 
 public:
 	TextureRect *get_texture_display();

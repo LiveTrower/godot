@@ -30,6 +30,7 @@
 
 #include "texture_editor_plugin.h"
 
+#include "core/config/project_settings.h"
 #include "editor/editor_string_names.h"
 #include "editor/plugins/texture_channel_mip_selector.h"
 #include "editor/themes/editor_scale.h"
@@ -251,7 +252,8 @@ TexturePreview::TexturePreview(Ref<Texture2D> p_texture, bool p_show_metadata) {
 	}
 
 	texture_display = memnew(TextureRect);
-	texture_display->set_texture_filter(TEXTURE_FILTER_NEAREST_WITH_MIPMAPS);
+	bool use_linear_mipmap = GLOBAL_GET("rendering/textures/default_filters/use_linear_mipmap_filter_in_texture_preview");
+	texture_display->set_texture_filter(use_linear_mipmap ? TEXTURE_FILTER_LINEAR_WITH_MIPMAPS : TEXTURE_FILTER_NEAREST_WITH_MIPMAPS);
 	texture_display->set_texture(p_texture);
 	texture_display->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
 	texture_display->set_material(material);

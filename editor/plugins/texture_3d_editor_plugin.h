@@ -53,6 +53,8 @@ class Texture3DEditor : public Control {
 
 	TextureChannelMipSelector *channel_mip_selector = nullptr;
 
+	String texture_filter = "filter_nearest_mipmap";
+
 	bool setting = false;
 
 	void _make_shaders();

@@ -56,10 +56,10 @@ public:
 private:
 	void _notification(int p_what);
 
-	void on_channel_button_toggled(bool p_unused_pressed);
 	void create_button(unsigned int p_channel_index, const String &p_text);
 	void create_mip_level_selector();
 	void on_toggled(bool p_pressed);
+	void on_channel_button_toggled(bool p_unused_pressed);
 	void on_mip_level_value_changed(double p_value);
 
 	static void _bind_methods();

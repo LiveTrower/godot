@@ -57,6 +57,8 @@ class TextureLayeredEditor : public Control {
 
 	TextureChannelMipSelector *channel_mip_selector = nullptr;
 
+	String texture_filter = "filter_nearest_mipmap";
+
 	void _make_shaders();
 	void _update_material(bool p_texture_changed);
 

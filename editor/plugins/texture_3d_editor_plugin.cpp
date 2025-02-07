@@ -30,46 +30,11 @@
 
 #include "texture_3d_editor_plugin.h"
 
+#include "core/config/project_settings.h"
 #include "editor/editor_string_names.h"
 #include "editor/plugins/texture_channel_mip_selector.h"
 #include "editor/themes/editor_scale.h"
 #include "scene/gui/label.h"
-
-// Shader sources.
-
-constexpr const char *texture_3d_shader = R"(
-	// Texture3DEditor preview shader.
-
-	shader_type canvas_item;
-
-	uniform sampler3D tex;
-	uniform float layer;
-
-	uniform vec4 u_channel_factors = vec4(1.0);
-
-	vec4 filter_preview_colors(vec4 input_color, vec4 factors) {
-		// Filter RGB.
-		vec4 output_color = input_color * vec4(factors.rgb, input_color.a);
-
-		// Remove transparency when alpha is not enabled.
-		output_color.a = mix(1.0, output_color.a, factors.a);
-
-		// Switch to opaque grayscale when visualizing only one channel.
-		float csum = factors.r + factors.g + factors.b + factors.a;
-		float single = clamp(2.0 - csum, 0.0, 1.0);
-		for (int i = 0; i < 4; i++) {
-			float c = input_color[i];
-			output_color = mix(output_color, vec4(c, c, c, 1.0), factors[i] * single);
-		}
-
-		return output_color;
-	}
-
-	void fragment() {
-		COLOR = textureLod(tex, vec3(UV, layer), 0.0);
-		COLOR = filter_preview_colors(COLOR, u_channel_factors);
-	}
-)";
 
 void Texture3DEditor::_texture_rect_draw() {
 	texture_rect->draw_rect(Rect2(Point2(), texture_rect->get_size()), Color(1, 1, 1, 1));
@@ -121,6 +86,44 @@ void Texture3DEditor::_update_material(bool p_texture_changed) {
 }
 
 void Texture3DEditor::_make_shaders() {
+	bool use_linear_mipmap = GLOBAL_GET("rendering/textures/default_filters/use_linear_mipmap_filter_in_texture_preview");
+	texture_filter = use_linear_mipmap ? "filter_linear_mipmap" : "filter_nearest_mipmap";
+
+	// Shader sources.
+	const String &texture_3d_shader = vformat(R"(
+	// Texture3DEditor preview shader.
+
+	shader_type canvas_item;
+
+	uniform sampler3D tex : %s;
+	uniform float layer;
+
+	uniform vec4 u_channel_factors = vec4(1.0);
+
+	vec4 filter_preview_colors(vec4 input_color, vec4 factors) {
+		// Filter RGB.
+		vec4 output_color = input_color * vec4(factors.rgb, input_color.a);
+
+		// Remove transparency when alpha is not enabled.
+		output_color.a = mix(1.0, output_color.a, factors.a);
+
+		// Switch to opaque grayscale when visualizing only one channel.
+		float csum = factors.r + factors.g + factors.b + factors.a;
+		float single = clamp(2.0 - csum, 0.0, 1.0);
+		for (int i = 0; i < 4; i++) {
+			float c = input_color[i];
+			output_color = mix(output_color, vec4(c, c, c, 1.0), factors[i] * single);
+		}
+
+		return output_color;
+	}
+
+	void fragment() {
+		COLOR = textureLod(tex, vec3(UV, layer), 0.0);
+		COLOR = filter_preview_colors(COLOR, u_channel_factors);
+	}
+	)", texture_filter);
+
 	shader.instantiate();
 	shader->set_code(texture_3d_shader);
 
