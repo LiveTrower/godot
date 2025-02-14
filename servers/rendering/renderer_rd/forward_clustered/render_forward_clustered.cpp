@@ -4987,6 +4987,7 @@ RenderForwardClustered::RenderForwardClustered() {
 	}
 
 	_update_shader_quality_settings();
+	_update_global_pipeline_data_requirements_from_project();
 
 	resolve_effects = memnew(RendererRD::Resolve());
 	taa = memnew(RendererRD::TAA);
