@@ -368,7 +368,7 @@ vec3 prefiltered_dfg(float lod, float NoV) {
     return vec3(1.0);
 }
 
-vec3 get_energy_compensation(vec3 f0, vec2 env){
+vec3 get_energy_compensation(vec3 f0, float env){
 	return vec3(1.0);
 }
 
