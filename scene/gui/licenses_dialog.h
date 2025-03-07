@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  xr_face_modifier_3d.h                                                 */
+/*  licenses_dialog.h                                                     */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,46 +28,21 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef XR_FACE_MODIFIER_3D_H
-#define XR_FACE_MODIFIER_3D_H
+#ifndef LICENSES_DIALOG_H
+#define LICENSES_DIALOG_H
 
-#include "mesh_instance_3d.h"
-#include "scene/3d/node_3d.h"
+#include "scene/main/canvas_layer.h"
 
-/**
-	The XRFaceModifier3D node drives the blend shapes of a MeshInstance3D
-	with facial expressions from an XRFaceTracking instance.
+class LicensesDialog : public CanvasLayer {
+	GDCLASS(LicensesDialog, CanvasLayer);
 
-	The blend shapes provided by the mesh are interrogated, and used to
-	deduce an optimal mapping from the Unified Expressions blend shapes
-	provided by the	XRFaceTracking instance to drive the face.
- */
-
-class XRFaceModifier3D : public Node3D {
-	GDCLASS(XRFaceModifier3D, Node3D);
-
-private:
-	StringName tracker_name = "/user/face_tracker";
-	NodePath target;
-
-	// Map from XRFaceTracker blend shape index to mesh blend shape index.
-	RBMap<int, int> blend_mapping;
-
-	MeshInstance3D *get_mesh_instance() const;
-	void _get_blend_data();
-	void _update_face_blends() const;
+	void _close_button_pressed();
 
 protected:
-	static void _bind_methods();
+	virtual void unhandled_key_input(const Ref<InputEvent> &p_event) override;
 
 public:
-	void set_face_tracker(const StringName &p_tracker_name);
-	StringName get_face_tracker() const;
-
-	void set_target(const NodePath &p_target);
-	NodePath get_target() const;
-
-	void _notification(int p_what);
+	LicensesDialog();
 };
 
-#endif // XR_FACE_MODIFIER_3D_H
+#endif // LICENSES_DIALOG_H
