@@ -269,7 +269,9 @@ public:
 #endif
 	}
 
+	// Note: Do not use this unless you know what you are doing, and it is absolutely necessary. Main thread pool (`get_singleton()`) should be preferred instead.
 	static WorkerThreadPool *get_named_pool(const StringName &p_name);
+
 	static WorkerThreadPool *get_singleton() { return singleton; }
 	int get_thread_index() const;
 	TaskID get_caller_task_id() const;
