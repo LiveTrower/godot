@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  surface_upgrade_tool.h                                                */
+/*  touch_actions_panel.h                                                 */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,52 +28,44 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#pragma once
+#ifndef TOUCH_ACTIONS_PANEL_H
+#define TOUCH_ACTIONS_PANEL_H
 
-#include "scene/gui/dialogs.h"
+#include "scene/gui/panel_container.h"
 
-class EditorFileSystemDirectory;
+class BoxContainer;
+class Button;
+class TextureRect;
 
-class SurfaceUpgradeTool : public Object {
-	GDCLASS(SurfaceUpgradeTool, Object);
+class TouchActionsPanel : public PanelContainer {
+	GDCLASS(TouchActionsPanel, PanelContainer);
 
-	static SurfaceUpgradeTool *singleton;
+private:
+	BoxContainer *box = nullptr;
+	Button *save_button = nullptr;
+	Button *delete_button = nullptr;
+	Button *undo_button = nullptr;
+	Button *redo_button = nullptr;
 
-	Mutex mutex;
+	TextureRect *drag_handle = nullptr;
+	Button *layout_toggle_button = nullptr;
+	Button *lock_panel_button = nullptr;
 
-	bool show_requested = false;
-	bool updating = false;
+	bool lock_panel_position = false;
+	bool dragging = false;
+	Vector2 drag_offset;
 
-	static void _try_show_popup();
-	void _show_popup();
-
-	void _add_files(EditorFileSystemDirectory *p_dir, Vector<String> &r_reimport_paths, Vector<String> &r_resave_paths);
-
-protected:
-	static void _bind_methods();
-
-public:
-	static SurfaceUpgradeTool *get_singleton() { return singleton; }
-
-	bool is_show_requested() const { return show_requested; }
-	void show_popup() { _show_popup(); }
-
-	void prepare_upgrade();
-	void begin_upgrade();
-	void finish_upgrade();
-
-	SurfaceUpgradeTool();
-	~SurfaceUpgradeTool();
-};
-
-class SurfaceUpgradeDialog : public ConfirmationDialog {
-	GDCLASS(SurfaceUpgradeDialog, ConfirmationDialog);
-
-protected:
 	void _notification(int p_what);
 
-public:
-	void popup_on_demand();
+	void _simulate_editor_shortcut(const String &p_shortcut_name);
+	void _simulate_key_press(Key p_keycode);
+	void _on_drag_handle_gui_input(const Ref<InputEvent> &p_event);
+	void _switch_layout();
+	void _lock_panel_toggled(bool p_pressed);
+	Button *_add_new_action_button(const String &p_shortcut, Key p_keycode = Key::NONE);
 
-	SurfaceUpgradeDialog();
+public:
+	TouchActionsPanel();
 };
+
+#endif // TOUCH_ACTIONS_PANEL_H

@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  uid_upgrade_tool.h                                                    */
+/*  span.h                                                                */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -30,50 +30,33 @@
 
 #pragma once
 
-#include "scene/gui/dialogs.h"
+#include "core/typedefs.h"
 
-class EditorFileSystemDirectory;
-
-class UIDUpgradeTool : public Object {
-	GDCLASS(UIDUpgradeTool, Object);
-
-	inline static UIDUpgradeTool *singleton = nullptr;
-
-	static constexpr const char *UPGRADE_FINISHED = "upgrade_finished";
-	static constexpr const char *META_RESAVE_PATHS = "resave_paths";
-
-	void _add_files(EditorFileSystemDirectory *p_dir, Vector<String> &r_resave_paths);
-
-protected:
-	static void _bind_methods();
+// Equivalent of std::span.
+// Represents a view into a contiguous memory space.
+// DISCLAIMER: This data type does not own the underlying buffer. DO NOT STORE IT.
+//  Additionally, for the lifetime of the Span, do not resize the buffer, and do not insert or remove elements from it.
+//  Failure to respect this may lead to crashes or undefined behavior.
+template <typename T>
+class Span {
+	const T *_ptr = nullptr;
+	uint64_t _len = 0;
 
 public:
-	static constexpr const char *META_UID_UPGRADE_TOOL = "uid_upgrade_tool";
-	static constexpr const char *META_RUN_ON_RESTART = "run_on_restart";
+	_FORCE_INLINE_ constexpr Span() = default;
+	_FORCE_INLINE_ constexpr Span(const T *p_ptr, uint64_t p_len) :
+			_ptr(p_ptr), _len(p_len) {}
 
-	static UIDUpgradeTool *get_singleton() { return singleton; }
+	_FORCE_INLINE_ constexpr uint64_t size() const { return _len; }
+	_FORCE_INLINE_ constexpr bool is_empty() const { return _len == 0; }
 
-	void prepare_upgrade();
-	void begin_upgrade();
-	void finish_upgrade();
+	_FORCE_INLINE_ constexpr const T *ptr() const { return _ptr; }
 
-	UIDUpgradeTool();
-	~UIDUpgradeTool();
-};
-
-class UIDUpgradeDialog : public ConfirmationDialog {
-	GDCLASS(UIDUpgradeDialog, ConfirmationDialog);
-
-	static constexpr const char *UID_UPGRADE_LEARN_MORE = "uid_upgrade_learn_more";
-
-	Button *learn_more_button = nullptr;
-
-protected:
-	void _on_custom_action(const String &p_action);
-	void _notification(int p_what);
-
-public:
-	void popup_on_demand();
-
-	UIDUpgradeDialog();
+	// NOTE: Span subscripts sanity check the bounds to avoid undefined behavior.
+	//       This is slower than direct buffer access and can prevent autovectorization.
+	//       If the bounds are known, use ptr() subscript instead.
+	_FORCE_INLINE_ constexpr const T &operator[](uint64_t p_idx) const {
+		CRASH_COND(p_idx >= _len);
+		return _ptr[p_idx];
+	}
 };
