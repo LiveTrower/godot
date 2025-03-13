@@ -3894,6 +3894,7 @@ bool AnimationTrackEditor::has_keying() const {
 Dictionary AnimationTrackEditor::get_state() const {
 	Dictionary state;
 	state["fps_mode"] = timeline->is_using_fps();
+	state["fps_compat"] = fps_compat->is_pressed();
 	state["zoom"] = zoom->get_value();
 	state["offset"] = timeline->get_value();
 	state["v_scroll"] = scroll->get_v_scroll_bar()->get_value();
@@ -3909,25 +3910,32 @@ void AnimationTrackEditor::set_state(const Dictionary &p_state) {
 			snap_mode->select(0);
 		}
 		_snap_mode_changed(snap_mode->get_selected());
-	} else {
-		snap_mode->select(0);
-		_snap_mode_changed(snap_mode->get_selected());
 	}
+
+	if (p_state.has("fps_compat")) {
+		fps_compat->set_pressed(p_state["fps_compat"]);
+	}
+
 	if (p_state.has("zoom")) {
 		zoom->set_value(p_state["zoom"]);
-	} else {
-		zoom->set_value(1.0);
 	}
+
 	if (p_state.has("offset")) {
 		timeline->set_value(p_state["offset"]);
-	} else {
-		timeline->set_value(0);
 	}
+
 	if (p_state.has("v_scroll")) {
 		scroll->get_v_scroll_bar()->set_value(p_state["v_scroll"]);
-	} else {
-		scroll->get_v_scroll_bar()->set_value(0);
 	}
+}
+
+void AnimationTrackEditor::clear() {
+	snap_mode->select(EDITOR_GET("editors/animation/default_fps_mode"));
+	_snap_mode_changed(snap_mode->get_selected());
+	fps_compat->set_pressed(EDITOR_GET("editors/animation/default_fps_compatibility"));
+	zoom->set_value(1.0);
+	timeline->set_value(0);
+	scroll->get_v_scroll_bar()->set_value(0);
 }
 
 void AnimationTrackEditor::cleanup() {
@@ -5088,7 +5096,7 @@ void AnimationTrackEditor::_update_nearest_fps_label() {
 		nearest_fps_label->hide();
 	} else {
 		nearest_fps_label->show();
-		nearest_fps_label->set_text("Nearest FPS: " + itos(nearest_fps));
+		nearest_fps_label->set_text(vformat(TTR("Nearest FPS: %d"), nearest_fps));
 	}
 }
 
@@ -7688,6 +7696,7 @@ AnimationTrackEditor::AnimationTrackEditor() {
 	fps_compat->connect(SceneStringName(toggled), callable_mp(this, &AnimationTrackEditor::_update_fps_compat_mode));
 
 	nearest_fps_label = memnew(Label);
+	nearest_fps_label->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 	bottom_hf->add_child(nearest_fps_label);
 
 	step = memnew(EditorSpinSlider);
@@ -7704,9 +7713,9 @@ AnimationTrackEditor::AnimationTrackEditor() {
 	snap_mode = memnew(OptionButton);
 	snap_mode->add_item(TTR("Seconds"));
 	snap_mode->add_item(TTR("FPS"));
+	snap_mode->set_disabled(true);
 	bottom_hf->add_child(snap_mode);
 	snap_mode->connect(SceneStringName(item_selected), callable_mp(this, &AnimationTrackEditor::_snap_mode_changed));
-	snap_mode->set_disabled(true);
 
 	bottom_hf->add_child(memnew(VSeparator));
 

@@ -434,7 +434,11 @@ public:
 	static String num_real(float p_num, bool p_trailing = true);
 	static String num_int64(int64_t p_num, int base = 10, bool capitalize_hex = false);
 	static String num_uint64(uint64_t p_num, int base = 10, bool capitalize_hex = false);
-	static String chr(char32_t p_char);
+	static String chr(char32_t p_char) {
+		String string;
+		string.parse_utf32(p_char);
+		return string;
+	}
 	static String md5(const uint8_t *p_md5);
 	static String hex_encode_buffer(const uint8_t *p_buffer, int p_len);
 	Vector<uint8_t> hex_decode() const;
@@ -471,7 +475,7 @@ public:
 	Vector<String> split(const char *p_splitter = "", bool p_allow_empty = true, int p_maxsplit = 0) const;
 	Vector<String> rsplit(const String &p_splitter = "", bool p_allow_empty = true, int p_maxsplit = 0) const;
 	Vector<String> rsplit(const char *p_splitter = "", bool p_allow_empty = true, int p_maxsplit = 0) const;
-	Vector<String> split_spaces() const;
+	Vector<String> split_spaces(int p_maxsplit = 0) const;
 	Vector<double> split_floats(const String &p_splitter, bool p_allow_empty = true) const;
 	Vector<float> split_floats_mk(const Vector<String> &p_splitters, bool p_allow_empty = true) const;
 	Vector<int> split_ints(const String &p_splitter, bool p_allow_empty = true) const;
@@ -651,6 +655,10 @@ public:
 		parse_utf32(p_cstr);
 	}
 };
+
+// Zero-constructing String initializes _cowdata.ptr() to nullptr and thus empty.
+template <>
+struct is_zero_constructible<String> : std::true_type {};
 
 bool operator==(const char *p_chr, const String &p_str);
 bool operator==(const wchar_t *p_chr, const String &p_str);

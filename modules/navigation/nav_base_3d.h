@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  nav_region.h                                                          */
+/*  nav_base_3d.h                                                         */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -30,86 +30,38 @@
 
 #pragma once
 
-#include "nav_base.h"
-#include "nav_utils.h"
+#include "nav_rid_3d.h"
+#include "nav_utils_3d.h"
 
-#include "core/os/rw_lock.h"
-#include "scene/resources/navigation_mesh.h"
+#include "servers/navigation/navigation_utilities.h"
 
-struct NavRegionIteration;
+class NavMap3D;
 
-class NavRegion : public NavBase {
-	RWLock region_rwlock;
-
-	NavMap *map = nullptr;
-	Transform3D transform;
-	bool enabled = true;
-
-	bool use_edge_connections = true;
-
-	bool region_dirty = true;
-	bool polygons_dirty = true;
-
-	LocalVector<gd::Polygon> navmesh_polygons;
-
-	real_t surface_area = 0.0;
-	AABB bounds;
-
-	RWLock navmesh_rwlock;
-	Vector<Vector3> pending_navmesh_vertices;
-	Vector<Vector<int>> pending_navmesh_polygons;
-
-	SelfList<NavRegion> sync_dirty_request_list_element;
+class NavBase3D : public NavRid3D {
+protected:
+	uint32_t navigation_layers = 1;
+	real_t enter_cost = 0.0;
+	real_t travel_cost = 1.0;
+	ObjectID owner_id;
+	NavigationUtilities::PathSegmentType type;
 
 public:
-	NavRegion();
-	~NavRegion();
+	NavigationUtilities::PathSegmentType get_type() const { return type; }
 
-	void scratch_polygons() {
-		polygons_dirty = true;
-	}
+	virtual void set_use_edge_connections(bool p_enabled) {}
+	virtual bool get_use_edge_connections() const { return false; }
 
-	void set_enabled(bool p_enabled);
-	bool get_enabled() const { return enabled; }
+	virtual void set_navigation_layers(uint32_t p_navigation_layers) {}
+	uint32_t get_navigation_layers() const { return navigation_layers; }
 
-	void set_map(NavMap *p_map);
-	NavMap *get_map() const {
-		return map;
-	}
+	virtual void set_enter_cost(real_t p_enter_cost) {}
+	real_t get_enter_cost() const { return enter_cost; }
 
-	virtual void set_use_edge_connections(bool p_enabled) override;
-	virtual bool get_use_edge_connections() const override { return use_edge_connections; }
+	virtual void set_travel_cost(real_t p_travel_cost) {}
+	real_t get_travel_cost() const { return travel_cost; }
 
-	void set_transform(Transform3D transform);
-	const Transform3D &get_transform() const {
-		return transform;
-	}
+	virtual void set_owner_id(ObjectID p_owner_id) {}
+	ObjectID get_owner_id() const { return owner_id; }
 
-	void set_navigation_mesh(Ref<NavigationMesh> p_navigation_mesh);
-
-	LocalVector<gd::Polygon> const &get_polygons() const {
-		return navmesh_polygons;
-	}
-
-	Vector3 get_closest_point_to_segment(const Vector3 &p_from, const Vector3 &p_to, bool p_use_collision) const;
-	gd::ClosestPointQueryResult get_closest_point_info(const Vector3 &p_point) const;
-	Vector3 get_random_point(uint32_t p_navigation_layers, bool p_uniformly) const;
-
-	real_t get_surface_area() const { return surface_area; }
-	AABB get_bounds() const { return bounds; }
-
-	// NavBase properties.
-	virtual void set_navigation_layers(uint32_t p_navigation_layers) override;
-	virtual void set_enter_cost(real_t p_enter_cost) override;
-	virtual void set_travel_cost(real_t p_travel_cost) override;
-	virtual void set_owner_id(ObjectID p_owner_id) override;
-
-	bool sync();
-	void request_sync();
-	void cancel_sync_request();
-
-	void get_iteration_update(NavRegionIteration &r_iteration);
-
-private:
-	void update_polygons();
+	virtual ~NavBase3D() {}
 };

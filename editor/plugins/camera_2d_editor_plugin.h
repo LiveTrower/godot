@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  nav_link.h                                                            */
+/*  camera_2d_editor_plugin.h                                             */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -30,71 +30,51 @@
 
 #pragma once
 
-#include "3d/nav_base_iteration_3d.h"
-#include "nav_base.h"
-#include "nav_utils.h"
+#include "editor/plugins/editor_plugin.h"
 
-struct NavLinkIteration : NavBaseIteration {
-	bool bidirectional = true;
-	Vector3 start_position;
-	Vector3 end_position;
-	LocalVector<gd::Polygon> navmesh_polygons;
+class Camera2D;
+class Label;
+class MenuButton;
 
-	Vector3 get_start_position() const { return start_position; }
-	Vector3 get_end_position() const { return end_position; }
-	bool is_bidirectional() const { return bidirectional; }
-};
+class Camera2DEditor : public Control {
+	GDCLASS(Camera2DEditor, Control);
 
-#include "core/templates/self_list.h"
+	enum Menu {
+		MENU_SNAP_LIMITS_TO_VIEWPORT,
+	};
 
-class NavLink : public NavBase {
-	NavMap *map = nullptr;
-	bool bidirectional = true;
-	Vector3 start_position;
-	Vector3 end_position;
-	bool enabled = true;
+	Camera2D *selected_camera = nullptr;
 
-	bool link_dirty = true;
+	friend class Camera2DEditorPlugin;
+	MenuButton *options = nullptr;
 
-	SelfList<NavLink> sync_dirty_request_list_element;
+	void _menu_option(int p_option);
+	void _snap_limits_to_viewport();
+	void _undo_snap_limits_to_viewport(const Rect2 &p_prev_rect);
+
+protected:
+	static void _bind_methods();
+	void _notification(int p_what);
 
 public:
-	NavLink();
-	~NavLink();
+	void edit(Camera2D *p_camera);
+	Camera2DEditor();
+};
 
-	void set_map(NavMap *p_map);
-	NavMap *get_map() const {
-		return map;
-	}
+class Camera2DEditorPlugin : public EditorPlugin {
+	GDCLASS(Camera2DEditorPlugin, EditorPlugin);
 
-	void set_enabled(bool p_enabled);
-	bool get_enabled() const { return enabled; }
+	Camera2DEditor *camera_2d_editor = nullptr;
 
-	void set_bidirectional(bool p_bidirectional);
-	bool is_bidirectional() const {
-		return bidirectional;
-	}
+	Label *approach_to_move_rect = nullptr;
 
-	void set_start_position(Vector3 p_position);
-	Vector3 get_start_position() const {
-		return start_position;
-	}
+	void _editor_theme_changed();
+	void _update_approach_text_visibility();
 
-	void set_end_position(Vector3 p_position);
-	Vector3 get_end_position() const {
-		return end_position;
-	}
+public:
+	virtual void edit(Object *p_object) override;
+	virtual bool handles(Object *p_object) const override;
+	virtual void make_visible(bool p_visible) override;
 
-	// NavBase properties.
-	virtual void set_navigation_layers(uint32_t p_navigation_layers) override;
-	virtual void set_enter_cost(real_t p_enter_cost) override;
-	virtual void set_travel_cost(real_t p_travel_cost) override;
-	virtual void set_owner_id(ObjectID p_owner_id) override;
-
-	bool is_dirty() const;
-	void sync();
-	void request_sync();
-	void cancel_sync_request();
-
-	void get_iteration_update(NavLinkIteration &r_iteration);
+	Camera2DEditorPlugin();
 };

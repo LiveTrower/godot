@@ -324,7 +324,27 @@ void String::parse_utf32(const Span<char32_t> &p_cstr) {
 		return;
 	}
 
-	copy_from_unchecked(p_cstr.ptr(), p_cstr.size());
+	resize(p_cstr.size() + 1);
+	const char32_t *src = p_cstr.ptr();
+	const char32_t *end = p_cstr.ptr() + p_cstr.size();
+	char32_t *dst = ptrw();
+
+	// Copy the string, and check for UTF-32 problems.
+	for (; src < end; ++src, ++dst) {
+		const char32_t chr = *src;
+		if ((chr & 0xfffff800) == 0xd800) {
+			print_unicode_error(vformat("Unpaired surrogate (%x)", (uint32_t)chr), true);
+			*dst = _replacement_char;
+			continue;
+		}
+		if (chr > 0x10ffff) {
+			print_unicode_error(vformat("Invalid unicode codepoint (%x)", (uint32_t)chr), true);
+			*dst = _replacement_char;
+			continue;
+		}
+		*dst = chr;
+	}
+	*dst = 0;
 }
 
 void String::parse_utf32(const char32_t &p_char) {
@@ -354,27 +374,12 @@ void String::parse_utf32(const char32_t &p_char) {
 // p_char != nullptr
 // p_length > 0
 // p_length <= p_char strlen
+// p_char is a valid UTF32 string
 void String::copy_from_unchecked(const char32_t *p_char, const int p_length) {
-	resize(p_length + 1);
-
-	const char32_t *end = p_char + p_length;
+	resize(p_length + 1); // + 1 for \0
 	char32_t *dst = ptrw();
-
-	for (; p_char < end; ++p_char, ++dst) {
-		const char32_t chr = *p_char;
-		if ((chr & 0xfffff800) == 0xd800) {
-			print_unicode_error(vformat("Unpaired surrogate (%x)", (uint32_t)chr));
-			*dst = _replacement_char;
-			continue;
-		}
-		if (chr > 0x10ffff) {
-			print_unicode_error(vformat("Invalid unicode codepoint (%x)", (uint32_t)chr));
-			*dst = _replacement_char;
-			continue;
-		}
-		*dst = chr;
-	}
-	*dst = 0;
+	memcpy(dst, p_char, p_length * sizeof(char32_t));
+	*(dst + p_length) = _null;
 }
 
 String String::operator+(const String &p_str) const {
@@ -1175,7 +1180,7 @@ String String::get_slicec(char32_t p_splitter, int p_slice) const {
 	}
 }
 
-Vector<String> String::split_spaces() const {
+Vector<String> String::split_spaces(int p_maxsplit) const {
 	Vector<String> ret;
 	int from = 0;
 	int i = 0;
@@ -1199,6 +1204,11 @@ Vector<String> String::split_spaces() const {
 		}
 
 		if (empty && inside) {
+			if (p_maxsplit > 0 && p_maxsplit == ret.size()) {
+				// Put rest of the string and leave cycle.
+				ret.push_back(substr(from));
+				break;
+			}
 			ret.push_back(substr(from, i - from));
 			inside = false;
 		}
@@ -1591,11 +1601,6 @@ String String::to_lower() const {
 	*lower_ptrw = 0;
 
 	return lower;
-}
-
-String String::chr(char32_t p_char) {
-	char32_t c[2] = { p_char, 0 };
-	return String(c);
 }
 
 String String::num(double p_num, int p_decimals) {
@@ -4019,11 +4024,9 @@ String String::format(const Variant &values, const String &placeholder) const {
 		}
 	} else if (values.get_type() == Variant::DICTIONARY) {
 		Dictionary d = values;
-		List<Variant> keys;
-		d.get_key_list(&keys);
 
-		for (const Variant &key : keys) {
-			new_string = new_string.replace(placeholder.replace("_", key), d[key]);
+		for (const KeyValue<Variant, Variant> &kv : d) {
+			new_string = new_string.replace(placeholder.replace("_", kv.key), kv.value);
 		}
 	} else if (values.get_type() == Variant::OBJECT) {
 		Object *obj = values.get_validated_object();
@@ -6040,10 +6043,10 @@ String DTR(const String &p_text, const String &p_context) {
 	const String text = p_text.dedent().strip_edges();
 
 	if (TranslationServer::get_singleton()) {
-		return String(TranslationServer::get_singleton()->doc_translate(text, p_context)).replace("$DOCS_URL", VERSION_DOCS_URL);
+		return String(TranslationServer::get_singleton()->doc_translate(text, p_context)).replace("$DOCS_URL", GODOT_VERSION_DOCS_URL);
 	}
 
-	return text.replace("$DOCS_URL", VERSION_DOCS_URL);
+	return text.replace("$DOCS_URL", GODOT_VERSION_DOCS_URL);
 }
 
 /**
@@ -6057,14 +6060,14 @@ String DTRN(const String &p_text, const String &p_text_plural, int p_n, const St
 	const String text_plural = p_text_plural.dedent().strip_edges();
 
 	if (TranslationServer::get_singleton()) {
-		return String(TranslationServer::get_singleton()->doc_translate_plural(text, text_plural, p_n, p_context)).replace("$DOCS_URL", VERSION_DOCS_URL);
+		return String(TranslationServer::get_singleton()->doc_translate_plural(text, text_plural, p_n, p_context)).replace("$DOCS_URL", GODOT_VERSION_DOCS_URL);
 	}
 
 	// Return message based on English plural rule if translation is not possible.
 	if (p_n == 1) {
-		return text.replace("$DOCS_URL", VERSION_DOCS_URL);
+		return text.replace("$DOCS_URL", GODOT_VERSION_DOCS_URL);
 	}
-	return text_plural.replace("$DOCS_URL", VERSION_DOCS_URL);
+	return text_plural.replace("$DOCS_URL", GODOT_VERSION_DOCS_URL);
 }
 #endif
 
