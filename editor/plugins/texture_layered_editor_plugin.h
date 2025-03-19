@@ -84,7 +84,6 @@ public:
 	void edit(Ref<TextureLayered> p_texture);
 
 	TextureLayeredEditor();
-	~TextureLayeredEditor();
 };
 
 class EditorInspectorPluginLayeredTexture : public EditorInspectorPlugin {
