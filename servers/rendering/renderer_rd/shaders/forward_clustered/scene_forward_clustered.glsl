@@ -2376,7 +2376,6 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef USE_LIGHTMAP
 					}
 #endif
-
 #ifdef USE_VERTEX_LIGHTING
 					diffuse_light *= mix(1.0, shadow, diffuse_light_interp.a);
 					indirect_specular_light *= mix(1.0, shadow, specular_light_interp.a);

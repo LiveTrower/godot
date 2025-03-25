@@ -471,13 +471,6 @@ vec3 get_energy_compensation(vec3 f0, float env) {
 #endif
 }
 
-/*float compute_micro_shadowing(float NoL, float visibility) {
-    // Chan 2018, "Material Advances in Call of Duty: WWII"
-    float aperture = inversesqrt(1.0 - min(visibility, 0.9999));
-    float microShadow = clamp(NoL * aperture, 0, 1);
-    return microShadow * microShadow;
-}*/
-
 void extremum_points(float radius_x, float radius_y, vec3 wo, float anisotropyAngle, out vec2 closeExtremum, out vec2 farExtremum, out vec2 roots)
 {
     //==============================================================================//
