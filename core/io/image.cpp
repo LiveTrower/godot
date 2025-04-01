@@ -1128,6 +1128,160 @@ static void _scale_lanczos(const uint8_t *__restrict p_src, uint8_t *__restrict 
 	memdelete_arr(buffer);
 }
 
+template <int CC, typename T>
+static void _scale_dpid(const uint8_t* __restrict p_src, uint8_t* __restrict p_dst, uint32_t p_src_width, uint32_t p_src_height, uint32_t p_dst_width, uint32_t p_dst_height, float _lambda = 1.0f) {
+    
+    const float pWidth = static_cast<float>(p_src_width) / p_dst_width;
+    const float pHeight = static_cast<float>(p_src_height) / p_dst_height;
+    
+	uint32_t buffer_size = p_dst_width * p_dst_height * CC;
+	T* avgImage = memnew_arr(T, buffer_size);
+
+    for (uint32_t py = 0; py < p_dst_height; py++) {
+        for (uint32_t px = 0; px < p_dst_width; px++) {
+            float sx = MAX(px * pWidth, 0.0f);
+            float ex = MIN((px+1) * pWidth, static_cast<float>(p_src_width));
+            float sy = MAX(py * pHeight, 0.0f);
+            float ey = MIN((py+1) * pHeight, static_cast<float>(p_src_height));
+            
+            uint32_t sxr = Math::floor(sx);
+            uint32_t syr = Math::floor(sy);
+            uint32_t exr = Math::ceil(ex);
+            uint32_t eyr = Math::ceil(ey);
+            
+            float avg_values[CC] = {0};
+            float avgF = 0;
+            
+            for (uint32_t iy = syr; iy < eyr; iy++) {
+                for (uint32_t ix = sxr; ix < exr; ix++) {
+                    float f = 1.0f;
+                    if (ix < sx) {
+                        f = f * (1.0f - (sx - ix));
+                    }
+                    if ((ix+1) > ex) {
+                        f = f * (1.0f - ((ix+1) - ex));
+                    }
+                    if (iy < sy) {
+                        f = f * (1.0f - (sy - iy));
+                    }
+                    if ((iy+1) > ey) {
+                        f = f * (1.0f - ((iy+1) - ey));
+                    }
+                    
+                    uint32_t src_idx = (iy * p_src_width + ix) * CC;
+                    for (uint32_t c = 0; c < CC; c++) {
+                        avg_values[c] += p_src[src_idx + c] * f;
+                    }
+                    avgF += f;
+                }
+            }
+            
+            if (avgF > 0) {
+                uint32_t dst_idx = (py * p_dst_width + px) * CC;
+                for (uint32_t c = 0; c < CC; c++) {
+                    avgImage[dst_idx + c] = avg_values[c] / avgF;
+                }
+            }
+        }
+    }
+    
+    for (uint32_t py = 0; py < p_dst_height; py++) {
+        for (uint32_t px = 0; px < p_dst_width; px++) {
+            float avg_values[CC] = {0};
+            float total_weight = 0.0f;
+            
+            for (int dy = -1; dy <= 1; dy++) {
+                int ny = py + dy;
+                if (ny < 0 || ny >= static_cast<int>(p_dst_height)) continue;
+                
+                for (int dx = -1; dx <= 1; dx++) {
+                    int nx = px + dx;
+                    if (nx < 0 || nx >= static_cast<int>(p_dst_width)) continue;
+                    
+                    float weight = 1.0f;
+                    if (dx == 0 || dy == 0) weight = 2.0f;
+                    if (dx == 0 && dy == 0) weight = 4.0f;
+                    
+                    uint32_t avg_idx = (ny * p_dst_width + nx) * CC;
+                    for (uint32_t c = 0; c < CC; c++) {
+                        avg_values[c] += avgImage[avg_idx + c] * weight;
+                    }
+                    total_weight += weight;
+                }
+            }
+            
+            if (total_weight > 0) {
+                for (uint32_t c = 0; c < CC; c++) {
+                    avg_values[c] /= total_weight;
+                }
+            }
+            
+            float sx = MAX(px * pWidth, 0.0f);
+            float ex = MIN((px+1) * pWidth, static_cast<float>(p_src_width));
+            float sy = MAX(py * pHeight, 0.0f);
+            float ey = MIN((py+1) * pHeight, static_cast<float>(p_src_height));
+            
+            uint32_t sxr = Math::floor(sx);
+            uint32_t syr = Math::floor(sy);
+            uint32_t exr = Math::ceil(ex);
+            uint32_t eyr = Math::ceil(ey);
+            
+            float out_values[CC] = {0};
+            float out_weight = 0.0f;
+            
+            for (uint32_t iy = syr; iy < eyr; iy++) {
+                for (uint32_t ix = sxr; ix < exr; ix++) {
+                    float f;
+                    
+                    if (_lambda == 0) {
+                        f = 1.0f;
+                    } else {
+                        float dist_sq = 0.0f;
+                        uint32_t src_idx = (iy * p_src_width + ix) * CC;
+                        for (uint32_t c = 0; c < CC; c++) {
+                            float diff = avg_values[c] - p_src[src_idx + c];
+                            dist_sq += diff * diff;
+                        }
+                        f = Math::pow(Math::sqrt(dist_sq), _lambda);
+                    }
+                    
+                    if (ix < sx) {
+                        f = f * (1.0f - (sx - ix));
+                    }
+                    if ((ix+1) > ex) {
+                        f = f * (1.0f - ((ix+1) - ex));
+                    }
+                    if (iy < sy) {
+                        f = f * (1.0f - (sy - iy));
+                    }
+                    if ((iy+1) > ey) {
+                        f = f * (1.0f - ((iy+1) - ey));
+                    }
+                    
+                    uint32_t src_idx = (iy * p_src_width + ix) * CC;
+                    for (uint32_t c = 0; c < CC; c++) {
+                        out_values[c] += p_src[src_idx + c] * f;
+                    }
+                    out_weight += f;
+                }
+            }
+            
+            uint32_t dst_idx = (py * p_dst_width + px) * CC;
+            if (out_weight > 0) {
+                for (uint32_t c = 0; c < CC; c++) {
+                    p_dst[dst_idx + c] = out_values[c] / out_weight;
+                }
+            } else {
+                for (uint32_t c = 0; c < CC; c++) {
+                    p_dst[dst_idx + c] = avg_values[c];
+                }
+            }
+        }
+    }
+
+	memdelete_arr(avgImage);
+}
+
 static void _overlay(const uint8_t *__restrict p_src, uint8_t *__restrict p_dst, float p_alpha, uint32_t p_width, uint32_t p_height, uint32_t p_pixel_size) {
 	uint16_t alpha = MIN((uint16_t)(p_alpha * 256.0f), 256);
 
@@ -1141,7 +1295,7 @@ bool Image::is_size_po2() const {
 }
 
 void Image::resize_to_po2(bool p_square, Interpolation p_interpolation) {
-	ERR_FAIL_COND_MSG(!_can_modify(format), "Cannot resize in compressed or custom image formats.");
+	ERR_FAIL_COND_MSG(is_compressed(), "Cannot resize in compressed image formats.");
 
 	int w = next_power_of_2(width);
 	int h = next_power_of_2(height);
@@ -1160,7 +1314,7 @@ void Image::resize_to_po2(bool p_square, Interpolation p_interpolation) {
 
 void Image::resize(int p_width, int p_height, Interpolation p_interpolation) {
 	ERR_FAIL_COND_MSG(data.is_empty(), "Cannot resize image before creating it, use set_data() first.");
-	ERR_FAIL_COND_MSG(!_can_modify(format), "Cannot resize in compressed or custom image formats.");
+	ERR_FAIL_COND_MSG(is_compressed(), "Cannot resize in compressed image formats.");
 
 	bool mipmap_aware = p_interpolation == INTERPOLATE_TRILINEAR /* || p_interpolation == INTERPOLATE_TRICUBIC */;
 
@@ -1463,8 +1617,7 @@ void Image::resize(int p_width, int p_height, Interpolation p_interpolation) {
 }
 
 void Image::crop_from_point(int p_x, int p_y, int p_width, int p_height) {
-	ERR_FAIL_COND_MSG(!_can_modify(format), "Cannot crop in compressed or custom image formats.");
-
+	ERR_FAIL_COND_MSG(is_compressed(), "Cannot crop in compressed image formats.");
 	ERR_FAIL_COND_MSG(p_x < 0, "Start x position cannot be smaller than 0.");
 	ERR_FAIL_COND_MSG(p_y < 0, "Start y position cannot be smaller than 0.");
 	ERR_FAIL_COND_MSG(p_width <= 0, "Width of image must be greater than 0.");
@@ -1517,7 +1670,7 @@ void Image::crop(int p_width, int p_height) {
 }
 
 void Image::rotate_90(ClockDirection p_direction) {
-	ERR_FAIL_COND_MSG(!_can_modify(format), "Cannot rotate in compressed or custom image formats.");
+	ERR_FAIL_COND_MSG(is_compressed(), "Cannot rotate in compressed image formats.");
 	ERR_FAIL_COND_MSG(width <= 0, vformat("The Image width specified (%d pixels) must be greater than 0 pixels.", width));
 	ERR_FAIL_COND_MSG(height <= 0, vformat("The Image height specified (%d pixels) must be greater than 0 pixels.", height));
 
@@ -1635,7 +1788,7 @@ void Image::rotate_90(ClockDirection p_direction) {
 }
 
 void Image::rotate_180() {
-	ERR_FAIL_COND_MSG(!_can_modify(format), "Cannot rotate in compressed or custom image formats.");
+	ERR_FAIL_COND_MSG(is_compressed(), "Cannot rotate in compressed image formats.");
 	ERR_FAIL_COND_MSG(width <= 0, vformat("The Image width specified (%d pixels) must be greater than 0 pixels.", width));
 	ERR_FAIL_COND_MSG(height <= 0, vformat("The Image height specified (%d pixels) must be greater than 0 pixels.", height));
 
@@ -1669,7 +1822,7 @@ void Image::rotate_180() {
 }
 
 void Image::flip_y() {
-	ERR_FAIL_COND_MSG(!_can_modify(format), "Cannot flip_y in compressed or custom image formats.");
+	ERR_FAIL_COND_MSG(is_compressed(), "Cannot flip_y in compressed image formats.");
 
 	bool used_mipmaps = has_mipmaps();
 	if (used_mipmaps) {
@@ -1699,7 +1852,7 @@ void Image::flip_y() {
 }
 
 void Image::flip_x() {
-	ERR_FAIL_COND_MSG(!_can_modify(format), "Cannot flip_x in compressed or custom image formats.");
+	ERR_FAIL_COND_MSG(is_compressed(), "Cannot flip_x in compressed image formats.");
 
 	bool used_mipmaps = has_mipmaps();
 	if (used_mipmaps) {
@@ -1789,10 +1942,6 @@ int64_t Image::_get_dst_image_size(int p_width, int p_height, Format p_format, i
 
 	r_mipmaps = mm;
 	return size;
-}
-
-bool Image::_can_modify(Format p_format) const {
-	return !Image::is_format_compressed(p_format);
 }
 
 template <typename Component, int CC, bool renormalize,
@@ -1928,7 +2077,7 @@ void Image::shrink_x2() {
 		memcpy(new_data.ptrw(), data.ptr() + ofs, new_size);
 	} else {
 		// Generate a mipmap and replace the original.
-		ERR_FAIL_COND(!_can_modify(format));
+		ERR_FAIL_COND(is_compressed());
 
 		new_data.resize((width / 2) * (height / 2) * get_format_pixel_size(format));
 		ERR_FAIL_COND(data.is_empty() || new_data.is_empty());
@@ -2040,7 +2189,7 @@ void Image::scale_mipmap_alpha_bias(uint8_t *p_dst, uint32_t p_width, uint32_t p
 }
 
 Error Image::generate_mipmaps(bool p_renormalize, bool p_preserve_alpha_test_coverage, float alpha_test_threshold) {
-	ERR_FAIL_COND_V_MSG(!_can_modify(format), ERR_UNAVAILABLE, "Cannot generate mipmaps in compressed or custom image formats.");
+	ERR_FAIL_COND_V_MSG(is_compressed(), ERR_UNAVAILABLE, "Cannot generate mipmaps from compressed image formats.");
 	ERR_FAIL_COND_V_MSG(format == FORMAT_RGBA4444, ERR_UNAVAILABLE, "Cannot generate mipmaps from RGBA4444 format.");
 	ERR_FAIL_COND_V_MSG(width == 0 || height == 0, ERR_UNCONFIGURED, "Cannot generate mipmaps with width or height equal to 0.");
 
@@ -2526,47 +2675,75 @@ void Image::initialize_data(const char **p_xpm) {
 	}
 
 bool Image::is_invisible() const {
-	if (format == FORMAT_L8 || format == FORMAT_RGB8 || format == FORMAT_RG8) {
-		return false;
-	}
-
-	int64_t len = data.size();
+	int w, h;
+	int64_t len;
+	_get_mipmap_offset_and_size(1, len, w, h);
 
 	if (len == 0) {
 		return true;
 	}
 
-	int w, h;
-	_get_mipmap_offset_and_size(1, len, w, h);
-
-	const uint8_t *r = data.ptr();
-	const unsigned char *data_ptr = r;
-
-	bool detected = false;
-
 	switch (format) {
 		case FORMAT_LA8: {
-			for (int i = 0; i < (len >> 1); i++) {
-				DETECT_NON_ALPHA(data_ptr[(i << 1) + 1]);
-			}
+			const int pixel_count = len / 2;
+			const uint16_t *pixeldata = reinterpret_cast<const uint16_t *>(data.ptr());
 
+			for (int i = 0; i < pixel_count; i++) {
+				if ((pixeldata[i] & 0xFF00) != 0) {
+					return false;
+				}
+			}
 		} break;
 		case FORMAT_RGBA8: {
-			for (int i = 0; i < (len >> 2); i++) {
-				DETECT_NON_ALPHA(data_ptr[(i << 2) + 3])
+			const int pixel_count = len / 4;
+			const uint32_t *pixeldata = reinterpret_cast<const uint32_t *>(data.ptr());
+
+			for (int i = 0; i < pixel_count; i++) {
+				if ((pixeldata[i] & 0xFF000000) != 0) {
+					return false;
+				}
 			}
-
 		} break;
+		case FORMAT_RGBA4444: {
+			const int pixel_count = len / 2;
+			const uint16_t *pixeldata = reinterpret_cast<const uint16_t *>(data.ptr());
 
-		case FORMAT_DXT3:
-		case FORMAT_DXT5: {
-			detected = true;
+			for (int i = 0; i < pixel_count; i++) {
+				if ((pixeldata[i] & 0x000F) != 0) {
+					return false;
+				}
+			}
+		} break;
+		case FORMAT_RGBAH: {
+			// The alpha mask accounts for the sign bit.
+			const int pixel_count = len / 4;
+			const uint16_t *pixeldata = reinterpret_cast<const uint16_t *>(data.ptr());
+
+			for (int i = 0; i < pixel_count; i += 4) {
+				if ((pixeldata[i + 3] & 0x7FFF) != 0) {
+					return false;
+				}
+			}
+		} break;
+		case FORMAT_RGBAF: {
+			// The alpha mask accounts for the sign bit.
+			const int pixel_count = len / 4;
+			const uint32_t *pixeldata = reinterpret_cast<const uint32_t *>(data.ptr());
+
+			for (int i = 0; i < pixel_count; i += 4) {
+				if ((pixeldata[i + 3] & 0x7FFFFFFF) != 0) {
+					return false;
+				}
+			}
 		} break;
 		default: {
+			// Formats that are compressed or don't support alpha channels are presumed to be visible.
+			return false;
 		}
 	}
 
-	return !detected;
+	// Every pixel has been checked, the image is invisible.
+	return true;
 }
 
 Image::AlphaMode Image::detect_alpha() const {
@@ -2782,6 +2959,19 @@ Error Image::decompress() {
 	return OK;
 }
 
+bool Image::can_decompress(const String &p_format_tag) {
+	if (p_format_tag == "astc") {
+		return _image_decompress_astc != nullptr;
+	} else if (p_format_tag == "bptc") {
+		return _image_decompress_bptc != nullptr;
+	} else if (p_format_tag == "etc2") {
+		return _image_decompress_etc2 != nullptr;
+	} else if (p_format_tag == "s3tc") {
+		return _image_decompress_bc != nullptr;
+	}
+	return false;
+}
+
 Error Image::compress(CompressMode p_mode, CompressSource p_source, ASTCFormat p_astc_format) {
 	ERR_FAIL_INDEX_V_MSG(p_mode, COMPRESS_MAX, ERR_INVALID_PARAMETER, "Invalid compress mode.");
 	ERR_FAIL_INDEX_V_MSG(p_source, COMPRESS_SOURCE_MAX, ERR_INVALID_PARAMETER, "Invalid compress source.");
@@ -2963,7 +3153,7 @@ void Image::blit_rect(const Ref<Image> &p_src, const Rect2i &p_src_rect, const P
 	ERR_FAIL_COND(dsize == 0);
 	ERR_FAIL_COND(srcdsize == 0);
 	ERR_FAIL_COND(format != p_src->format);
-	ERR_FAIL_COND_MSG(!_can_modify(format), "Cannot blit_rect in compressed or custom image formats.");
+	ERR_FAIL_COND_MSG(is_compressed(), "Cannot blit_rect in compressed image formats.");
 
 	Rect2i src_rect;
 	Rect2i dest_rect;
@@ -3146,7 +3336,7 @@ void Image::fill(const Color &p_color) {
 	if (data.size() == 0) {
 		return;
 	}
-	ERR_FAIL_COND_MSG(!_can_modify(format), "Cannot fill in compressed or custom image formats.");
+	ERR_FAIL_COND_MSG(is_compressed(), "Cannot fill in compressed image formats.");
 
 	uint8_t *dst_data_ptr = data.ptrw();
 
@@ -3162,7 +3352,7 @@ void Image::fill_rect(const Rect2i &p_rect, const Color &p_color) {
 	if (data.size() == 0) {
 		return;
 	}
-	ERR_FAIL_COND_MSG(!_can_modify(format), "Cannot fill rect in compressed or custom image formats.");
+	ERR_FAIL_COND_MSG(is_compressed(), "Cannot fill rect in compressed image formats.");
 
 	Rect2i r = Rect2i(0, 0, width, height).intersection(p_rect.abs());
 	if (!r.has_area()) {
@@ -3466,7 +3656,7 @@ int64_t Image::get_data_size() const {
 }
 
 void Image::adjust_bcs(float p_brightness, float p_contrast, float p_saturation) {
-	ERR_FAIL_COND_MSG(!_can_modify(format), "Cannot adjust_bcs in compressed or custom image formats.");
+	ERR_FAIL_COND_MSG(is_compressed(), "Cannot adjust_bcs in compressed image formats.");
 
 	uint8_t *w = data.ptrw();
 	uint32_t pixel_size = get_format_pixel_size(format);
@@ -3828,7 +4018,7 @@ Ref<Image> Image::get_image_from_mipmap(int p_mipmap) const {
 }
 
 void Image::bump_map_to_normal_map(float bump_scale) {
-	ERR_FAIL_COND(!_can_modify(format));
+	ERR_FAIL_COND(is_compressed());
 	clear_mipmaps();
 	convert(Image::FORMAT_RF);
 

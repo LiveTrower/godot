@@ -82,11 +82,6 @@ void ResourceImporterTexture::_texture_reimport_normal(const Ref<CompressedTextu
 	singleton->make_flags[path].flags |= MAKE_NORMAL_FLAG;
 }
 
-inline void ResourceImporterTexture::_print_callback_message(const String &p_message) {
-	EditorToaster::get_singleton()->popup_str(p_message);
-	print_line(p_message);
-}
-
 void ResourceImporterTexture::update_imports() {
 	if (EditorFileSystem::get_singleton()->is_scanning() || EditorFileSystem::get_singleton()->is_importing()) {
 		return; // Don't update when EditorFileSystem is doing something else.
@@ -110,7 +105,7 @@ void ResourceImporterTexture::update_imports() {
 		bool changed = false;
 
 		if (E.value.flags & MAKE_NORMAL_FLAG && int(cf->get_value("params", "compress/normal_map")) == 0) {
-			_print_callback_message(
+			print_line(
 					vformat(TTR("%s: Texture detected as used as a normal map in 3D. Enabling red-green texture compression to reduce memory usage (blue channel is discarded)."),
 							String(E.key)));
 
@@ -119,7 +114,7 @@ void ResourceImporterTexture::update_imports() {
 		}
 
 		if (E.value.flags & MAKE_ROUGHNESS_FLAG && int(cf->get_value("params", "roughness/mode")) == 0) {
-			_print_callback_message(
+			print_line(
 					vformat(TTR("%s: Texture detected as used as a roughness map in 3D. Enabling roughness limiter based on the detected associated normal map at %s."),
 							String(E.key), E.value.normal_path_for_roughness));
 
@@ -144,7 +139,7 @@ void ResourceImporterTexture::update_imports() {
 				compress_string = "Basis Universal";
 			}
 
-			_print_callback_message(
+			print_line(
 					vformat(TTR("%s: Texture detected as used in 3D. Enabling mipmap generation and setting the texture compression mode to %s."),
 							String(E.key), compress_string));
 
@@ -218,6 +213,9 @@ bool ResourceImporterTexture::get_option_visibility(const String &p_path, const 
 
 	} else if (p_option == "mipmaps/alpha_test_threshold") {
 		return p_options["mipmaps/generate"];
+
+	} else if (p_option == "process/size_limit_interpolation") {
+		return p_options["process/size_limit"];
 	}
 
 	return true;
@@ -255,6 +253,7 @@ void ResourceImporterTexture::get_import_options(const String &p_path, List<Impo
 	r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "process/normal_map_invert_y"), false));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "process/hdr_as_srgb"), false));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "process/hdr_clamp_exposure"), false));
+	r_options->push_back(ImportOption(PropertyInfo(Variant::INT, "process/size_limit_interpolation", PROPERTY_HINT_ENUM, "Nearest,Bilinear,Cubic,Trilinear,Lanczos"), 2));
 
 	// Maximum bound is the highest allowed value for lossy compression (the lowest common denominator).
 	r_options->push_back(ImportOption(PropertyInfo(Variant::INT, "process/size_limit", PROPERTY_HINT_RANGE, "0,16383,1"), 0));
@@ -522,6 +521,7 @@ Error ResourceImporterTexture::import(ResourceUID::ID p_source_id, const String 
 
 	const bool hdr_as_srgb = p_options["process/hdr_as_srgb"];
 	const bool hdr_clamp_exposure = p_options["process/hdr_clamp_exposure"];
+	int interpolation = p_options["process/size_limit_interpolation"];
 	int size_limit = p_options["process/size_limit"];
 
 	bool using_fallback_size_limit = false;
@@ -614,7 +614,7 @@ Error ResourceImporterTexture::import(ResourceUID::ID p_source_id, const String 
 					// Only warn if downsizing occurred when the user did not explicitly request it.
 					WARN_PRINT(vformat("%s: Texture was downsized on import as its width (%d pixels) exceeded the importable size limit (%d pixels).", p_source_file, target_image->get_width(), size_limit));
 				}
-				target_image->resize(new_width, new_height, Image::INTERPOLATE_CUBIC);
+				target_image->resize(new_width, new_height, static_cast<Image::Interpolation>(interpolation));
 			} else {
 				int new_height = size_limit;
 				int new_width = target_image->get_width() * new_height / target_image->get_height();
@@ -623,7 +623,7 @@ Error ResourceImporterTexture::import(ResourceUID::ID p_source_id, const String 
 					// Only warn if downsizing occurred when the user did not explicitly request it.
 					WARN_PRINT(vformat("%s: Texture was downsized on import as its height (%d pixels) exceeded the importable size limit (%d pixels).", p_source_file, target_image->get_height(), size_limit));
 				}
-				target_image->resize(new_width, new_height, Image::INTERPOLATE_CUBIC);
+				target_image->resize(new_width, new_height, static_cast<Image::Interpolation>(interpolation));
 			}
 
 			if (normal == 1) {
