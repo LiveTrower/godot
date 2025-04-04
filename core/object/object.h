@@ -432,22 +432,11 @@ public:                                                                         
 	static _FORCE_INLINE_ String get_parent_class_static() {                                                                                \
 		return m_inherits::get_class_static();                                                                                              \
 	}                                                                                                                                       \
-	static void get_inheritance_list_static(List<String> *p_inheritance_list) {                                                             \
-		m_inherits::get_inheritance_list_static(p_inheritance_list);                                                                        \
-		p_inheritance_list->push_back(String(#m_class));                                                                                    \
-	}                                                                                                                                       \
 	virtual bool is_class(const String &p_class) const override {                                                                           \
 		if (_get_extension() && _get_extension()->is_class(p_class)) {                                                                      \
 			return true;                                                                                                                    \
 		}                                                                                                                                   \
 		return (p_class == (#m_class)) ? true : m_inherits::is_class(p_class);                                                              \
-	}                                                                                                                                       \
-	static void get_valid_parents_static(List<String> *p_parents) {                                                                         \
-		if (m_class::_get_valid_parents_static != m_inherits::_get_valid_parents_static) {                                                  \
-			m_class::_get_valid_parents_static(p_parents);                                                                                  \
-		}                                                                                                                                   \
-                                                                                                                                            \
-		m_inherits::get_valid_parents_static(p_parents);                                                                                    \
 	}                                                                                                                                       \
                                                                                                                                             \
 protected:                                                                                                                                  \
@@ -552,16 +541,17 @@ protected:                                                                      
 	_FORCE_INLINE_ void (Object::*_get_notification() const)(int) {                                                                         \
 		return (void(Object::*)(int)) & m_class::_notification;                                                                             \
 	}                                                                                                                                       \
-	virtual void _notificationv(int p_notification, bool p_reversed) override {                                                             \
-		if (!p_reversed) {                                                                                                                  \
-			m_inherits::_notificationv(p_notification, p_reversed);                                                                         \
-		}                                                                                                                                   \
+	virtual void _notification_forwardv(int p_notification) override {                                                                      \
+		m_inherits::_notification_forwardv(p_notification);                                                                                 \
 		if (m_class::_get_notification() != m_inherits::_get_notification()) {                                                              \
 			_notification(p_notification);                                                                                                  \
 		}                                                                                                                                   \
-		if (p_reversed) {                                                                                                                   \
-			m_inherits::_notificationv(p_notification, p_reversed);                                                                         \
+	}                                                                                                                                       \
+	virtual void _notification_backwardv(int p_notification) override {                                                                     \
+		if (m_class::_get_notification() != m_inherits::_get_notification()) {                                                              \
+			_notification(p_notification);                                                                                                  \
 		}                                                                                                                                   \
+		m_inherits::_notification_backwardv(p_notification);                                                                                \
 	}                                                                                                                                       \
                                                                                                                                             \
 private:
@@ -705,7 +695,11 @@ protected:
 	virtual void _validate_propertyv(PropertyInfo &p_property) const {}
 	virtual bool _property_can_revertv(const StringName &p_name) const { return false; }
 	virtual bool _property_get_revertv(const StringName &p_name, Variant &r_property) const { return false; }
-	virtual void _notificationv(int p_notification, bool p_reversed) {}
+
+	void _notification_forward(int p_notification);
+	void _notification_backward(int p_notification);
+	virtual void _notification_forwardv(int p_notification) {}
+	virtual void _notification_backwardv(int p_notification) {}
 
 	static void _bind_methods();
 	static void _bind_compatibility_methods() {}
@@ -744,8 +738,6 @@ protected:
 	_FORCE_INLINE_ void (Object::*_get_notification() const)(int) {
 		return &Object::_notification;
 	}
-	static void get_valid_parents_static(List<String> *p_parents);
-	static void _get_valid_parents_static(List<String> *p_parents);
 
 	Variant _call_bind(const Variant **p_args, int p_argcount, Callable::CallError &r_error);
 	Variant _call_deferred_bind(const Variant **p_args, int p_argcount, Callable::CallError &r_error);
@@ -821,8 +813,6 @@ public:
 	};
 
 	/* TYPE API */
-	static void get_inheritance_list_static(List<String> *p_inheritance_list) { p_inheritance_list->push_back("Object"); }
-
 	static String get_class_static() { return "Object"; }
 	static String get_parent_class_static() { return String(); }
 
@@ -889,7 +879,17 @@ public:
 		return (cerr.error == Callable::CallError::CALL_OK) ? ret : Variant();
 	}
 
-	void notification(int p_notification, bool p_reversed = false);
+	// Depending on the boolean, we call either the virtual function _notification_backward or _notification_forward.
+	// - Forward calls subclasses in descending order (e.g. Object -> Node -> Node3D -> extension -> script).
+	//   Backward calls subclasses in descending order (e.g. script -> extension -> Node3D -> Node -> Object).
+	_FORCE_INLINE_ void notification(int p_notification, bool p_reversed = false) {
+		if (p_reversed) {
+			_notification_backward(p_notification);
+		} else {
+			_notification_forward(p_notification);
+		}
+	}
+
 	virtual String to_string();
 
 	// Used mainly by script, get and set all INCLUDING string.
