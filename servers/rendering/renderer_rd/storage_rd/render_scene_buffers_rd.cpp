@@ -759,3 +759,11 @@ RD::DataFormat RenderSceneBuffersRD::get_vrs_format() {
 uint32_t RenderSceneBuffersRD::get_vrs_usage_bits() {
 	return RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_VRS_ATTACHMENT_BIT;
 }
+
+RD::DataFormat RenderSceneBuffersRD::get_weighted_format() {
+	return RD::DATA_FORMAT_R16_SFLOAT;
+}
+
+uint32_t get_weighted_usage_bits() {
+	return RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RD::TEXTURE_USAGE_INPUT_ATTACHMENT_BIT;
+}

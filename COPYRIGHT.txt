@@ -173,6 +173,10 @@ Copyright: 2013 Jorge Jimenez (jorge@iryoku.com)
  2013 Belen Masia (bmasia@unizar.es)
  2013 Fernando Navarro (fernandn@microsoft.com)
  2013 Diego Gutierrez (diegog@unizar.es)
+
+Files: thirdparty/accesskit/*
+Comment: AccessKit
+Copyright: 2023, The AccessKit Authors.
 License: Expat
 
 Files: thirdparty/amd-fsr/*
