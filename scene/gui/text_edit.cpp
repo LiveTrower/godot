@@ -805,12 +805,12 @@ void TextEdit::_notification(int p_what) {
 			queue_redraw();
 		} break;
 
-		case NOTIFICATION_INTERNAL_PHYSICS_PROCESS: {
+		case NOTIFICATION_INTERNAL_PROCESS: {
 			if (scrolling && get_v_scroll() != target_v_scroll) {
 				double target_y = target_v_scroll - get_v_scroll();
 				double dist = abs(target_y);
 				// To ensure minimap is responsive override the speed setting.
-				double vel = ((target_y / dist) * ((minimap_clicked) ? 3000 : v_scroll_speed)) * get_physics_process_delta_time();
+				double vel = ((target_y / dist) * ((minimap_clicked) ? 3000 : v_scroll_speed)) * get_process_delta_time();
 
 				// Prevent small velocities from blocking scrolling.
 				if (Math::abs(vel) < v_scroll->get_step()) {
@@ -821,14 +821,14 @@ void TextEdit::_notification(int p_what) {
 					set_v_scroll(target_v_scroll);
 					scrolling = false;
 					minimap_clicked = false;
-					set_physics_process_internal(false);
+					set_process_internal(false);
 				} else {
 					set_v_scroll(get_v_scroll() + vel);
 				}
 			} else {
 				scrolling = false;
 				minimap_clicked = false;
-				set_physics_process_internal(false);
+				set_process_internal(false);
 			}
 		} break;
 
@@ -1947,13 +1947,14 @@ void TextEdit::unhandled_key_input(const Ref<InputEvent> &p_event) {
 bool TextEdit::alt_input(const Ref<InputEvent> &p_gui_input) {
 	Ref<InputEventKey> k = p_gui_input;
 	if (k.is_valid()) {
-		// Start Unicode input (hold).
+		// Start Unicode Alt input (hold).
 		if (k->is_alt_pressed() && k->get_keycode() == Key::KP_ADD && !alt_start && !alt_start_no_hold) {
 			if (has_selection()) {
 				delete_selection();
 			}
 			alt_start = true;
 			alt_code = 0;
+			alt_mode = ALT_INPUT_UNICODE;
 			ime_text = "u";
 			ime_selection = Vector2i(0, -1);
 			_update_ime_text();
@@ -1967,7 +1968,36 @@ bool TextEdit::alt_input(const Ref<InputEvent> &p_gui_input) {
 			}
 			alt_start_no_hold = true;
 			alt_code = 0;
+			alt_mode = ALT_INPUT_UNICODE;
 			ime_text = "u";
+			ime_selection = Vector2i(0, -1);
+			_update_ime_text();
+			return true;
+		}
+
+		// Start OEM Alt input (hold).
+		if (k->is_alt_pressed() && k->get_keycode() >= Key::KP_1 && k->get_keycode() <= Key::KP_9 && !alt_start && !alt_start_no_hold) {
+			if (has_selection()) {
+				delete_selection();
+			}
+			alt_start = true;
+			alt_code = (uint32_t)(k->get_keycode() - Key::KP_0);
+			alt_mode = ALT_INPUT_OEM;
+			ime_text = vformat("o%s", String::num_int64(alt_code, 10));
+			ime_selection = Vector2i(0, -1);
+			_update_ime_text();
+			return true;
+		}
+
+		// Start Windows Alt input (hold).
+		if (k->is_alt_pressed() && k->get_keycode() == Key::KP_0 && !alt_start && !alt_start_no_hold) {
+			if (has_selection()) {
+				delete_selection();
+			}
+			alt_start = true;
+			alt_mode = ALT_INPUT_WIN;
+			alt_code = 0;
+			ime_text = "w";
 			ime_selection = Vector2i(0, -1);
 			_update_ime_text();
 			return true;
@@ -1976,34 +2006,66 @@ bool TextEdit::alt_input(const Ref<InputEvent> &p_gui_input) {
 		// Update Unicode input.
 		if (k->is_pressed() && ((k->is_alt_pressed() && alt_start) || alt_start_no_hold)) {
 			if (k->get_keycode() >= Key::KEY_0 && k->get_keycode() <= Key::KEY_9) {
-				alt_code = alt_code << 4;
+				if (alt_mode == ALT_INPUT_UNICODE) {
+					alt_code = alt_code << 4;
+				} else {
+					alt_code = alt_code * 10;
+				}
 				alt_code += (uint32_t)(k->get_keycode() - Key::KEY_0);
 			} else if (k->get_keycode() >= Key::KP_0 && k->get_keycode() <= Key::KP_9) {
-				alt_code = alt_code << 4;
+				if (alt_mode == ALT_INPUT_UNICODE) {
+					alt_code = alt_code << 4;
+				} else {
+					alt_code = alt_code * 10;
+				}
 				alt_code += (uint32_t)(k->get_keycode() - Key::KP_0);
-			} else if (k->get_keycode() >= Key::A && k->get_keycode() <= Key::F) {
+			} else if (alt_mode == ALT_INPUT_UNICODE && k->get_keycode() >= Key::A && k->get_keycode() <= Key::F) {
 				alt_code = alt_code << 4;
 				alt_code += (uint32_t)(k->get_keycode() - Key::A) + 10;
 			} else if ((Key)k->get_unicode() >= Key::KEY_0 && (Key)k->get_unicode() <= Key::KEY_9) {
-				alt_code = alt_code << 4;
+				if (alt_mode == ALT_INPUT_UNICODE) {
+					alt_code = alt_code << 4;
+				} else {
+					alt_code = alt_code * 10;
+				}
 				alt_code += (uint32_t)((Key)k->get_unicode() - Key::KEY_0);
-			} else if ((Key)k->get_unicode() >= Key::A && (Key)k->get_unicode() <= Key::F) {
+			} else if (alt_mode == ALT_INPUT_UNICODE && (Key)k->get_unicode() >= Key::A && (Key)k->get_unicode() <= Key::F) {
 				alt_code = alt_code << 4;
 				alt_code += (uint32_t)((Key)k->get_unicode() - Key::A) + 10;
 			} else if (k->get_physical_keycode() >= Key::KEY_0 && k->get_physical_keycode() <= Key::KEY_9) {
-				alt_code = alt_code << 4;
+				if (alt_mode == ALT_INPUT_UNICODE) {
+					alt_code = alt_code << 4;
+				} else {
+					alt_code = alt_code * 10;
+				}
 				alt_code += (uint32_t)(k->get_physical_keycode() - Key::KEY_0);
 			}
 			if (k->get_keycode() == Key::BACKSPACE) {
-				alt_code = alt_code >> 4;
+				if (alt_mode == ALT_INPUT_UNICODE) {
+					alt_code = alt_code >> 4;
+				} else {
+					alt_code = alt_code / 10;
+				}
 			}
 			if (alt_code > 0x10ffff) {
 				alt_code = 0x10ffff;
 			}
 			if (alt_code > 0) {
-				ime_text = vformat("u%s", String::num_int64(alt_code, 16, true));
+				if (alt_mode == ALT_INPUT_UNICODE) {
+					ime_text = vformat("u%s", String::num_int64(alt_code, 16, true));
+				} else if (alt_mode == ALT_INPUT_OEM) {
+					ime_text = vformat("o%s", String::num_int64(alt_code, 10));
+				} else if (alt_mode == ALT_INPUT_WIN) {
+					ime_text = vformat("w%s", String::num_int64(alt_code, 10));
+				}
 			} else {
-				ime_text = "u";
+				if (alt_mode == ALT_INPUT_UNICODE) {
+					ime_text = "u";
+				} else if (alt_mode == ALT_INPUT_OEM) {
+					ime_text = "o";
+				} else if (alt_mode == ALT_INPUT_WIN) {
+					ime_text = "w";
+				}
 			}
 			ime_selection = Vector2i(0, -1);
 			_update_ime_text();
@@ -2014,10 +2076,27 @@ bool TextEdit::alt_input(const Ref<InputEvent> &p_gui_input) {
 		if ((!k->is_pressed() && alt_start && k->get_keycode() == Key::ALT) || (alt_start_no_hold && (k->is_action("ui_text_submit", true) || k->is_action("ui_accept", true)))) {
 			alt_start = false;
 			alt_start_no_hold = false;
-			if ((alt_code > 0x31 && alt_code < 0xd800) || (alt_code > 0xdfff && alt_code <= 0x10ffff)) {
+			if ((alt_code > 0x31 && alt_code < 0xd800) || (alt_code > 0xdfff)) {
 				ime_text = String();
 				ime_selection = Vector2i();
-				handle_unicode_input(alt_code);
+				if (alt_mode == ALT_INPUT_UNICODE) {
+					if ((alt_code > 0x31 && alt_code < 0xd800) || (alt_code > 0xdfff)) {
+						handle_unicode_input(alt_code);
+					}
+				} else if (alt_mode == ALT_INPUT_OEM) {
+					if (alt_code > 0x00 && alt_code <= 0xff) {
+						handle_unicode_input(alt_code_oem437[alt_code]);
+					} else if ((alt_code > 0xff && alt_code < 0xd800) || (alt_code > 0xdfff)) {
+						handle_unicode_input(alt_code);
+					}
+				} else if (alt_mode == ALT_INPUT_WIN) {
+					if (alt_code > 0x00 && alt_code <= 0xff) {
+						handle_unicode_input(alt_code_cp1252[alt_code]);
+					} else if ((alt_code > 0xff && alt_code < 0xd800) || (alt_code > 0xdfff)) {
+						handle_unicode_input(alt_code);
+					}
+				}
+				alt_mode = ALT_INPUT_NONE;
 			} else {
 				ime_text = String();
 				ime_selection = Vector2i();
@@ -2030,6 +2109,7 @@ bool TextEdit::alt_input(const Ref<InputEvent> &p_gui_input) {
 		if (alt_start_no_hold && k->is_action("ui_cancel", true)) {
 			alt_start = false;
 			alt_start_no_hold = false;
+			alt_mode = ALT_INPUT_NONE;
 			ime_text = String();
 			ime_selection = Vector2i();
 			_update_ime_text();
@@ -3321,7 +3401,7 @@ bool TextEdit::can_drop_data(const Point2 &p_point, const Variant &p_data) const
 void TextEdit::drop_data(const Point2 &p_point, const Variant &p_data) {
 	Control::drop_data(p_point, p_data);
 
-	if (p_point == Vector2(INFINITY, INFINITY)) {
+	if (p_point == Vector2(Math::INF, Math::INF)) {
 		insert_text_at_caret(p_data);
 	} else if (p_data.is_string() && is_editable()) {
 		Point2i pos = get_line_column_at_pos(get_local_mouse_pos());
@@ -8447,7 +8527,7 @@ void TextEdit::_scroll_up(real_t p_delta, bool p_animate) {
 			queue_accessibility_update();
 		} else {
 			scrolling = true;
-			set_physics_process_internal(true);
+			set_process_internal(true);
 		}
 	} else {
 		set_v_scroll(target_v_scroll);
@@ -8476,7 +8556,7 @@ void TextEdit::_scroll_down(real_t p_delta, bool p_animate) {
 			queue_accessibility_update();
 		} else {
 			scrolling = true;
-			set_physics_process_internal(true);
+			set_process_internal(true);
 		}
 	} else {
 		set_v_scroll(target_v_scroll);

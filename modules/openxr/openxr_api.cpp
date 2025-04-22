@@ -52,6 +52,10 @@
 #include "extensions/platform/openxr_opengl_extension.h"
 #endif
 
+#ifdef D3D12_ENABLED
+#include "extensions/platform/openxr_d3d12_extension.h"
+#endif
+
 #include "extensions/openxr_composition_layer_depth_extension.h"
 #include "extensions/openxr_debug_utils_extension.h"
 #include "extensions/openxr_eye_gaze_interaction.h"
@@ -262,6 +266,16 @@ RID OpenXRAPI::OpenXRSwapChainInfo::get_image() {
 
 	if (image_acquired && openxr_api && openxr_api->get_graphics_extension()) {
 		return OpenXRAPI::get_singleton()->get_graphics_extension()->get_texture(swapchain_graphics_data, image_index);
+	} else {
+		return RID();
+	}
+}
+
+RID OpenXRAPI::OpenXRSwapChainInfo::get_density_map() {
+	OpenXRAPI *openxr_api = OpenXRAPI::get_singleton();
+
+	if (image_acquired && openxr_api && openxr_api->get_graphics_extension()) {
+		return openxr_api->get_graphics_extension()->get_density_map(swapchain_graphics_data, image_index);
 	} else {
 		return RID();
 	}
@@ -1670,6 +1684,14 @@ bool OpenXRAPI::initialize(const String &p_rendering_driver) {
 		// shouldn't be possible...
 		ERR_FAIL_V(false);
 #endif
+	} else if (p_rendering_driver == "d3d12") {
+#ifdef D3D12_ENABLED
+		graphics_extension = memnew(OpenXRD3D12Extension);
+		register_extension_wrapper(graphics_extension);
+#else
+		// shouldn't be possible...
+		ERR_FAIL_V(false);
+#endif
 	} else {
 		ERR_FAIL_V_MSG(false, "OpenXR: Unsupported rendering device.");
 	}
@@ -2367,6 +2389,17 @@ RID OpenXRAPI::get_depth_texture() {
 	} else {
 		return RID();
 	}
+}
+
+RID OpenXRAPI::get_density_map_texture() {
+	ERR_NOT_ON_RENDER_THREAD_V(RID());
+
+	OpenXRFBFoveationExtension *fov_ext = OpenXRFBFoveationExtension::get_singleton();
+	if (fov_ext && fov_ext->is_enabled()) {
+		return render_state.main_swapchains[OPENXR_SWAPCHAIN_COLOR].get_density_map();
+	}
+
+	return RID();
 }
 
 void OpenXRAPI::set_velocity_texture(RID p_render_target) {

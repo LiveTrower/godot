@@ -727,7 +727,7 @@
 				GD.Print(n.ToString("e1")); // Prints -5.2e+008
 				[/csharp]
 				[/codeblocks]
-				[b]Note:[/b] In C#, this method is not implemented. To achieve similar results, see C#'s [url=https://learn.microsoft.com/en-us/dotnet/standard/base-types/standard-numeric-format-strings]Standard numeric format strings[/url]
+				[b]Note:[/b] In C#, this method is not implemented. To achieve similar results, see C#'s [url=https://learn.microsoft.com/en-us/dotnet/standard/base-types/standard-numeric-format-strings]Standard numeric format strings[/url].
 			</description>
 		</method>
 		<method name="num_uint64" qualifiers="static">
@@ -1038,6 +1038,25 @@
 				var c = "-1.2.3".to_int() # c is -1
 				var d = "Hello!".to_int() # d is 0
 				[/codeblock]
+			</description>
+		</method>
+		<method name="to_kebab_case" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the string converted to [code]kebab-case[/code].
+				[b]Note:[/b] Numbers followed by a [i]single[/i] letter are not separated in the conversion to keep some words (such as "2D") together.
+				[codeblocks]
+				[gdscript]
+				"Node2D".to_kebab_case()               # Returns "node-2d"
+				"2nd place".to_kebab_case()            # Returns "2-nd-place"
+				"Texture3DAssetFolder".to_kebab_case() # Returns "texture-3d-asset-folder"
+				[/gdscript]
+				[csharp]
+				"Node2D".ToKebabCase();               // Returns "node-2d"
+				"2nd place".ToKebabCase();            // Returns "2-nd-place"
+				"Texture3DAssetFolder".ToKebabCase(); // Returns "texture-3d-asset-folder"
+				[/csharp]
+				[/codeblocks]
 			</description>
 		</method>
 		<method name="to_lower" qualifiers="const">

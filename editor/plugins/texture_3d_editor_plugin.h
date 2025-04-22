@@ -41,6 +41,10 @@ class TextureChannelMipSelector;
 class Texture3DEditor : public Control {
 	GDCLASS(Texture3DEditor, Control);
 
+	struct ThemeCache {
+		Color outline_color;
+	} theme_cache;
+
 	SpinBox *layer = nullptr;
 	Label *info = nullptr;
 	Ref<Texture3D> texture;
@@ -55,6 +59,8 @@ class Texture3DEditor : public Control {
 	String texture_filter = "filter_nearest_mipmap";
 
 	bool setting = false;
+
+	void _draw_outline();
 
 	void _make_shaders();
 

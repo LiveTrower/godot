@@ -941,6 +941,11 @@ void EditorNode::_notification(int p_what) {
 				EditorHelpHighlighter::get_singleton()->reset_cache();
 			}
 #endif
+#ifdef ANDROID_ENABLED
+			if (EditorSettings::get_singleton()->check_changed_settings_in_group("interface/touchscreen/touch_actions_panel")) {
+				_touch_actions_panel_mode_changed();
+			}
+#endif
 		} break;
 	}
 }
@@ -3363,7 +3368,7 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 			about->popup_centered(Size2(780, 500) * EDSCALE);
 		} break;
 		case HELP_SUPPORT_GODOT_DEVELOPMENT: {
-			OS::get_singleton()->shell_open("https://godotengine.org/donate");
+			OS::get_singleton()->shell_open("https://fund.godotengine.org");
 		} break;
 	}
 }
@@ -3374,11 +3379,13 @@ String EditorNode::adjust_scene_name_casing(const String &p_root_name) {
 			// Use casing of the root node.
 			break;
 		case SCENE_NAME_CASING_PASCAL_CASE:
-			return p_root_name.replace_char('-', '_').to_pascal_case();
+			return p_root_name.to_pascal_case();
 		case SCENE_NAME_CASING_SNAKE_CASE:
-			return p_root_name.replace_char('-', '_').to_snake_case();
+			return p_root_name.to_snake_case();
 		case SCENE_NAME_CASING_KEBAB_CASE:
-			return p_root_name.to_snake_case().replace_char('_', '-');
+			return p_root_name.to_kebab_case();
+		case SCENE_NAME_CASING_CAMEL_CASE:
+			return p_root_name.to_camel_case();
 	}
 	return p_root_name;
 }
@@ -3395,11 +3402,13 @@ String EditorNode::adjust_script_name_casing(const String &p_file_name, ScriptLa
 			// Script language has no preference, so do not adjust.
 			break;
 		case ScriptLanguage::SCRIPT_NAME_CASING_PASCAL_CASE:
-			return p_file_name.replace_char('-', '_').to_pascal_case();
+			return p_file_name.to_pascal_case();
 		case ScriptLanguage::SCRIPT_NAME_CASING_SNAKE_CASE:
-			return p_file_name.replace_char('-', '_').to_snake_case();
+			return p_file_name.to_snake_case();
 		case ScriptLanguage::SCRIPT_NAME_CASING_KEBAB_CASE:
-			return p_file_name.to_snake_case().replace_char('_', '-');
+			return p_file_name.to_kebab_case();
+		case ScriptLanguage::SCRIPT_NAME_CASING_CAMEL_CASE:
+			return p_file_name.to_camel_case();
 	}
 	return p_file_name;
 }
@@ -7059,6 +7068,34 @@ void EditorNode::set_unfocused_low_processor_usage_mode_enabled(bool p_enabled) 
 	unfocused_low_processor_usage_mode_enabled = p_enabled;
 }
 
+#ifdef ANDROID_ENABLED
+void EditorNode::_touch_actions_panel_mode_changed() {
+	int panel_mode = EDITOR_GET("interface/touchscreen/touch_actions_panel");
+	switch (panel_mode) {
+		case 1:
+			if (touch_actions_panel != nullptr) {
+				touch_actions_panel->queue_free();
+			}
+			touch_actions_panel = memnew(TouchActionsPanel);
+			main_hbox->call_deferred("add_child", touch_actions_panel);
+			break;
+		case 2:
+			if (touch_actions_panel != nullptr) {
+				touch_actions_panel->queue_free();
+			}
+			touch_actions_panel = memnew(TouchActionsPanel);
+			call_deferred("add_child", touch_actions_panel);
+			break;
+		case 0:
+			if (touch_actions_panel != nullptr) {
+				touch_actions_panel->queue_free();
+				touch_actions_panel = nullptr;
+			}
+			break;
+	}
+}
+#endif
+
 EditorNode::EditorNode() {
 	DEV_ASSERT(!singleton);
 	singleton = this;
@@ -7364,7 +7401,20 @@ EditorNode::EditorNode() {
 	gui_base->set_end(Point2(0, 0));
 
 	main_vbox = memnew(VBoxContainer);
+
+#ifdef ANDROID_ENABLED
+	main_hbox = memnew(HBoxContainer);
+	main_hbox->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
+
+	main_hbox->add_child(main_vbox);
+	main_vbox->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+
+	_touch_actions_panel_mode_changed();
+
+	gui_base->add_child(main_hbox);
+#else
 	gui_base->add_child(main_vbox);
+#endif
 
 	title_bar = memnew(EditorTitleBar);
 	main_vbox->add_child(title_bar);
@@ -7844,6 +7894,9 @@ EditorNode::EditorNode() {
 		PackedStringArray renderers = ProjectSettings::get_singleton()->get_custom_property_info().get(StringName("rendering/renderer/rendering_method")).hint_string.split(",", false);
 		for (int i = 0; i < renderers.size(); i++) {
 			String rendering_method = renderers[i];
+			if (rendering_method == "dummy") {
+				continue;
+			}
 			_add_renderer_entry(rendering_method, false);
 			renderer->set_item_metadata(i, rendering_method);
 			// Lowercase for standard comparison.
@@ -7944,14 +7997,6 @@ EditorNode::EditorNode() {
 	default_layout->set_value(docks_section, "dock_hsplit_4", 0);
 
 	_update_layouts_menu();
-
-#ifdef ANDROID_ENABLED
-	// Add TouchActionsPanel node.
-	bool is_enabled = EDITOR_GET("interface/touchscreen/enable_touch_actions_panel");
-	if (is_enabled) {
-		add_child(memnew(TouchActionsPanel));
-	}
-#endif
 
 	// Bottom panels.
 

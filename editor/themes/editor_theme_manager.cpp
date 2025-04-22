@@ -44,6 +44,7 @@
 #include "scene/resources/style_box_flat.h"
 #include "scene/resources/style_box_line.h"
 #include "scene/resources/style_box_texture.h"
+#include "scene/resources/svg_texture.h"
 #include "scene/resources/texture.h"
 
 // Theme configuration.
@@ -1724,7 +1725,7 @@ void EditorThemeManager::_populate_standard_styles(const Ref<EditorTheme> &p_the
 			p_theme->set_constant("port_h_offset", "GraphNode", 1);
 			p_theme->set_constant("separation", "GraphNode", 1 * EDSCALE);
 
-			Ref<ImageTexture> port_icon = p_theme->get_icon(SNAME("GuiGraphNodePort"), EditorStringName(EditorIcons));
+			Ref<SVGTexture> port_icon = p_theme->get_icon(SNAME("GuiGraphNodePort"), EditorStringName(EditorIcons));
 			// The true size is 24x24 This is necessary for sharp port icons at high zoom levels in GraphEdit (up to ~200%).
 			port_icon->set_size_override(Size2(12, 12));
 			p_theme->set_icon("port", "GraphNode", port_icon);
@@ -1888,8 +1889,6 @@ void EditorThemeManager::_populate_editor_styles(const Ref<EditorTheme> &p_theme
 		p_theme->set_stylebox("FocusViewport", EditorStringName(EditorStyles), style_widget_focus_viewport);
 
 		Ref<StyleBoxFlat> style_widget_scroll_container = p_config.button_style_focus->duplicate();
-		// Make the focus outline appear to be flush with the buttons it's focusing, so not draw on top of the content.
-		style_widget_scroll_container->set_expand_margin_all(4);
 		p_theme->set_stylebox("focus", "ScrollContainer", style_widget_scroll_container);
 
 		// This stylebox is used in 3d and 2d viewports (no borders).
@@ -1972,6 +1971,11 @@ void EditorThemeManager::_populate_editor_styles(const Ref<EditorTheme> &p_theme
 		icon_hover_color.a = 1.0;
 		p_theme->set_color("icon_hover_color", "BottomPanelButton", icon_hover_color);
 		p_theme->set_color("icon_hover_pressed_color", "BottomPanelButton", icon_hover_color);
+
+		// Audio bus.
+		p_theme->set_stylebox("normal", "EditorAudioBus", style_bottom_panel);
+		p_theme->set_stylebox("master", "EditorAudioBus", p_config.button_style_disabled);
+		p_theme->set_stylebox("focus", "EditorAudioBus", p_config.button_style_focus);
 	}
 
 	// Editor GUI widgets.
@@ -2236,6 +2240,12 @@ void EditorThemeManager::_populate_editor_styles(const Ref<EditorTheme> &p_theme
 
 	// Editor inspector.
 	{
+		// Panel.
+		Ref<StyleBoxFlat> editor_inspector_panel = p_config.tree_panel_style->duplicate();
+		editor_inspector_panel->set_border_width_all(0);
+		editor_inspector_panel->set_content_margin_all(0);
+		p_theme->set_stylebox(SceneStringName(panel), "EditorInspector", editor_inspector_panel);
+
 		// Vertical separation between inspector categories and sections.
 		p_theme->set_constant("v_separation", "EditorInspector", 0);
 

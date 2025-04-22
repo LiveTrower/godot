@@ -431,19 +431,7 @@ void Node::_propagate_enter_tree() {
 void Node::_propagate_after_exit_tree() {
 	// Clear owner if it was not part of the pruned branch
 	if (data.owner) {
-		bool found = false;
-		Node *parent = data.parent;
-
-		while (parent) {
-			if (parent == data.owner) {
-				found = true;
-				break;
-			}
-
-			parent = parent->data.parent;
-		}
-
-		if (!found) {
+		if (!data.owner->is_ancestor_of(this)) {
 			_clean_up_owner();
 		}
 	}
@@ -1641,6 +1629,8 @@ String Node::adjust_name_casing(const String &p_name) {
 			return p_name.to_camel_case();
 		case NAME_CASING_SNAKE_CASE:
 			return p_name.to_snake_case();
+		case NAME_CASING_KEBAB_CASE:
+			return p_name.to_kebab_case();
 	}
 	return p_name;
 }
@@ -2362,17 +2352,7 @@ void Node::set_owner(Node *p_owner) {
 		return;
 	}
 
-	Node *check = get_parent();
-	bool owner_valid = false;
-
-	while (check) {
-		if (check == p_owner) {
-			owner_valid = true;
-			break;
-		}
-
-		check = check->data.parent;
-	}
+	bool owner_valid = p_owner->is_ancestor_of(this);
 
 	ERR_FAIL_COND_MSG(!owner_valid, "Invalid owner. Owner must be an ancestor in the tree.");
 
@@ -3830,7 +3810,7 @@ RID Node::get_accessibility_element() const {
 
 void Node::_bind_methods() {
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "editor/naming/node_name_num_separator", PROPERTY_HINT_ENUM, "None,Space,Underscore,Dash"), 0);
-	GLOBAL_DEF(PropertyInfo(Variant::INT, "editor/naming/node_name_casing", PROPERTY_HINT_ENUM, "PascalCase,camelCase,snake_case"), NAME_CASING_PASCAL_CASE);
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "editor/naming/node_name_casing", PROPERTY_HINT_ENUM, "PascalCase,camelCase,snake_case,kebab-case"), NAME_CASING_PASCAL_CASE);
 
 	ClassDB::bind_static_method("Node", D_METHOD("print_orphan_nodes"), &Node::print_orphan_nodes);
 	ClassDB::bind_method(D_METHOD("add_sibling", "sibling", "force_readable_name"), &Node::add_sibling, DEFVAL(false));
