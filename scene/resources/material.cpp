@@ -868,11 +868,8 @@ void BaseMaterial3D::_update_shader() {
 			break; // Internal value, skip.
 	}
 	switch (specular_mode) {
-		case SPECULAR_SCHLICK_GGX:
-			code += ", specular_schlick_ggx";
-			break;
-		case SPECULAR_MULTISCATTERING_GGX:
-			code += ", specular_multiscattering_ggx";
+		case SPECULAR_GGX:
+			code += ", specular_ggx";
 			break;
 		case SPECULAR_TOON:
 			code += ", specular_toon";
@@ -3604,7 +3601,7 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_GROUP("Shading", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "shading_mode", PROPERTY_HINT_ENUM, "Unshaded,Per-Pixel,Per-Vertex"), "set_shading_mode", "get_shading_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "diffuse_mode", PROPERTY_HINT_ENUM, "Burley,Lambert,Lambert Wrap,Toon"), "set_diffuse_mode", "get_diffuse_mode");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "specular_mode", PROPERTY_HINT_ENUM, "SchlickGGX,MultiscatterGGX,Toon,Disabled"), "set_specular_mode", "get_specular_mode");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "specular_mode", PROPERTY_HINT_ENUM, "GGX,Toon,Disabled"), "set_specular_mode", "get_specular_mode");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "disable_ambient_light"), "set_flag", "get_flag", FLAG_DISABLE_AMBIENT_LIGHT);
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "disable_fog"), "set_flag", "get_flag", FLAG_DISABLE_FOG);
 
@@ -3648,7 +3645,7 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_NORMAL);
 
 	ADD_GROUP("Bent Normal Map", "bent_normal_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "bent_normal_enabled"), "set_feature", "get_feature", FEATURE_BENT_NORMAL_MAPPING);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "bent_normal_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_BENT_NORMAL_MAPPING);
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "bent_normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_BENT_NORMAL);
 
 	ADD_GROUP("Rim", "rim_");
@@ -3658,7 +3655,7 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "rim_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_RIM);
 
 	ADD_GROUP("Sheen", "sheen_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "sheen_enabled"), "set_feature", "get_feature", FEATURE_SHEEN);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "sheen_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_SHEEN);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sheen", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_sheen", "get_sheen");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sheen_roughness", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_sheen_roughness", "get_sheen_roughness");
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "sheen_color", PROPERTY_HINT_COLOR_NO_ALPHA), "set_sheen_color", "get_sheen_color");
@@ -3905,8 +3902,7 @@ void BaseMaterial3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(DIFFUSE_LAMBERT_WRAP);
 	BIND_ENUM_CONSTANT(DIFFUSE_TOON);
 
-	BIND_ENUM_CONSTANT(SPECULAR_SCHLICK_GGX);
-	BIND_ENUM_CONSTANT(SPECULAR_MULTISCATTERING_GGX);
+	BIND_ENUM_CONSTANT(SPECULAR_GGX);
 	BIND_ENUM_CONSTANT(SPECULAR_TOON);
 	BIND_ENUM_CONSTANT(SPECULAR_DISABLED);
 

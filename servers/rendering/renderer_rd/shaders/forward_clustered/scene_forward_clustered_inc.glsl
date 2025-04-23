@@ -462,13 +462,7 @@ vec3 prefiltered_dfg(float lod, float NoV) {
 }
 
 vec3 get_energy_compensation(vec3 f0, float env) {
-#ifdef SPECULAR_MULTISCATTERING_GGX
-	//vec3 compensation = f0 * ((1.0 / (env.x + env.y)) - 1.0);
-	//return compensation + 1.0;
 	return 1.0 + f0 * (1.0 / env - 1.0);
-#else
-	return vec3(1.0);
-#endif
 }
 
 void extremum_points(float radius_x, float radius_y, vec3 wo, float anisotropyAngle, out vec2 closeExtremum, out vec2 farExtremum, out vec2 roots)

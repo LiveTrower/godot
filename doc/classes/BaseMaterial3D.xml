@@ -721,7 +721,7 @@
 		<constant name="DIFFUSE_TOON" value="3" enum="DiffuseMode">
 			Uses a hard cut for lighting, with smoothing affected by roughness.
 		</constant>
-		<constant name="SPECULAR_SCHLICK_GGX" value="0" enum="SpecularMode">
+		<constant name="SPECULAR_GGX" value="0" enum="SpecularMode">
 			Default specular blob.
 		</constant>
 		<constant name="SPECULAR_MULTISCATTERING_GGX" value="1" enum="SpecularMode">

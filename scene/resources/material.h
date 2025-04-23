@@ -295,8 +295,7 @@ public:
 	};
 
 	enum SpecularMode {
-		SPECULAR_SCHLICK_GGX,
-		SPECULAR_MULTISCATTERING_GGX,
+		SPECULAR_GGX,
 		SPECULAR_TOON,
 		SPECULAR_DISABLED,
 		SPECULAR_MAX
@@ -615,7 +614,7 @@ private:
 	DepthFunction depth_function = DEPTH_FUNCTION_GREATER_OR_EQUAL;
 	CullMode cull_mode = CULL_BACK;
 	bool flags[FLAG_MAX] = {};
-	SpecularMode specular_mode = SPECULAR_SCHLICK_GGX;
+	SpecularMode specular_mode = SPECULAR_GGX;
 	DiffuseMode diffuse_mode = DIFFUSE_BURLEY;
 	BillboardMode billboard_mode;
 	EmissionOperator emission_op = EMISSION_OP_ADD;
