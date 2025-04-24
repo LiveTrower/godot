@@ -264,14 +264,21 @@ vec3 tonemap_aces(vec3 color, float white) {
 	return color_tonemapped / white_tonemapped;
 }
 
-// This is a simplified glsl implementation of EaryChow's AgX that is used by Blender.
-// Input: unbounded linear Rec. 709
-// Output: unbounded linear Rec. 709 (Most any value you care about will be within [0.0, 1.0], thus safe to clip.)
+// Polynomial approximation of EaryChow's AgX sigmoid curve.
+// x must be within the range [0.0, 1.0]
+vec3 agx_contrast_approx(vec3 x) {
+	// Generated with Excel trendline
+	// Input data: Generated using python sigmoid with EaryChow's configuration and 57 steps
+	// Additional padding values were added to give correct intersections at 0.0 and 1.0
+	// 6th order, intercept of 0.0 to remove an operation and ensure intersection at 0.0
+	vec3 x2 = x * x;
+	vec3 x4 = x2 * x2;
+	return 0.021 * x + 4.0111 * x2 - 25.682 * x2 * x + 70.359 * x4 - 74.778 * x4 * x + 27.069 * x4 * x2;
+}
+
+// This is an approximation and simplification of EaryChow's AgX implementation that is used by Blender.
 // This code is based off of the script that generates the AgX_Base_sRGB.cube LUT that Blender uses.
 // Source: https://github.com/EaryChow/AgX_LUT_Gen/blob/main/AgXBasesRGB.py
-// Changes: Negative clipping in input color space without "guard rails" and no chroma-angle mixing.
-// Repository for this code: https://github.com/allenwp/AgX-GLSL-Shaders
-// Refer to source repository for other matrices if input/output color space ever changes.
 vec3 tonemap_agx(vec3 color) {
 	// Combined linear sRGB to linear Rec 2020 and Blender AgX inset matrices:
 	const mat3 srgb_to_rec2020_agx_inset_matrix = mat3(
@@ -284,13 +291,12 @@ vec3 tonemap_agx(vec3 color) {
 			1.9645509602733325934, -0.29932243390911083839, -0.16436833806080403409,
 			-0.85585845117807513559, 1.3264510741502356555, -0.23822464068860595117,
 			-0.10886710826831608324, -0.027084020983874825605, 1.402665347143271889);
-	
-	// Terms of Timothy Lottes' tonemapping curve equation:
-	// c and d are calculated based on a and d with AgX mid and max parameters.
-	const vec3 a = vec3(1.36989969378897);
-	const float c = 0.3589386656982;
-	const float b = 1.4325264680543;
-	const vec3 d = vec3(0.903916850555009);
+
+	// LOG2_MIN      = -10.0
+	// LOG2_MAX      =  +6.5
+	// MIDDLE_GRAY   =  0.18
+	const float min_ev = -12.4739311883324; // log2(pow(2, LOG2_MIN) * MIDDLE_GRAY)
+	const float max_ev = 4.02606881166759; // log2(pow(2, LOG2_MAX) * MIDDLE_GRAY)
 
 	// Large negative values in one channel and large positive values in other
 	// channels can result in a colour that appears darker and more saturated than
@@ -299,16 +305,28 @@ vec3 tonemap_agx(vec3 color) {
 	// This is done before the Rec. 2020 transform to allow the Rec. 2020
 	// transform to be combined with the AgX inset matrix. This results in a loss
 	// of color information that could be correctly interpreted within the
-	// Rec. 2020 color space as positive RGB values, but is often not worth
+	// Rec. 2020 color space as positive RGB values, but it is less common for Godot
+	// to provide this function with negative sRGB values and therefore not worth
 	// the performance cost of an additional matrix multiplication.
-	color = max(color, 0.0);
+	// A value of 2e-10 intentionally introduces insignificant error to prevent
+	// log2(0.0) after the inset matrix is applied; color will be >= 1e-10 after
+	// the matrix transform.
+	color = max(color, 2e-10);
 
-	// Apply inset matrix.
+	// Do AGX in rec2020 to match Blender and then apply inset matrix.
 	color = srgb_to_rec2020_agx_inset_matrix * color;
 
-	// Use Timothy Lottes' tonemapping equation to approximate AgX's curve.
-	color = pow(color, a);
-	color = color / (pow(color, d) * b + c);
+	// Log2 space encoding.
+	// Must be clamped because agx_contrast_approx may not work
+	// well with values outside of the range [0.0, 1.0]
+	color = clamp(log2(color), min_ev, max_ev);
+	color = (color - min_ev) / (max_ev - min_ev);
+
+	// Apply sigmoid function approximation.
+	color = agx_contrast_approx(color);
+
+	// Convert back to linear before applying outset matrix.
+	color = pow(color, vec3(2.4));
 
 	// Apply outset to make the result more chroma-laden and then go back to linear sRGB.
 	color = agx_outset_rec2020_to_srgb_matrix * color;
@@ -317,25 +335,6 @@ vec3 tonemap_agx(vec3 color) {
 	// simply return the color, even if it has negative components. These negative
 	// components may be useful for subsequent color adjustments.
 	return color;
-}
-
-vec3 tonemap_pbr_neutral(vec3 color) {
-	float startCompression = 0.8f - 0.04f;
-    float desaturation = 0.15f;
-
-    float x = min(color.r, min(color.g, color.b));
-    float offset = x < 0.08f ? x - 6.25f * x * x : 0.04f;
-    color -= offset;
-
-    float peak = max(color.r, max(color.g, color.b));
-    if (peak < startCompression) return color;
-
-    float d = 1.0f - startCompression;
-    float newPeak = 1.0f - d * d / (peak + d - startCompression);
-    color *= newPeak / peak;
-
-    float g = 1.0f - 1.0f / (desaturation * (peak - newPeak) + 1.0f);
-    return mix(color, vec3(1.0f), g);
 }
 
 vec3 linear_to_srgb(vec3 color) {
@@ -350,7 +349,6 @@ vec3 linear_to_srgb(vec3 color) {
 #define TONEMAPPER_FILMIC 2
 #define TONEMAPPER_ACES 3
 #define TONEMAPPER_AGX 4
-#define TONEMAPPER_PBR_NEUTRAL 5
 
 vec3 apply_tonemapping(vec3 color, float white) { // inputs are LINEAR
 	// Ensure color values passed to tonemappers are positive.
@@ -363,10 +361,8 @@ vec3 apply_tonemapping(vec3 color, float white) { // inputs are LINEAR
 		return tonemap_filmic(max(vec3(0.0f), color), white);
 	} else if (params.tonemapper == TONEMAPPER_ACES) {
 		return tonemap_aces(max(vec3(0.0f), color), white);
-	} else if (params.tonemapper == TONEMAPPER_AGX) {
+	} else { // TONEMAPPER_AGX
 		return tonemap_agx(color);
-	} else { // TONEMAPPER_PBR_NEUTRAL
-		return tonemap_pbr_neutral(color);
 	}
 }
 
@@ -457,6 +453,7 @@ vec3 apply_color_correction(vec3 color) {
 
 #ifndef SUBPASS
 
+// FXAA 3.11 compact, Ported from https://github.com/kosua20/Rendu/blob/master/resources/common/shaders/screens/fxaa.frag
 ///////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
@@ -481,7 +478,44 @@ vec3 apply_color_correction(vec3 color) {
 // SOFTWARE.
 ///////////////////////////////////////////////////////////////////////////////////
 
-// FXAA 3.11, Ported from https://github.com/kosua20/Rendu/blob/master/resources/common/shaders/screens/fxaa.frag
+// Nvidia Original FXAA 3.11 License
+//----------------------------------------------------------------------------------
+// File:        es3-kepler\FXAA/FXAA3_11.h
+// SDK Version: v3.00
+// Email:       gameworks@nvidia.com
+// Site:        http://developer.nvidia.com/
+//
+// Copyright (c) 2014-2015, NVIDIA CORPORATION. All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+//  * Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+//  * Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+//  * Neither the name of NVIDIA CORPORATION nor the names of its
+//    contributors may be used to endorse or promote products derived
+//    from this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+// PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+//----------------------------------------------------------------------------------
+//
+//                    NVIDIA FXAA 3.11 by TIMOTHY LOTTES
+//
+//----------------------------------------------------------------------------------
 
 float QUALITY(float q) {
 	return (q < 5 ? 1.0 : (q > 5 ? (q < 10 ? 2.0 : (q < 11 ? 4.0 : 8.0)) : 1.5));

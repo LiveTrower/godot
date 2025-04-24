@@ -298,6 +298,7 @@ TexturePreview::TexturePreview(Ref<Texture2D> p_texture, bool p_show_metadata) {
 		add_child(channel_mip_selector);
 
 		metadata_label = memnew(Label);
+		metadata_label->set_focus_mode(FOCUS_ACCESSIBILITY);
 
 		if (p_texture.is_valid()) {
 			_update_metadata_label_text();
