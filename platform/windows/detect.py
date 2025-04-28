@@ -254,7 +254,9 @@ def build_def_file(target, source, env: "SConsEnvironment"):
     }
 
     cmdbase = "dlltool -m " + arch_aliases[env["arch"]]
-    if env["arch"] != "x86_32":
+    if env["arch"] == "x86_32":
+        cmdbase += " -k"
+    else:
         cmdbase += " --no-leading-underscore"
 
     mingw_bin_prefix = get_mingw_bin_prefix(env["mingw_prefix"], env["arch"])
@@ -820,6 +822,7 @@ def configure_mingw(env: "SConsEnvironment"):
             "winmm",
             "gdi32",
             "iphlpapi",
+            "shell32",
             "shlwapi",
             "wsock32",
             "ws2_32",
@@ -856,6 +859,7 @@ def configure_mingw(env: "SConsEnvironment"):
                     env.Append(LIBPATH=[env["accesskit_sdk_path"] + "/lib/windows/x86_64/mingw/static/"])
                 elif env["arch"] == "x86_32":
                     env.Append(LIBPATH=[env["accesskit_sdk_path"] + "/lib/windows/x86/mingw/static/"])
+            env.Append(LIBPATH=["#bin/obj/platform/windows"])
             env.Append(
                 LIBS=[
                     "accesskit",
