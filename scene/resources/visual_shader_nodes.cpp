@@ -2835,8 +2835,10 @@ String VisualShaderNodeVectorCoordinateTransform::get_output_port_name(int p_por
 String VisualShaderNodeVectorCoordinateTransform::generate_global_per_node(Shader::Mode p_mode, int p_id) const {
 	String code;
 
-	code += "varying mat3 TBN;\n";
-	code += "varying vec3 position_ws;\n";
+	if (from_space == SPACE_TANGENT || to_space == SPACE_TANGENT) {
+		code += "varying mat3 TBN;\n";
+		code += "varying vec3 position_ws;\n";
+	}
 
 	return code;
 }
@@ -2845,15 +2847,17 @@ String VisualShaderNodeVectorCoordinateTransform::generate_global_per_func(Shade
 	String code;
 
 	if (p_type == VisualShader::TYPE_VERTEX) {
-		// The TBN matrix must be in world space and of direction type vector.
-		// For all tangent space transformations will be done based on world space.
-		// Note: Binormal is negative so it produces slightly different results than Unity.
-		// TODO: We need to detect the world_vertex_coords rendering mode.
-		code += "	vec3 t = (MODEL_MATRIX * vec4(TANGENT, 0.0)).xyz;\n";
-		code += "	vec3 b = (MODEL_MATRIX * vec4(BINORMAL, 0.0)).xyz;\n";
-		code += "	vec3 n = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;\n";
-		code += "	TBN = mat3(normalize(t), normalize(-b), normalize(n));\n"; // If the vector is direction conversion type we must normalize for better performance according to: https://docs.unity3d.com/Packages/com.unity.shadergraph@17.0/manual/Transform-Node.html
-		code += "	position_ws = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;\n"; // We need the position in world space to transform our vector to a position conversion type.
+		if (from_space == SPACE_TANGENT || to_space == SPACE_TANGENT) {
+			// The TBN matrix must be in world space and of direction type vector.
+			// For all tangent space transformations will be done based on world space.
+			// Note: Binormal is negative so it produces slightly different results than Unity.
+			// TODO: We need to detect the world_vertex_coords rendering mode.
+			code += "	vec3 t = (MODEL_MATRIX * vec4(TANGENT, 0.0)).xyz;\n";
+			code += "	vec3 b = (MODEL_MATRIX * vec4(BINORMAL, 0.0)).xyz;\n";
+			code += "	vec3 n = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;\n";
+			code += "	TBN = mat3(normalize(t), normalize(-b), normalize(n));\n"; // If the vector is direction conversion type we must normalize for better performance according to: https://docs.unity3d.com/Packages/com.unity.shadergraph@17.0/manual/Transform-Node.html
+			code += "	position_ws = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;\n"; // We need the position in world space to transform our vector to a position conversion type.
+		}
 	}
 
 	return code;

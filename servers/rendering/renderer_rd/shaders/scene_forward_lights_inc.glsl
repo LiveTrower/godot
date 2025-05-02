@@ -143,12 +143,12 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 	const float EPSILON = 1e-6f;
 	if (is_directional || attenuation > EPSILON) {
 		float cNdotL = max(NdotL, 0.0);
-#if defined(DIFFUSE_BURLEY) || defined(SPECULAR_GGX) || defined(LIGHT_CLEARCOAT_USED) || defined(LIGHT_SHEEN_USED)
+#if defined(DIFFUSE_BURLEY) || defined(SPECULAR_SCHLICK_GGX) || defined(LIGHT_CLEARCOAT_USED) || defined(LIGHT_SHEEN_USED)
 		vec3 H = normalize(V + L);
 		float cLdotH = clamp(A + dot(L, H), 0.0, 1.0);
 #endif
 
-#if defined(SPECULAR_GGX) || defined(LIGHT_SHEEN_USED)
+#if defined(SPECULAR_SCHLICK_GGX) || defined(LIGHT_SHEEN_USED)
 		float cNdotH = clamp(A + dot(N, H), 0.0, 1.0);
 #endif
 
@@ -181,7 +181,7 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 #elif defined(SPECULAR_DISABLED)
 			// none..
 
-#elif defined(SPECULAR_GGX)
+#elif defined(SPECULAR_SCHLICK_GGX)
 			// shlick+ggx as default
 			vec3 specular_brdf_NL = specular_lobe(metallic, f0, 
 #if defined(LIGHT_ANISOTROPY_USED)

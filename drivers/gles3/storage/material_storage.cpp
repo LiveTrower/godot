@@ -1369,7 +1369,7 @@ MaterialStorage::MaterialStorage() {
 
 		actions.render_mode_defines["sss_mode_skin"] = "#define SSS_MODE_SKIN\n";
 
-		actions.render_mode_defines["specular_ggx"] = "#define SPECULAR_GGX\n";
+		actions.render_mode_defines["specular_schlick_ggx"] = "#define SPECULAR_SCHLICK_GGX\n";
 		actions.render_mode_defines["specular_toon"] = "#define SPECULAR_TOON\n";
 		actions.render_mode_defines["specular_disabled"] = "#define SPECULAR_DISABLED\n";
 		actions.render_mode_defines["shadows_disabled"] = "#define SHADOWS_DISABLED\n";

@@ -760,9 +760,9 @@ layout(location = 0) out mediump vec4 frag_color;
 
 #if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED) // && !defined(USE_VERTEX_LIGHTING)
 
-// Default to SPECULAR_GGX.
-#if !defined(SPECULAR_DISABLED) && !defined(SPECULAR_GGX) && !defined(SPECULAR_TOON)
-#define SPECULAR_GGX
+// Default to SPECULAR_SCHLICK_GGX.
+#if !defined(SPECULAR_DISABLED) && !defined(SPECULAR_SCHLICK_GGX) && !defined(SPECULAR_TOON)
+#define SPECULAR_SCHLICK_GGX
 #endif
 
 #include "../scene_forward_lights_inc.glsl"

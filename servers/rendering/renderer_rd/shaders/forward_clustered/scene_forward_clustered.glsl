@@ -1003,9 +1003,9 @@ layout(location = 2) out vec2 motion_vector;
 
 #if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED)
 
-// Default to SPECULAR_GGX.
-#if !defined(SPECULAR_DISABLED) && !defined(SPECULAR_GGX) && !defined(SPECULAR_TOON)
-#define SPECULAR_GGX
+// Default to SPECULAR_SCHLICK_GGX.
+#if !defined(SPECULAR_DISABLED) && !defined(SPECULAR_SCHLICK_GGX) && !defined(SPECULAR_TOON)
+#define SPECULAR_SCHLICK_GGX
 #endif
 
 #include "../scene_forward_lights_inc.glsl"

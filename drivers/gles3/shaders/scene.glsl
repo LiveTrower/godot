@@ -791,9 +791,9 @@ void main() {
 /* clang-format off */
 #[fragment]
 
-// Default to SPECULAR_GGX.
-#if !defined(SPECULAR_DISABLED) && !defined(SPECULAR_GGX) && !defined(SPECULAR_TOON)
-#define SPECULAR_GGX
+// Default to SPECULAR_SCHLICK_GGX.
+#if !defined(SPECULAR_DISABLED) && !defined(SPECULAR_SCHLICK_GGX) && !defined(SPECULAR_TOON)
+#define SPECULAR_SCHLICK_GGX
 #endif
 
 #if !defined(MODE_RENDER_DEPTH) || defined(TANGENT_USED) || defined(NORMAL_MAP_USED) || defined(LIGHT_ANISOTROPY_USED) ||defined(LIGHT_CLEARCOAT_USED)
@@ -1327,15 +1327,15 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 	float NdotV = dot(N, V);
 	float cNdotV = max(NdotV, 1e-4);
 
-#if defined(DIFFUSE_BURLEY) || defined(SPECULAR_GGX) || defined(LIGHT_CLEARCOAT_USED)
+#if defined(DIFFUSE_BURLEY) || defined(SPECULAR_SCHLICK_GGX) || defined(LIGHT_CLEARCOAT_USED)
 	vec3 H = normalize(V + L);
 #endif
 
-#if defined(SPECULAR_GGX)
+#if defined(SPECULAR_SCHLICK_GGX)
 	float cNdotH = clamp(A + dot(N, H), 0.0, 1.0);
 #endif
 
-#if defined(DIFFUSE_BURLEY) || defined(SPECULAR_GGX) || defined(LIGHT_CLEARCOAT_USED)
+#if defined(DIFFUSE_BURLEY) || defined(SPECULAR_SCHLICK_GGX) || defined(LIGHT_CLEARCOAT_USED)
 	float cLdotH = clamp(A + dot(L, H), 0.0, 1.0);
 #endif
 
@@ -1389,7 +1389,7 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 #elif defined(SPECULAR_DISABLED)
 		// none..
 
-#elif defined(SPECULAR_GGX)
+#elif defined(SPECULAR_SCHLICK_GGX)
 		// shlick+ggx as default
 		float alpha_ggx = roughness * roughness;
 #if defined(LIGHT_ANISOTROPY_USED)
@@ -1422,7 +1422,7 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 		float ccNdotH = clamp(A + dot(vertex_normal, H), 0.0, 1.0);
 		float ccNdotV = max(dot(vertex_normal, V), 1e-4);
 
-#if !defined(SPECULAR_GGX)
+#if !defined(SPECULAR_SCHLICK_GGX)
 		float cLdotH5 = SchlickFresnel(cLdotH);
 #endif
 		float Dr = D_GGX(ccNdotH, mix(0.001, 0.1, clearcoat_roughness));
