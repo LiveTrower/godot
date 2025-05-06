@@ -800,8 +800,6 @@ public:
 
 	void set_description(const String &p_description);
 	String get_description() const;
-
-	VisualShaderNodeComment() {}
 };
 #endif
 
