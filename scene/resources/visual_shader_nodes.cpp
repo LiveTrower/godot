@@ -2835,10 +2835,8 @@ String VisualShaderNodeVectorCoordinateTransform::get_output_port_name(int p_por
 String VisualShaderNodeVectorCoordinateTransform::generate_global_per_node(Shader::Mode p_mode, int p_id) const {
 	String code;
 
-	if (from_space == SPACE_TANGENT || to_space == SPACE_TANGENT) {
-		code += "varying mat3 TBN;\n";
-		code += "varying vec3 position_ws;\n";
-	}
+	code += "varying mat3 TBN;\n";
+	code += "varying vec3 position_ws;\n";
 
 	return code;
 }
@@ -2847,17 +2845,15 @@ String VisualShaderNodeVectorCoordinateTransform::generate_global_per_func(Shade
 	String code;
 
 	if (p_type == VisualShader::TYPE_VERTEX) {
-		if (from_space == SPACE_TANGENT || to_space == SPACE_TANGENT) {
-			// The TBN matrix must be in world space and of direction type vector.
-			// For all tangent space transformations will be done based on world space.
-			// Note: Binormal is negative so it produces slightly different results than Unity.
-			// TODO: We need to detect the world_vertex_coords rendering mode.
-			code += "	vec3 t = (MODEL_MATRIX * vec4(TANGENT, 0.0)).xyz;\n";
-			code += "	vec3 b = (MODEL_MATRIX * vec4(BINORMAL, 0.0)).xyz;\n";
-			code += "	vec3 n = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;\n";
-			code += "	TBN = mat3(normalize(t), normalize(-b), normalize(n));\n"; // If the vector is direction conversion type we must normalize for better performance according to: https://docs.unity3d.com/Packages/com.unity.shadergraph@17.0/manual/Transform-Node.html
-			code += "	position_ws = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;\n"; // We need the position in world space to transform our vector to a position conversion type.
-		}
+		// The TBN matrix must be in world space and of direction type vector.
+		// For all tangent space transformations will be done based on world space.
+		// Note: Binormal is negative so it produces slightly different results than Unity.
+		// TODO: We need to detect the world_vertex_coords rendering mode.
+		code += "	vec3 t = (MODEL_MATRIX * vec4(TANGENT, 0.0)).xyz;\n";
+		code += "	vec3 b = (MODEL_MATRIX * vec4(BINORMAL, 0.0)).xyz;\n";
+		code += "	vec3 n = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;\n";
+		code += "	TBN = mat3(normalize(t), normalize(-b), normalize(n));\n"; // If the vector is direction conversion type we must normalize for better performance according to: https://docs.unity3d.com/Packages/com.unity.shadergraph@17.0/manual/Transform-Node.html
+		code += "	position_ws = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;\n"; // We need the position in world space to transform our vector to a position conversion type.
 	}
 
 	return code;
@@ -2884,15 +2880,6 @@ String VisualShaderNodeVectorCoordinateTransform::generate_code(Shader::Mode p_m
 				if (normalize_output) code = "	" + p_output_vars[0] + " = normalize((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz);\n";
 				else code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz;\n";
 			}
-		} else if (to_space == SPACE_CLIP) {
-			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "PROJECTION_MATRIX * MODELVIEW_MATRIX" : "PROJECTION_MATRIX * VIEW_MATRIX * MODEL_MATRIX";
-			if (vector_type == VECTOR_TYPE_POSITION) { 
-				code = "	vec4 clip_result = " + matrix + " * vec4(" + p_input_vars[0] + ", 1.0);\n";
-			} else {
-				if (normalize_output) code = "	vec4 clip_result = vec4(normalize((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz), 1.0);\n";
-				else code = "	vec4 clip_result = vec4((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz, 1.0);\n";
-			}
-			code += "	" + p_output_vars[0] + " = clip_result.xyz / clip_result.w;\n";
 		} else if (to_space == SPACE_TANGENT) {
 			matrix = "TBN";
 			if (vector_type == VECTOR_TYPE_POSITION) {
@@ -2922,15 +2909,6 @@ String VisualShaderNodeVectorCoordinateTransform::generate_code(Shader::Mode p_m
 				if (normalize_output) code = "	" + p_output_vars[0] + " = normalize((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz);\n";
 				else code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz;\n";
 			}
-		} else if (to_space == SPACE_CLIP) {
-			matrix = "PROJECTION_MATRIX * VIEW_MATRIX";
-			if (vector_type == VECTOR_TYPE_POSITION) { 
-				code = "	vec4 clip_result = " + matrix + " * vec4(" + p_input_vars[0] + ", 1.0);\n";
-			} else {
-				if (normalize_output) code = "	vec4 clip_result = vec4(normalize((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz), 1.0);\n";
-				else code = "	vec4 clip_result = vec4((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz, 1.0);\n";
-			}
-			code += "	" + p_output_vars[0] + " = clip_result.xyz / clip_result.w;\n";
 		} else if (to_space == SPACE_TANGENT) {
 			matrix = "TBN";
 			if (vector_type == VECTOR_TYPE_POSITION) {
@@ -2958,15 +2936,6 @@ String VisualShaderNodeVectorCoordinateTransform::generate_code(Shader::Mode p_m
 			}
 		} else if (to_space == SPACE_VIEW) {
 			return identity;
-		} else if (to_space == SPACE_CLIP) {
-			matrix = "PROJECTION_MATRIX";
-			if (vector_type == VECTOR_TYPE_POSITION) { 
-				code = "	vec4 clip_result = " + matrix + " * vec4(" + p_input_vars[0] + ", 1.0);\n";
-			} else {
-				if (normalize_output) code = "	vec4 clip_result = vec4(normalize((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz), 1.0);\n";
-				else code = "	vec4 clip_result = vec4((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz, 1.0);\n";
-			}
-			code += "	" + p_output_vars[0] + " = clip_result.xyz / clip_result.w;\n";
 		} else if (to_space == SPACE_TANGENT) {
 			matrix = "TBN";
 			if (vector_type == VECTOR_TYPE_POSITION) {
@@ -2975,48 +2944,6 @@ String VisualShaderNodeVectorCoordinateTransform::generate_code(Shader::Mode p_m
 				code += "	" + p_output_vars[0] + " = " + p_input_vars[0] + " * " + matrix + ";\n";
 			} else {
 				code = "	" + p_input_vars[0] + " = (INV_VIEW_MATRIX * vec4(" + p_input_vars[0] + ", 0.0)).xyz;\n";
-				if (normalize_output) code += "	" + p_output_vars[0] + " = normalize(" + p_input_vars[0] + " * " + matrix + ");\n";
-				else code += "	" + p_output_vars[0] + " = " + p_input_vars[0] + " * " + matrix + ";\n";
-			}
-		}
-	} else if (from_space == SPACE_CLIP) {
-		if (to_space == SPACE_MODEL) {
-			matrix = "INV_VIEW_MATRIX * INV_PROJECTION_MATRIX";
-			if (vector_type == VECTOR_TYPE_POSITION){
-				code = "	vec4 world = " + matrix + " * vec4(" + p_input_vars[0] + ", 1.0);\n";
-				matrix = "inverse(MODEL_MATRIX)";
-				code += "	" + p_output_vars[0] + " = (" + matrix + " * (world / world.w)).xyz;\n";
-			}
-			else {
-				code = "	vec4 world = " + matrix + " * vec4(" + p_input_vars[0] + ", 0.0);\n";
-				matrix = "inverse(MODEL_MATRIX)";
-				if (normalize_output) code += "	" + p_output_vars[0] + " = normalize((" + matrix + " * (world / world.w)).xyz);\n";
-				else code += "	" + p_output_vars[0] + " = (" + matrix + " * (world / world.w)).xyz;\n";
-			}
-		} else if (to_space == SPACE_WORLD) {
-			matrix = "INV_VIEW_MATRIX * INV_PROJECTION_MATRIX";
-			if (vector_type == VECTOR_TYPE_POSITION) code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", 1.0)).xyz;\n";
-			else {
-				if (normalize_output) code = "	" + p_output_vars[0] + " = normalize((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz);\n";
-				else code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz;\n";
-			}
-		} else if (to_space == SPACE_VIEW) {
-			matrix = "INV_PROJECTION_MATRIX";
-			if (vector_type == VECTOR_TYPE_POSITION) code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", 1.0)).xyz;\n";
-			else {
-				if (normalize_output) code = "	" + p_output_vars[0] + " = normalize((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz);\n";
-				else code = "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz;\n";
-			}
-		} else if (to_space == SPACE_CLIP) {
-			return identity;
-		} else if (to_space == SPACE_TANGENT) {
-			matrix = "TBN";
-			if (vector_type == VECTOR_TYPE_POSITION) {
-				code += "	" + p_input_vars[0] + " = (INV_VIEW_MATRIX * INV_PROJECTION_MATRIX * vec4(" + p_input_vars[0] + ", 1.0)).xyz;\n";
-				code += "	" + p_input_vars[0] + " = " + p_input_vars[0] + " - position_ws;\n";
-				code += "	" + p_output_vars[0] + " = " + p_input_vars[0] + " * " + matrix + ";\n";
-			} else {
-				code += "	" + p_input_vars[0] + " = (INV_VIEW_MATRIX * INV_PROJECTION_MATRIX * vec4(" + p_input_vars[0] + ", 0.0)).xyz;\n";
 				if (normalize_output) code += "	" + p_output_vars[0] + " = normalize(" + p_input_vars[0] + " * " + matrix + ");\n";
 				else code += "	" + p_output_vars[0] + " = " + p_input_vars[0] + " * " + matrix + ";\n";
 			}
@@ -3052,19 +2979,6 @@ String VisualShaderNodeVectorCoordinateTransform::generate_code(Shader::Mode p_m
 				if (normalize_output) code += "	" + p_input_vars[0] + " = normalize(" + p_input_vars[0] + ");\n";
 				code += "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz;\n";
 			}
-		} else if (to_space == SPACE_CLIP) {
-			matrix = "transpose(TBN)";
-			code += "	" + p_input_vars[0] + " = " + p_input_vars[0] + " * " + matrix + ";\n";
-			matrix = "PROJECTION_MATRIX * VIEW_MATRIX";
-			if (vector_type == VECTOR_TYPE_POSITION) {
-				code += "	" + p_input_vars[0] + " = " + p_input_vars[0] + " + position_ws;\n";
-				code += "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", 1.0)).xyz;\n";
-			}
-			else {
-				if (normalize_output) code += "	" + p_input_vars[0] + " = normalize(" + p_input_vars[0] + ");\n";
-				code += "	" + p_output_vars[0] + " = (" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz;\n";
-			}
-			
 		} else if (to_space == SPACE_TANGENT) {
 			return identity;
 		}
@@ -3159,15 +3073,14 @@ void VisualShaderNodeVectorCoordinateTransform::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_normalize_output", "normalize_output"), &VisualShaderNodeVectorCoordinateTransform::set_normalize_output);
 	ClassDB::bind_method(D_METHOD("get_normalize_output"), &VisualShaderNodeVectorCoordinateTransform::get_normalize_output);
 
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "from_space", PROPERTY_HINT_ENUM, "Model,World,View,Clip,Tangent"), "set_from_space", "get_from_space");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "to_space", PROPERTY_HINT_ENUM, "Model,World,View,Clip,Tangent"), "set_to_space", "get_to_space");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "from_space", PROPERTY_HINT_ENUM, "Model,World,View,Tangent"), "set_from_space", "get_from_space");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "to_space", PROPERTY_HINT_ENUM, "Model,World,View,Tangent"), "set_to_space", "get_to_space");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "vector_type", PROPERTY_HINT_ENUM, "Position,Direction"), "set_vector_type", "get_vector_type");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "normalize_output"), "set_normalize_output", "get_normalize_output");
 
 	BIND_ENUM_CONSTANT(SPACE_MODEL);
 	BIND_ENUM_CONSTANT(SPACE_WORLD);
 	BIND_ENUM_CONSTANT(SPACE_VIEW);
-	BIND_ENUM_CONSTANT(SPACE_CLIP);
 	BIND_ENUM_CONSTANT(SPACE_TANGENT);
 	BIND_ENUM_CONSTANT(SPACE_MAX);
 
