@@ -70,7 +70,6 @@ void SceneShaderForwardMobile::ShaderData::set_code(const String &p_code) {
 	uses_normal = false;
 	uses_tangent = false;
 	uses_normal_map = false;
-	uses_bent_normal_map = false;
 	wireframe = false;
 
 	unshaded = false;
@@ -143,7 +142,6 @@ void SceneShaderForwardMobile::ShaderData::set_code(const String &p_code) {
 	actions.usage_flag_pointers["ROUGHNESS"] = &uses_roughness;
 	actions.usage_flag_pointers["NORMAL"] = &uses_normal;
 	actions.usage_flag_pointers["NORMAL_MAP"] = &uses_normal_map;
-	actions.usage_flag_pointers["BENT_NORMAL_MAP"] = &uses_bent_normal_map;
 
 	actions.usage_flag_pointers["TANGENT"] = &uses_tangent;
 	actions.usage_flag_pointers["BINORMAL"] = &uses_tangent;
@@ -654,7 +652,6 @@ void SceneShaderForwardMobile::init(const String p_defines) {
 		actions.renames["FRONT_FACING"] = "gl_FrontFacing";
 		actions.renames["NORMAL_MAP"] = "normal_map";
 		actions.renames["NORMAL_MAP_DEPTH"] = "normal_map_depth";
-		actions.renames["BENT_NORMAL_MAP"] = "bent_normal_map";
 		actions.renames["ALBEDO"] = "albedo";
 		actions.renames["ALPHA"] = "alpha";
 		actions.renames["PREMUL_ALPHA_FACTOR"] = "premul_alpha";

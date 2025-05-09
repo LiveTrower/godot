@@ -247,7 +247,6 @@ public:
 		bool uses_tangent = false;
 		bool uses_particle_trails = false;
 		bool uses_normal_map = false;
-		bool uses_bent_normal_map = false;
 		bool wireframe = false;
 
 		bool unshaded = false;
