@@ -29,7 +29,6 @@ float D_GGX_anisotropic(float cos_theta_m, float alpha_x, float alpha_y, float c
 // This is a modified version to take anisotropy into account
 float V_GGX_anisotropic(float alpha_x, float alpha_y, float TdotV, float TdotL, float BdotV, float BdotL, float NdotV, float NdotL) {
 	float Lambda_GGXV = NdotL * sqrt_IEEE_int_approximation((-NdotV * (alpha_x * TdotV * TdotV + alpha_y * BdotV * BdotV) + NdotV) * NdotV + alpha_x * TdotV * TdotV + alpha_y * BdotV * BdotV);
-
 	float Lambda_GGXL = NdotV * sqrt_IEEE_int_approximation((-NdotL * (alpha_x * TdotL * TdotL + alpha_y * BdotL * BdotL) + NdotL) * NdotL + alpha_x * TdotL * TdotL + alpha_y * BdotL * BdotL);
 
 	return 0.5 / (Lambda_GGXV + Lambda_GGXL);
@@ -91,10 +90,10 @@ float Normalized_Diffuse_Burley(float NoV, float NoL, float LoH, float roughness
 {
     float energyBias = mix(0.0, 0.5, roughness);
     float energyFactor = mix(1.0, 1.0/1.51, roughness);
-    float f90 = energyBias + 2.0 * LoH * LoH * roughness;
+    float fd90 = energyBias + 2.0 * LoH * LoH * roughness;
 	float f0 = 1.0;
-    float lightScatter = SchlickFresnel(f0, f90, NoL);
-    float viewScatter = SchlickFresnel(f0, f90, NoV);
+    float lightScatter = SchlickFresnel(f0, fd90, NoL);
+    float viewScatter = SchlickFresnel(f0, fd90, NoV);
 
     return lightScatter * viewScatter * energyFactor * NoL * (1.0 / M_PI);
 }

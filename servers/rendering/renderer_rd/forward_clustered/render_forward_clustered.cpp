@@ -4903,6 +4903,11 @@ RenderForwardClustered::RenderForwardClustered() {
 			defines += "\n#define USE_VERTEX_LIGHTING\n";
 		}
 
+		bool specular_occlusion = GLOBAL_GET("rendering/reflections/specular_occlusion/enabled");
+		if (!specular_occlusion) {
+			defines += "\n#define SPECULAR_OCCLUSION_DISABLED\n";
+		}
+
 		{
 			//lightmaps
 			scene_state.max_lightmaps = MAX_LIGHTMAPS;

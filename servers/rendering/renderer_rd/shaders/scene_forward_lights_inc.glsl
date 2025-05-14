@@ -921,6 +921,7 @@ void reflection_process(uint ref_index, vec3 vertex, vec3 ref_vec, vec3 normal, 
 
 		float distance_to_hit_point = 0.0;
 		float mip = sqrt(roughness) * MAX_ROUGHNESS_LOD;
+		float mip_min = pow(roughness, 2.0) * MAX_ROUGHNESS_LOD; // Ensures fully rough materials don't have reflection contact hardening.
 		if (reflections.data[ref_index].box_project) { //box project
 
 			vec3 nrdir = normalize(local_ref_vec);
@@ -934,10 +935,15 @@ void reflection_process(uint ref_index, vec3 vertex, vec3 ref_vec, vec3 normal, 
 			vec3 posonbox = local_pos + nrdir * fa;
 			local_ref_vec = posonbox - reflections.data[ref_index].box_offset;
 
-			// This clamp helps to make sure that when a fragment is far away, the mip level doesn't climb to a high value and look weird.
-			float mip_offset = clamp(distance_to_hit_point, 0.0, MAX_ROUGHNESS_LOD);
-			// Compute new mip level based on the mip offset value (this is mostly arbitrary).
-			mip = mix(0.0, mip, mip_offset / MAX_ROUGHNESS_LOD);
+			float fresnel = 1.0 - max(dot(normal, -normalize(vertex)), 0.0);
+			fresnel = pow(fresnel, 2.0);
+
+			float reflection_roughness = distance_to_hit_point * (1.0 - fresnel); // Adjust contact hardening strength by viewing angle.
+			reflection_roughness /= MAX_ROUGHNESS_LOD;
+			reflection_roughness += ((1.0 - fresnel) * sqrt(roughness)); // Increase roughness when viewing angle is perpendicular to avoid overly sharp reflections on rough surfaces.
+
+			float mip_offset = clamp(reflection_roughness, 0.0, 1.0); // Compute new mip level based on the mip offset value (this is mostly arbitrary).
+			mip = mix(mip_min, mip, mip_offset);
 		}
 
 		vec4 reflection;

@@ -457,85 +457,16 @@ vec4 normal_roughness_compatibility(vec4 p_normal_roughness) {
 	return vec4(normalize(p_normal_roughness.xyz * 2.0 - 1.0) * 0.5 + 0.5, roughness);
 }
 
+// https://google.github.io/filament/Filament.html#toc5.3.4.7
+// Note: The roughness value is inverted
 vec3 prefiltered_dfg(float lod, float NoV) {
-    return textureLod(sampler2D(dfg, SAMPLER_LINEAR_CLAMP), vec2(NoV, 1.0 - lod), 0.0).rgb;
+	return textureLod(sampler2D(dfg, SAMPLER_LINEAR_CLAMP), vec2(NoV, 1.0 - lod), 0.0).rgb;
 }
 
+// Compute multiscatter compensation
+// https://google.github.io/filament/Filament.html#listing_energycompensationimpl
 vec3 get_energy_compensation(vec3 f0, float env) {
 	return 1.0 + f0 * (1.0 / env - 1.0);
-}
-
-void extremum_points(float radius_x, float radius_y, vec3 wo, float anisotropyAngle, out vec2 closeExtremum, out vec2 farExtremum, out vec2 roots)
-{
-    //==============================================================================//
-    //================== Closed-form solution - Appendix A =========================//
-    //==============================================================================//
-    mat2 R = mat2(cos(anisotropyAngle), -sin(anisotropyAngle), sin(anisotropyAngle), cos(anisotropyAngle));
-    vec2 o = wo.xy*R;
-    
-    vec2 o2 = o.xy*o.xy;
-    float r2x = radius_x*radius_x;
-    float r2y = radius_y*radius_y;
-    float p0 = 2.*o.x*o.y*radius_x*radius_y;
-    float p1 = o2.x*(r2x*r2y + r2y) - o2.y*(r2x*r2y + r2x) + r2x -r2y;
-    float p2 = -p0*(r2y + 1.);
-    float p3 = p0*p2*(r2x + 1.);
-    float t0 = p2 == 0. ? step(0., p1)*M_PI/2. : atan((p1+sqrt(p1*p1-p3))/p2);
-    float t1 = p2 == 0. ? t0+M_PI/2. : atan((p1-sqrt(p1*p1-p3))/p2);
-    
-    //==============================================================================//
-    //==================== Return the slope space extrema ==========================//
-    //==============================================================================//
-    
-    closeExtremum = R*vec2(radius_x*cos(t0), radius_y*sin(t0));
-    farExtremum = R*vec2(radius_x*cos(t1), radius_y*sin(t1));
-    roots = vec2(t0, t1);
-}
-
-vec3 slope_to_normal(vec2 p) {
-    return normalize(vec3(-p, 1));
-}
-
-void clamp_extrema(inout vec3 farNormal0, inout vec3 farNormal1, vec3 wo, out vec2 tau)
-{
-    //==============================================================================//
-    //================== Closed-form solution - Appendix B =========================//
-    //==============================================================================//
-    float p0 = farNormal1.x*wo.x + farNormal1.y*wo.y;
-    float p1 = wo.z*(1.-farNormal1.z*farNormal1.z);
-    float p3 = sqrt(p0*p0 + wo.z*p1);
-    float t0 = max(0.5+farNormal1.z*(p0-p3)/(2.*p1), 0.);
-    float t1 = min(0.5+farNormal1.z*(p0+p3)/(2.*p1), 1.);
-    
-    vec3 tmp = farNormal0;
-    farNormal0 = normalize(mix(farNormal0, farNormal1, t0));
-    farNormal1 = normalize(mix(farNormal0, farNormal1, t1));
-    tau = vec2(t0, t1);
-}
-
-void shift_extrema(float radius_x, float radius_y, vec3 wo, float anisotropyAngle, vec2 roots, vec2 tau, inout vec3 farNormal0, inout vec3 farNormal1)
-{
-    //==============================================================================//
-    //============== Update the closest extrema - Appendix C =======================//
-    //==============================================================================//
-    mat2 R = mat2(cos(anisotropyAngle), -sin(anisotropyAngle), sin(anisotropyAngle), cos(anisotropyAngle));
-    float angleDelta = (tau.x > 0. ? tau.x : tau.y-1.)*(roots.x-roots.y);
-    float min0t = roots.x+angleDelta;
-    float min1t = roots.x-angleDelta+M_PI;
-    vec2 close0Slope = R*vec2(radius_x*cos(min0t), radius_y*sin(min0t));
-    vec2 close1Slope = R*vec2(radius_x*cos(min1t), radius_y*sin(min1t));
-    vec3 close0Normal = slope_to_normal(close0Slope);
-    vec3 close1Normal = slope_to_normal(close1Slope);
-    
-    //==============================================================================//
-    //======================== Shift the furthest extrema ==========================//
-    //==============================================================================//
-    float minLength = length(reflect(-wo, close0Normal)-reflect(-wo, close1Normal));
-    float maxLength = length(reflect(-wo, farNormal0)-reflect(-wo, farNormal1));
-    float rateo = (maxLength-minLength)/maxLength;
-    vec3 axisCenter = normalize(farNormal0+farNormal1);
-    farNormal0 = normalize(axisCenter + rateo*(farNormal0-axisCenter));
-    farNormal1 = normalize(axisCenter + rateo*(farNormal1-axisCenter));
 }
 
 /* Set 2 Skeleton & Instancing (can change per item) */
