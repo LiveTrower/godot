@@ -1169,7 +1169,6 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 
 	float ao = 1.0;
-	float ao_base = 1.0;
 	float ao_light_affect = 0.0;
 
 	float alpha = float(instances.data[instance_index].flags >> INSTANCE_FLAGS_FADE_SHIFT) / float(255.0);
@@ -1206,6 +1205,11 @@ void fragment_shader(in SceneData scene_data) {
 #if defined(NORMAL_MAP_USED)
 
 	vec3 normal_map = vec3(0.5);
+#endif
+
+#if defined(BENT_NORMAL_MAP_USED)
+	vec3 bent_normal_vector = vec3(0.5);
+	vec3 bent_normal_map = vec3(0.5);
 #endif
 
 	float normal_map_depth = 1.0;
@@ -1337,6 +1341,13 @@ void fragment_shader(in SceneData scene_data) {
 #elif defined(NORMAL_USED)
 	normal = geo_normal;
 #endif // NORMAL_MAP_USED
+
+#ifdef BENT_NORMAL_MAP_USED
+	bent_normal_map.xy = bent_normal_map.xy * 2.0 - 1.0;
+	bent_normal_map.z = sqrt(max(0.0, 1.0 - dot(bent_normal_map.xy, bent_normal_map.xy)));
+
+	bent_normal_vector = normalize(tangent * bent_normal_map.x + binormal * bent_normal_map.y + normal * bent_normal_map.z);
+#endif
 
 #ifdef LIGHT_ANISOTROPY_USED
 	// Tangent basis must be reconstructed from per-pixel normal and normalized, otherwise specular highlights become warped.
@@ -1553,10 +1564,10 @@ void fragment_shader(in SceneData scene_data) {
 	}
 #endif
 
-	vec3 direct_specular_light = vec3(0.0);
-	vec3 indirect_specular_light = vec3(0.0);
-	vec3 diffuse_light = vec3(0.0);
-	vec3 ambient_light = vec3(0.0);
+	vec3 direct_specular_light = vec3(0.0, 0.0, 0.0);
+	vec3 indirect_specular_light = vec3(0.0, 0.0, 0.0);
+	vec3 diffuse_light = vec3(0.0, 0.0, 0.0);
+	vec3 ambient_light = vec3(0.0, 0.0, 0.0);
 #ifndef MODE_UNSHADED
 
 #ifdef LIGHT_CLEARCOAT_USED
@@ -1590,6 +1601,12 @@ void fragment_shader(in SceneData scene_data) {
 #if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED)
 
 #ifndef AMBIENT_LIGHT_DISABLED
+// Use bent normal for indirect lighting where possible
+#ifdef BENT_NORMAL_MAP_USED
+	vec3 indirect_normal = bent_normal_vector;
+#else
+	vec3 indirect_normal = normal;
+#endif
 
 #ifdef LIGHT_ANISOTROPY_USED
 	// https://google.github.io/filament/Filament.html#lighting/imagebasedlights/anisotropy
@@ -1606,6 +1623,7 @@ void fragment_shader(in SceneData scene_data) {
 
 		float horizon = min(1.0 + dot(ref_vec, normal), 1.0);
 		ref_vec = scene_data.radiance_inverse_xform * ref_vec;
+
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
 		float lod, blend;
 		blend = modf(sqrt(roughness) * MAX_ROUGHNESS_LOD, lod);
@@ -1628,7 +1646,7 @@ void fragment_shader(in SceneData scene_data) {
 		ambient_light = scene_data.ambient_light_color_energy.rgb;
 
 		if (scene_data.use_ambient_cubemap) {
-			vec3 ambient_dir = scene_data.radiance_inverse_xform * normal;
+			vec3 ambient_dir = scene_data.radiance_inverse_xform * indirect_normal;
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
 			vec3 cubemap_ambient = texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ambient_dir, MAX_ROUGHNESS_LOD)).rgb;
 #else
@@ -1697,7 +1715,7 @@ void fragment_shader(in SceneData scene_data) {
 		uint index = instances.data[instance_index].gi_offset;
 
 		// The world normal.
-		vec3 wnormal = mat3(scene_data.inv_view_matrix) * normal;
+		vec3 wnormal = mat3(scene_data.inv_view_matrix) * indirect_normal;
 
 		// The SH coefficients used for evaluating diffuse data from SH probes.
 		const float c[5] = float[](
@@ -1746,7 +1764,7 @@ void fragment_shader(in SceneData scene_data) {
 				lm_light_l1p1 = (textureLod(sampler2DArray(lightmap_textures[ofs], SAMPLER_LINEAR_CLAMP), uvw + vec3(0.0, 0.0, 3.0), 0.0).rgb - vec3(0.5)) * 2.0;
 			}
 
-			vec3 n = normalize(lightmaps.data[ofs].normal_xform * normal);
+			vec3 n = normalize(lightmaps.data[ofs].normal_xform * indirect_normal);
 			float en = lightmaps.data[ofs].exposure_normalization;
 
 			ambient_light += lm_light_l0 * en;
@@ -1768,8 +1786,8 @@ void fragment_shader(in SceneData scene_data) {
 
 		//make vertex orientation the world one, but still align to camera
 		vec3 cam_pos = mat3(scene_data.inv_view_matrix) * vertex;
-		vec3 cam_normal = mat3(scene_data.inv_view_matrix) * normal;
-		vec3 cam_reflection = mat3(scene_data.inv_view_matrix) * reflect(-view, normal);
+		vec3 cam_normal = mat3(scene_data.inv_view_matrix) * indirect_normal;
+		vec3 cam_reflection = mat3(scene_data.inv_view_matrix) * reflect(-view, indirect_normal);
 
 		//apply y-mult
 		cam_pos.y *= sdfgi.y_mult;
@@ -1815,7 +1833,7 @@ void fragment_shader(in SceneData scene_data) {
 				if (cascade == sdfgi.max_cascades - 1) {
 					diffuse = mix(diffuse, ambient_light, blend);
 					if (use_specular) {
-						specular = mix(specular, indirect_specular_light, blend);
+						indirect_specular_light = mix(specular, indirect_specular_light, blend);
 					}
 				} else {
 					vec3 diffuse2, specular2;
@@ -1840,8 +1858,8 @@ void fragment_shader(in SceneData scene_data) {
 		uint index1 = instances.data[instance_index].gi_offset & 0xFFFF;
 		// Make vertex orientation the world one, but still align to camera.
 		vec3 cam_pos = mat3(scene_data.inv_view_matrix) * vertex;
-		vec3 cam_normal = mat3(scene_data.inv_view_matrix) * normal;
-		vec3 ref_vec = mat3(scene_data.inv_view_matrix) * normalize(reflect(-view, normal));
+		vec3 cam_normal = mat3(scene_data.inv_view_matrix) * indirect_normal;
+		vec3 ref_vec = mat3(scene_data.inv_view_matrix) * normalize(reflect(-view, indirect_normal));
 
 		//find arbitrary tangent and bitangent, then build a matrix
 		vec3 v0 = abs(cam_normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
@@ -1879,18 +1897,18 @@ void fragment_shader(in SceneData scene_data) {
 			vec2 base_coord = screen_uv;
 			vec2 closest_coord = base_coord;
 #ifdef USE_MULTIVIEW
-			float closest_ang = dot(normal, normalize(textureLod(sampler2DArray(normal_roughness_buffer, SAMPLER_LINEAR_CLAMP), vec3(base_coord, ViewIndex), 0.0).xyz * 2.0 - 1.0));
+			float closest_ang = dot(indirect_normal, normalize(textureLod(sampler2DArray(normal_roughness_buffer, SAMPLER_LINEAR_CLAMP), vec3(base_coord, ViewIndex), 0.0).xyz * 2.0 - 1.0));
 #else // USE_MULTIVIEW
-			float closest_ang = dot(normal, normalize(textureLod(sampler2D(normal_roughness_buffer, SAMPLER_LINEAR_CLAMP), base_coord, 0.0).xyz * 2.0 - 1.0));
+			float closest_ang = dot(indirect_normal, normalize(textureLod(sampler2D(normal_roughness_buffer, SAMPLER_LINEAR_CLAMP), base_coord, 0.0).xyz * 2.0 - 1.0));
 #endif // USE_MULTIVIEW
 
 			for (int i = 0; i < 4; i++) {
 				const vec2 neighbors[4] = vec2[](vec2(-1, 0), vec2(1, 0), vec2(0, -1), vec2(0, 1));
 				vec2 neighbour_coord = base_coord + neighbors[i] * scene_data.screen_pixel_size;
 #ifdef USE_MULTIVIEW
-				float neighbour_ang = dot(normal, normalize(textureLod(sampler2DArray(normal_roughness_buffer, SAMPLER_LINEAR_CLAMP), vec3(neighbour_coord, ViewIndex), 0.0).xyz * 2.0 - 1.0));
+				float neighbour_ang = dot(indirect_normal, normalize(textureLod(sampler2DArray(normal_roughness_buffer, SAMPLER_LINEAR_CLAMP), vec3(neighbour_coord, ViewIndex), 0.0).xyz * 2.0 - 1.0));
 #else // USE_MULTIVIEW
-				float neighbour_ang = dot(normal, normalize(textureLod(sampler2D(normal_roughness_buffer, SAMPLER_LINEAR_CLAMP), neighbour_coord, 0.0).xyz * 2.0 - 1.0));
+				float neighbour_ang = dot(indirect_normal, normalize(textureLod(sampler2D(normal_roughness_buffer, SAMPLER_LINEAR_CLAMP), neighbour_coord, 0.0).xyz * 2.0 - 1.0));
 #endif // USE_MULTIVIEW
 				if (neighbour_ang > closest_ang) {
 					closest_ang = neighbour_ang;
@@ -2031,6 +2049,38 @@ void fragment_shader(in SceneData scene_data) {
 	{
 		ambient_light *= ao;
 #ifndef SPECULAR_OCCLUSION_DISABLED
+#ifdef BENT_NORMAL_MAP_USED
+		// Apply cone to cone intersection with cosine weighted assumption:
+		// https://blog.selfshadow.com/publications/s2016-shading-course/activision/s2016_pbs_activision_occlusion.pdf
+		float cos_a_v = sqrt(1.0 - ao);
+		float limited_roughness = max(roughness, 0.01); // Avoid artifacts at really low roughness.
+		float cos_a_s = exp2((-log(10.0) / log(2.0)) * limited_roughness * limited_roughness);
+		float cos_b = dot(bent_normal_vector, reflect(-view, normal));
+
+		// Intersection between the spherical caps of the visibility and specular cone.
+		// Based on Christopher Oat and Pedro V. Sander's "Ambient aperture lighting":
+		// https://advances.realtimerendering.com/s2006/Chapter8-Ambient_Aperture_Lighting.pdf
+		float r1 = acos(cos_a_v);
+		float r2 = acos(cos_a_s);
+		float d = acos(cos_b);
+		float area = 0.0;
+
+		if (d <= max(r1, r2) - min(r1, r2)) {
+			// One cap is enclosed in the other.
+			area = M_TAU - M_TAU * max(cos_a_v, cos_a_s);
+		} else if (d >= r1 + r2) {
+			// No intersection.
+			area = 0.0;
+		} else {
+			float delta = abs(r1 - r2);
+			float x = 1.0 - clamp((d - delta) / (r1 + r2 - delta), 0.0, 1.0);
+			area = smoothstep(0.0, 1.0, x);
+			area *= M_TAU - M_TAU * max(cos_a_v, cos_a_s);
+		}
+
+		float specular_occlusion = area / (M_TAU * (1.0 - cos_a_s));
+		indirect_specular_light *= specular_occlusion;
+#else // BENT_NORMAL_MAP_USED
 		float specular_occlusion = (ambient_light.r * 0.3 + ambient_light.g * 0.59 + ambient_light.b * 0.11) * 2.0; // Luminance of ambient light.
 		specular_occlusion = min(specular_occlusion * 4.0, 1.0); // This multiplication preserves speculars on bright areas.
 
@@ -2039,6 +2089,7 @@ void fragment_shader(in SceneData scene_data) {
 		// Low enough for occlusion, high enough for reaction to lights and shadows.
 		specular_occlusion = max(min(reflective_f * specular_occlusion * 10.0, 1.0), specular_occlusion);
 		indirect_specular_light *= specular_occlusion;
+#endif // BENT_NORMAL_MAP_USED
 #endif // SPECULAR_OCCLUSION_DISABLED
 		ambient_light *= albedo.rgb;
 
