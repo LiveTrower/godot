@@ -1155,6 +1155,9 @@ void fragment_shader(in SceneData scene_data) {
 	vec3 sheen_color = vec3(0.0);
 	float clearcoat = 0.0;
 	float clearcoat_roughness = 0.0;
+	float dual_roughness0 = 0.0;
+	float dual_roughness1 = 0.0;
+	float dual_lobe_mix = 0.0;
 	float anisotropy = 0.0;
 	vec2 anisotropy_flow = vec2(1.0, 0.0);
 	vec3 energy_compensation = vec3(1.0);
@@ -1594,6 +1597,24 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 
 #endif // LIGHT_SHEEN_USED
+
+#ifdef LIGHT_DUAL_SPECULAR_USED
+#ifdef NORMAL_USED
+	if(scene_data.roughness_limiter_enabled) {
+		float dual_roughness2 = dual_roughness0 * dual_roughness0;
+		dual_roughness2 = min(1.0, dual_roughness2 + kernelRoughness2);
+		dual_roughness0 = sqrt(dual_roughness2);
+		dual_roughness2 = dual_roughness1 * dual_roughness1;
+		dual_roughness2 = min(1.0, dual_roughness2 + kernelRoughness2);
+		dual_roughness1 = sqrt(dual_roughness2);
+	}
+#endif
+	dual_roughness0 = max(clamp(roughness * dual_roughness0, 0, 1), 0.02);
+	dual_roughness1 = clamp(roughness * dual_roughness1, 0, 1);
+	float avg_roughness = mix(dual_roughness0, dual_roughness1, dual_lobe_mix);
+	roughness = clamp(roughness * avg_roughness, 0, 1);
+#endif // LIGHT_DUAL_SPECULAR_USED
+
 	// Used in regular draw pass and when drawing SDFs for SDFGI and materials for VoxelGI.
 	emission *= scene_data.emissive_exposure_normalization;
 #endif
@@ -2125,7 +2146,7 @@ void fragment_shader(in SceneData scene_data) {
 
 		// cheap luminance approximation
 		float f90 = clamp(50.0 * f0.g, metallic, 1.0);
-		indirect_specular_light *= energy_compensation * (f90 * envBRDF.x + f0 * envBRDF.y);
+		indirect_specular_light *= energy_compensation * ((f90 - f0) * envBRDF.x + f0 * envBRDF.y);
 
 #ifdef LIGHT_CLEARCOAT_USED
 		// The clearcoat layer assumes an IOR of 1.5 (4% reflectance).
@@ -2567,8 +2588,11 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef LIGHT_CLEARCOAT_USED
 					clearcoat, cc_roughness, geo_normal,
 #endif
+#ifdef LIGHT_DUAL_SPECULAR_USED
+					avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix,
+#endif
 #ifdef LIGHT_ANISOTROPY_USED
-					tangent, binormal, anisotropy,
+					tangent, anisotropy, binormal,
 #endif
 					diffuse_light,
 					direct_specular_light);
@@ -2639,8 +2663,11 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef LIGHT_CLEARCOAT_USED
 						clearcoat, cc_roughness, geo_normal,
 #endif
+#ifdef LIGHT_DUAL_SPECULAR_USED
+						avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix,
+#endif
 #ifdef LIGHT_ANISOTROPY_USED
-						tangent, binormal, anisotropy,
+						tangent, anisotropy, binormal,
 #endif
 						diffuse_light, direct_specular_light);
 			}
@@ -2710,8 +2737,11 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef LIGHT_CLEARCOAT_USED
 						clearcoat, cc_roughness, geo_normal,
 #endif
+#ifdef LIGHT_DUAL_SPECULAR_USED
+						avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix,
+#endif
 #ifdef LIGHT_ANISOTROPY_USED
-						tangent, binormal, anisotropy,
+						tangent, anisotropy, binormal,
 #endif
 						diffuse_light, direct_specular_light);
 			}

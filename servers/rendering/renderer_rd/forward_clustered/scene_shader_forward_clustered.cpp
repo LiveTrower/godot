@@ -744,6 +744,9 @@ void SceneShaderForwardClustered::init(const String p_defines) {
 		actions.renames["SSS_TRANSMITTANCE_COLOR"] = "transmittance_color";
 		actions.renames["SSS_TRANSMITTANCE_DEPTH"] = "transmittance_depth";
 		actions.renames["SSS_TRANSMITTANCE_BOOST"] = "transmittance_boost";
+		actions.renames["DUAL_ROUGHNESS0"] = "dual_roughness0";
+		actions.renames["DUAL_ROUGHNESS1"] = "dual_roughness1";
+		actions.renames["DUAL_LOBE_MIX"] = "dual_lobe_mix";
 		actions.renames["BACKLIGHT"] = "backlight";
 		actions.renames["AO"] = "ao";
 		actions.renames["AO_LIGHT_AFFECT"] = "ao_light_affect";
@@ -822,6 +825,9 @@ void SceneShaderForwardClustered::init(const String p_defines) {
 
 		actions.usage_defines["SSS_STRENGTH"] = "#define ENABLE_SSS\n";
 		actions.usage_defines["SSS_TRANSMITTANCE_DEPTH"] = "#define ENABLE_TRANSMITTANCE\n";
+		actions.usage_defines["DUAL_ROUGHNESS0"] = "#define LIGHT_DUAL_SPECULAR_USED\n";
+		actions.usage_defines["DUAL_ROUGHNESS1"] = "@DUAL_ROUGHNESS0";
+		actions.usage_defines["DUAL_LOBE_MIX"] = "@DUAL_ROUGHNESS0";
 		actions.usage_defines["BACKLIGHT"] = "#define LIGHT_BACKLIGHT_USED\n";
 		actions.usage_defines["SCREEN_UV"] = "#define SCREEN_UV_USED\n";
 
@@ -847,6 +853,7 @@ void SceneShaderForwardClustered::init(const String p_defines) {
 
 		actions.render_mode_defines["diffuse_lambert_wrap"] = "#define DIFFUSE_LAMBERT_WRAP\n";
 		actions.render_mode_defines["diffuse_toon"] = "#define DIFFUSE_TOON\n";
+		actions.render_mode_defines["diffuse_chan"] = "#define DIFFUSE_CHAN\n";
 
 		actions.render_mode_defines["sss_mode_skin"] = "#define SSS_MODE_SKIN\n";
 

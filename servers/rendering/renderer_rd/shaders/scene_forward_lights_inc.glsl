@@ -13,9 +13,8 @@
 #define SPEC_CONSTANT_LOOP_ANNOTATION
 #endif
 
-vec3 specular_lobe(float metallic, vec3 f0, float anisotropy, vec3 T, vec3 B, float roughness, vec3 H, vec3 V, vec3 L, float cNdotH, float cNdotL, float cNdotV, float cLdotH, vec3 energy_compensation){
+vec3 anisotropic_lobe(float roughness, float metallic, vec3 f0, float anisotropy, vec3 T, vec3 B, vec3 H, vec3 V, vec3 L, float cNdotH, float cNdotL, float cNdotV, float cLdotH, vec3 energy_compensation) {
 	float alpha_ggx = roughness * roughness;
-#if defined(LIGHT_ANISOTROPY_USED)
 	float aspect = sqrt_IEEE_int_approximation(1.0 - abs(anisotropy) * 0.9);
 	float ax = alpha_ggx / aspect;
 	float ay = alpha_ggx * aspect;
@@ -33,10 +32,34 @@ vec3 specular_lobe(float metallic, vec3 f0, float anisotropy, vec3 T, vec3 B, fl
 
 	float D = D_GGX_anisotropic(cNdotH, ax, ay, TdotH, BdotH);
 	float G = V_GGX_anisotropic(ax, ay, TdotV, TdotL, BdotV, BdotL, cNdotV, cNdotL);
-#else // isotropic
+	// Calculate Fresnel using specular occlusion term from Filament:
+	// https://google.github.io/filament/Filament.html#lighting/occlusion/specularocclusion
+	float f90 = clamp(dot(f0, vec3(50.0 * 0.33)), metallic, 1.0);
+	vec3 F = SchlickFresnel(f0, f90, cLdotH);
+	return energy_compensation * (D * G * F * cNdotL);
+}
+
+vec3 isotropic_lobe(float roughness, float metallic, vec3 f0, float cNdotH, float cNdotL, float cNdotV, float cLdotH, vec3 energy_compensation){
+	float alpha_ggx = roughness * roughness;
+
 	float D = D_GGX(cNdotH, alpha_ggx);
 	float G = V_GGX(cNdotL, cNdotV, alpha_ggx);
-#endif
+
+	// Calculate Fresnel using specular occlusion term from Filament:
+	// https://google.github.io/filament/Filament.html#lighting/occlusion/specularocclusion
+	float f90 = clamp(dot(f0, vec3(50.0 * 0.33)), metallic, 1.0);
+	vec3 F = SchlickFresnel(f0, f90, cLdotH);
+	return energy_compensation * (D * G * F * cNdotL);
+}
+
+vec3 dual_specular(float avg_roughness, float dual_roughness0, float dual_roughness1, float dual_lobe_mix, float metallic, vec3 f0, float cNdotH, float cNdotL, float cNdotV, float cLdotH, vec3 energy_compensation) {
+	float alpha_ggx = avg_roughness * avg_roughness;
+	float roughness0 = dual_roughness0 * dual_roughness0;
+	float roughness1 = dual_roughness1 * dual_roughness1;
+
+	float D = mix(D_GGX(cNdotH, roughness0), D_GGX(cNdotH, roughness1), dual_lobe_mix);
+	float G = V_GGX(cNdotL, cNdotV, alpha_ggx);
+
 	// Calculate Fresnel using specular occlusion term from Filament:
 	// https://google.github.io/filament/Filament.html#lighting/occlusion/specularocclusion
 	float f90 = clamp(dot(f0, vec3(50.0 * 0.33)), metallic, 1.0);
@@ -81,8 +104,11 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 #ifdef LIGHT_CLEARCOAT_USED
 		float clearcoat, float clearcoat_roughness, vec3 vertex_normal,
 #endif
+#ifdef LIGHT_DUAL_SPECULAR_USED
+		float avg_roughness, float dual_roughness0, float dual_roughness1, float dual_lobe_mix,
+#endif
 #ifdef LIGHT_ANISOTROPY_USED
-		vec3 T, vec3 B, float anisotropy,
+		vec3 T, float anisotropy, vec3 B,
 #endif
 		inout vec3 diffuse_light, inout vec3 specular_light) {
 	vec4 orms_unpacked = unpackUnorm4x8(orms);
@@ -183,13 +209,15 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 
 #elif defined(SPECULAR_SCHLICK_GGX)
 			// shlick+ggx as default
-			vec3 specular_brdf_NL = specular_lobe(metallic, f0, 
 #if defined(LIGHT_ANISOTROPY_USED)
-			anisotropy, T, B,
+			vec3 specular_brdf_NL = anisotropic_lobe(roughness, metallic, f0, anisotropy, T, B, H, V, L, cNdotH, cNdotL, cNdotV, cLdotH, energy_compensation);
 #else
-			0.0, vec3(0.0), vec3(0.0),
-#endif
-			roughness, H, V, L, cNdotH, cNdotL, cNdotV, cLdotH, energy_compensation);
+#if !defined(LIGHT_DUAL_SPECULAR_USED)
+			vec3 specular_brdf_NL = isotropic_lobe(roughness, metallic, f0, cNdotH, cNdotL, cNdotV, cLdotH, energy_compensation);
+#else
+			vec3 specular_brdf_NL = dual_specular(avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix, metallic, f0, cNdotH, cNdotL, cNdotV, cLdotH, energy_compensation);
+#endif // LIGHT_DUAL_SPECULAR_USED
+#endif // LIGHT_ANISOTROPY_USED
 
 			specular_light += specular_brdf_NL * light_color * attenuation * cc_attenuation * sh_attenuation * specular_amount;
 #endif
@@ -204,7 +232,9 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 #elif defined(DIFFUSE_TOON)
 			diffuse_brdf_NL = Diffuse_Toon(NdotL, roughness);
 #elif defined(DIFFUSE_BURLEY)
-			diffuse_brdf_NL = Normalized_Diffuse_Burley(cNdotV, cNdotL, cLdotH, roughness);
+			diffuse_brdf_NL = Normalized_Diffuse_Burley(roughness, cNdotV, cNdotL, cLdotH);
+#elif defined(DIFFUSE_CHAN)
+			diffuse_brdf_NL = Diffuse_Chan(roughness, cNdotV, cNdotL, cLdotH, cNdotH);
 #else
 			// lambert
 			diffuse_brdf_NL = Diffuse_Lambert(cNdotL);
@@ -408,8 +438,11 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 #ifdef LIGHT_CLEARCOAT_USED
 		float clearcoat, float clearcoat_roughness, vec3 vertex_normal,
 #endif
+#ifdef LIGHT_DUAL_SPECULAR_USED
+		float avg_roughness, float dual_roughness0, float dual_roughness1, float dual_lobe_mix,
+#endif
 #ifdef LIGHT_ANISOTROPY_USED
-		vec3 tangent, vec3 binormal, float anisotropy,
+		vec3 tangent, float anisotropy, vec3 binormal,
 #endif
 		inout vec3 diffuse_light, inout vec3 specular_light) {
 	const float EPSILON = 1e-6f;
@@ -674,8 +707,11 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 #ifdef LIGHT_CLEARCOAT_USED
 			clearcoat, clearcoat_roughness, vertex_normal,
 #endif
+#ifdef LIGHT_DUAL_SPECULAR_USED
+			avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix,
+#endif
 #ifdef LIGHT_ANISOTROPY_USED
-			tangent, binormal, anisotropy,
+			tangent, anisotropy, binormal,
 #endif
 			diffuse_light,
 			specular_light);
@@ -711,8 +747,11 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 #ifdef LIGHT_CLEARCOAT_USED
 		float clearcoat, float clearcoat_roughness, vec3 vertex_normal,
 #endif
+#ifdef LIGHT_DUAL_SPECULAR_USED
+		float avg_roughness, float dual_roughness0, float dual_roughness1, float dual_lobe_mix,
+#endif
 #ifdef LIGHT_ANISOTROPY_USED
-		vec3 tangent, vec3 binormal, float anisotropy,
+		vec3 tangent, float anisotropy, vec3 binormal,
 #endif
 		inout vec3 diffuse_light,
 		inout vec3 specular_light) {
@@ -884,8 +923,11 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 #ifdef LIGHT_CLEARCOAT_USED
 			clearcoat, clearcoat_roughness, vertex_normal,
 #endif
+#ifdef LIGHT_DUAL_SPECULAR_USED
+			avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix,
+#endif
 #ifdef LIGHT_ANISOTROPY_USED
-			tangent, binormal, anisotropy,
+			tangent, anisotropy, binormal,
 #endif
 			diffuse_light, specular_light);
 }

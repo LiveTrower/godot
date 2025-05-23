@@ -602,6 +602,9 @@ void BaseMaterial3D::init_shaders() {
 	shader_names->sheen_color = "sheen_color";
 	shader_names->clearcoat = "clearcoat";
 	shader_names->clearcoat_roughness = "clearcoat_roughness";
+	shader_names->dual_roughness0 = "dual_roughness0";
+	shader_names->dual_roughness1 = "dual_roughness1";
+	shader_names->dual_lobe_mix = "dual_lobe_mix";
 	shader_names->anisotropy = "anisotropy_ratio";
 	shader_names->heightmap_scale = "heightmap_scale";
 	shader_names->subsurface_scattering_strength = "subsurface_scattering_strength";
@@ -863,6 +866,9 @@ void BaseMaterial3D::_update_shader() {
 			break;
 		case DIFFUSE_TOON:
 			code += ", diffuse_toon";
+			break;
+		case DIFFUSE_CHAN:
+			code += ", diffuse_chan";
 			break;
 		case DIFFUSE_MAX:
 			break; // Internal value, skip.
@@ -1140,6 +1146,12 @@ uniform float clearcoat_roughness : hint_range(0.0, 1.0, 0.01);
 uniform sampler2D texture_clearcoat : hint_default_white, %s;
 )",
 				texfilter_str);
+	}
+	if (features[FEATURE_DUAL_SPECULAR]) {
+		code += R"(uniform float dual_roughness0 : hint_range(0.5, 2.0, 0.01);
+uniform float dual_roughness1 : hint_range(0.5, 2.0, 0.01);
+uniform float dual_lobe_mix : hint_range(0.1, 0.9, 0.01);
+		)";
 	}
 	if (features[FEATURE_ANISOTROPY]) {
 		code += vformat(R"(
@@ -1928,6 +1940,17 @@ void fragment() {)";
 )";
 	}
 
+	if (features[FEATURE_DUAL_SPECULAR]) {
+		code += R"(
+	// Dual specular: Enabled
+)";
+		code += R"(
+	DUAL_ROUGHNESS0 = dual_roughness0;
+	DUAL_ROUGHNESS1 = dual_roughness1;
+	DUAL_LOBE_MIX = dual_lobe_mix;
+)";
+	}
+
 	if (features[FEATURE_ANISOTROPY]) {
 		code += R"(
 	// Anisotropy: Enabled
@@ -2304,6 +2327,33 @@ void BaseMaterial3D::set_clearcoat_roughness(float p_clearcoat_roughness) {
 
 float BaseMaterial3D::get_clearcoat_roughness() const {
 	return clearcoat_roughness;
+}
+
+void BaseMaterial3D::set_dual_roughness0(float p_dual_roughness0) {
+	dual_roughness0 = p_dual_roughness0;
+	_material_set_param(shader_names->dual_roughness0, p_dual_roughness0);
+}
+
+float BaseMaterial3D::get_dual_roughness0() const {
+	return dual_roughness0;
+}
+
+void BaseMaterial3D::set_dual_roughness1(float p_dual_roughness1) {
+	dual_roughness1 = p_dual_roughness1;
+	_material_set_param(shader_names->dual_roughness1, p_dual_roughness1);
+}
+
+float BaseMaterial3D::get_dual_roughness1() const {
+	return dual_roughness1;
+}
+
+void BaseMaterial3D::set_dual_lobe_mix(float p_dual_lobe_mix) {
+	dual_lobe_mix = p_dual_lobe_mix;
+	_material_set_param(shader_names->dual_lobe_mix, p_dual_lobe_mix);
+}
+
+float BaseMaterial3D::get_dual_lobe_mix() const {
+	return dual_lobe_mix;
 }
 
 void BaseMaterial3D::set_anisotropy(float p_anisotropy) {
@@ -2790,6 +2840,10 @@ void BaseMaterial3D::_validate_property(PropertyInfo &p_property) const {
 		}
 
 		if (p_property.name.begins_with("transmittance")) {
+			p_property.usage = PROPERTY_USAGE_NONE;
+		}
+
+		if (p_property.name.begins_with("dual_specular")) {
 			p_property.usage = PROPERTY_USAGE_NONE;
 		}
 	}
@@ -3411,6 +3465,15 @@ void BaseMaterial3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_clearcoat_roughness", "clearcoat_roughness"), &BaseMaterial3D::set_clearcoat_roughness);
 	ClassDB::bind_method(D_METHOD("get_clearcoat_roughness"), &BaseMaterial3D::get_clearcoat_roughness);
 
+	ClassDB::bind_method(D_METHOD("set_dual_roughness0", "dual_roughness0"), &BaseMaterial3D::set_dual_roughness0);
+	ClassDB::bind_method(D_METHOD("get_dual_roughness0"), &BaseMaterial3D::get_dual_roughness0);
+
+	ClassDB::bind_method(D_METHOD("set_dual_roughness1", "dual_roughness1"), &BaseMaterial3D::set_dual_roughness1);
+	ClassDB::bind_method(D_METHOD("get_dual_roughness1"), &BaseMaterial3D::get_dual_roughness1);
+
+	ClassDB::bind_method(D_METHOD("set_dual_lobe_mix", "dual_lobe_mix"), &BaseMaterial3D::set_dual_lobe_mix);
+	ClassDB::bind_method(D_METHOD("get_dual_lobe_mix"), &BaseMaterial3D::get_dual_lobe_mix);
+
 	ClassDB::bind_method(D_METHOD("set_anisotropy", "anisotropy"), &BaseMaterial3D::set_anisotropy);
 	ClassDB::bind_method(D_METHOD("get_anisotropy"), &BaseMaterial3D::get_anisotropy);
 
@@ -3602,7 +3665,7 @@ void BaseMaterial3D::_bind_methods() {
 
 	ADD_GROUP("Shading", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "shading_mode", PROPERTY_HINT_ENUM, "Unshaded,Per-Pixel,Per-Vertex"), "set_shading_mode", "get_shading_mode");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "diffuse_mode", PROPERTY_HINT_ENUM, "Burley,Lambert,Lambert Wrap,Toon"), "set_diffuse_mode", "get_diffuse_mode");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "diffuse_mode", PROPERTY_HINT_ENUM, "Burley,Lambert,Lambert Wrap,Toon,Chan"), "set_diffuse_mode", "get_diffuse_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "specular_mode", PROPERTY_HINT_ENUM, "SchlickGGX,Toon,Disabled"), "set_specular_mode", "get_specular_mode");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "disable_ambient_light"), "set_flag", "get_flag", FLAG_DISABLE_AMBIENT_LIGHT);
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "disable_fog"), "set_flag", "get_flag", FLAG_DISABLE_FOG);
@@ -3669,6 +3732,12 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "clearcoat", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_clearcoat", "get_clearcoat");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "clearcoat_roughness", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_clearcoat_roughness", "get_clearcoat_roughness");
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "clearcoat_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_CLEARCOAT);
+
+	ADD_GROUP("Dual Specular", "dual_specular_");
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "dual_specular_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_DUAL_SPECULAR);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "dual_specular_roughness0", PROPERTY_HINT_RANGE, "0.5,2.0,0.01"), "set_dual_roughness0", "get_dual_roughness0");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "dual_specular_roughness1", PROPERTY_HINT_RANGE, "0.5,2.0,0.01"), "set_dual_roughness1", "get_dual_roughness1");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "dual_specular_lobe_mix", PROPERTY_HINT_RANGE, "0.1,0.9,0.01"), "set_dual_lobe_mix", "get_dual_lobe_mix");
 
 	ADD_GROUP("Anisotropy", "anisotropy_");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "anisotropy_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_ANISOTROPY);
@@ -3847,6 +3916,7 @@ void BaseMaterial3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(FEATURE_REFRACTION);
 	BIND_ENUM_CONSTANT(FEATURE_DETAIL);
 	BIND_ENUM_CONSTANT(FEATURE_BENT_NORMAL_MAPPING);
+	BIND_ENUM_CONSTANT(FEATURE_DUAL_SPECULAR);
 	BIND_ENUM_CONSTANT(FEATURE_MAX);
 
 	BIND_ENUM_CONSTANT(BLEND_MODE_MIX);
@@ -3905,6 +3975,7 @@ void BaseMaterial3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(DIFFUSE_LAMBERT);
 	BIND_ENUM_CONSTANT(DIFFUSE_LAMBERT_WRAP);
 	BIND_ENUM_CONSTANT(DIFFUSE_TOON);
+	BIND_ENUM_CONSTANT(DIFFUSE_CHAN);
 
 	BIND_ENUM_CONSTANT(SPECULAR_SCHLICK_GGX);
 	BIND_ENUM_CONSTANT(SPECULAR_TOON);
@@ -3965,6 +4036,9 @@ BaseMaterial3D::BaseMaterial3D(bool p_orm) :
 	set_sheen_color(Color(1, 1, 1));
 	set_clearcoat(1);
 	set_clearcoat_roughness(0.5);
+	set_dual_roughness0(1.0);
+	set_dual_roughness1(1.0);
+	set_dual_lobe_mix(1.0);
 	set_anisotropy(0);
 	set_heightmap_scale(5.0);
 	set_subsurface_scattering_strength(0);

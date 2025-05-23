@@ -67,7 +67,7 @@ float V_Kelemen(float LoH) {
     return saturateMediump(0.25 / (LoH * LoH));
 }
 
-float Diffuse_Lambert(float NoL){
+float Diffuse_Lambert(float NoL) {
 	return NoL * (1.0 / M_PI);
 }
 
@@ -86,7 +86,7 @@ float Diffuse_Burley(float LoH, float NoV, float NoL, float roughness){
 
 // Normalized Disney diffuse function taken from Frostbite's PBR course notes (page 10):
 // https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/course-notes-moving-frostbite-to-pbr-v32.pdf
-float Normalized_Diffuse_Burley(float NoV, float NoL, float LoH, float roughness)
+float Normalized_Diffuse_Burley(float roughness, float NoV, float NoL, float LoH)
 {
     float energyBias = mix(0.0, 0.5, roughness);
     float energyFactor = mix(1.0, 1.0/1.51, roughness);
@@ -102,10 +102,50 @@ float Diffuse_Toon(float NoL, float roughness){
 	return smoothstep(-roughness, max(roughness, 0.01), NoL) * (1.0 / M_PI);
 }
 
+// [ Chan 2018, "Material Advances in Call of Duty: WWII" ]
+float Diffuse_Chan(float roughness, float NoV, float NoL, float LoH, float NoH)
+{
+	float a2 = roughness * roughness;
+
+	// a2 = 2 / ( 1 + exp2( 18 * g )
+	float g = saturate( (1.0 / 18.0) * log2( 2 * rcp(a2) - 1 ) );
+
+	float F0 = LoH + pow5( 1 - LoH );
+	float FdV = 1 - 0.75 * pow5( 1 - NoV );
+	float FdL = 1 - 0.75 * pow5( 1 - NoL );
+
+	// Rough (F0) to smooth (FdV * FdL) response interpolation
+	float Fd = mix( F0, FdV * FdL, saturate( 2.2 * g - 0.5 ) );
+
+	// Retro reflectivity contribution.
+	float Fb = ( (34.5 * g - 59 ) * g + 24.5 ) * LoH * exp2( -max( 73.2 * g - 21.2, 8.9 ) * sqrt( NoH ) );
+
+	float Lobe = (1 / M_PI) * (Fd + Fb) * NoL;
+
+	// We clamp the BRDF lobe value to an arbitrary value of 1 to get some practical benefits at high roughness:
+	// - This is to avoid too bright edges when using normal map on a mesh and the local bases, L, N and V ends up in an top emisphere setup.
+	// - This maintains the full proper rough look of a sphere when not using normal maps.
+	// - This also fixes the furnace test returning too much energy at the edge of a mesh.
+	return min(1.0, Lobe);
+}
+
+// scales the specular reflections, needs to be be computed before lighting happens,
+// but after environment, GI, and reflection probes are added
+// Environment brdf approximation (Lazarov 2013)
+// see https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
+vec2 BRDF_Aprox(float roughness, float NoV) {
+	const vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022);
+	const vec4 c1 = vec4(1.0, 0.0425, 1.04, -0.04);
+	vec4 r = roughness * c0 + c1;
+
+	float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+	return vec2(-1.04, 1.04) * a004 + r.zw;
+}
+
 // Dielectric (IOR=1.5) simplification of the full BRDF approximation above, from the same source.
 float BRDF_Aprox_Nonmetal(float roughness, float NoV){
-	const vec4 c0 = vec4(-1.0,-0.0275,-0.572, 0.022);
-	const vec4 c1 = vec4( 1.0, 0.0425, 1.040,-0.040);
+	const vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022);
+	const vec4 c1 = vec4(1.0, 0.0425, 1.04, -0.04);
 	vec2 r = roughness * c0.xy + c1.xy;
 	return min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
 }
