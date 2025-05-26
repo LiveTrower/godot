@@ -842,7 +842,7 @@ void RenderForwardMobile::_render_scene(RenderDataRD *p_render_data, const Color
 	p_render_data->directional_light_count = directional_light_count;
 
 	// Lightmaps need to be set up before _fill_render_list as it depends on them.
-	_setup_lightmaps(p_render_data, *p_render_data->lightmaps, p_render_data->scene_data->cam_transform);
+    _setup_lightmaps(p_render_data, *p_render_data->lightmaps, p_render_data->scene_data->cam_transform);
 
 	// fill our render lists early so we can find out if we use various features
 	_fill_render_list(RENDER_LIST_OPAQUE, p_render_data, PASS_MODE_COLOR);
@@ -2589,6 +2589,17 @@ void RenderForwardMobile::_geometry_instance_add_surface_with_material(GeometryI
 
 	if (p_material->shader_data->uses_particle_trails) {
 		flags |= GeometryInstanceSurfaceDataCache::FLAG_USES_PARTICLE_TRAILS;
+	}
+
+	if (p_material->shader_data->stencil_enabled) {
+		if (p_material->shader_data->stencil_flags & SceneShaderForwardMobile::ShaderData::STENCIL_FLAG_READ) {
+			// Stencil materials which read from the stencil buffer must be in the alpha pass.
+			// This is critical to preserve compatibility once we'll have the compositor.
+			if (!(flags & GeometryInstanceSurfaceDataCache::FLAG_PASS_ALPHA)) {
+				String shader_path = p_material->shader_data->path.is_empty() ? "" : "(" + p_material->shader_data->path + ")";
+				ERR_PRINT_ED(vformat("Attempting to use a shader %s that reads stencil but is not in the alpha queue. Ensure the material uses alpha blending or has depth_draw disabled or depth_test disabled.", shader_path));
+			}
+		}
 	}
 
 	SceneShaderForwardMobile::MaterialData *material_shadow = nullptr;

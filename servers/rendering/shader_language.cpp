@@ -9229,6 +9229,7 @@ Error ShaderLanguage::_parse_shader(const HashMap<StringName, FunctionInfo> &p_f
 							_set_error(vformat(RTR("Stencil mode reference value cannot be greater than 255: '%s'."), reference_value));
 							return ERR_PARSE_ERROR;
 						}
+						
 						shader->stencil_reference = reference_value;
 					} else {
 						_set_tkpos(pos);

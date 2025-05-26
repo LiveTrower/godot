@@ -1717,7 +1717,7 @@ void fragment_shader(in SceneData scene_data) {
 	vec3 sh_ref_vec = reflect(-view, normal);
 	sh_ref_vec = mix(sh_ref_vec, normal, sheen_roughness * sheen_roughness);
 
-	if (scene_data.use_reflection_cubemap) {
+	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_REFLECTION_CUBEMAP)) {
 		vec3 sh_radiance_ref_vec = scene_data.radiance_inverse_xform * sh_ref_vec;
 
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY

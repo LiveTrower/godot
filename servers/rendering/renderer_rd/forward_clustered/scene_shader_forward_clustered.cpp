@@ -403,7 +403,7 @@ void SceneShaderForwardClustered::ShaderData::_create_pipeline(PipelineKey p_pip
 		depth_stencil_state.back_op = op;
 	}
 	
-	bool depth_pre_pass_enabled = !stencil_enabled && bool(GLOBAL_GET("rendering/driver/depth_prepass/enable"));
+	bool depth_pre_pass_enabled = !stencil_enabled && bool(GLOBAL_GET_CACHED(bool, "rendering/driver/depth_prepass/enable"));
 
 	RD::RenderPrimitive primitive_rd_table[RS::PRIMITIVE_MAX] = {
 		RD::RENDER_PRIMITIVE_POINTS,

@@ -1150,9 +1150,9 @@ uniform sampler2D texture_clearcoat : hint_default_white, %s;
 				texfilter_str);
 	}
 	if (features[FEATURE_DUAL_SPECULAR]) {
-		code += R"(uniform float dual_roughness0 : hint_range(0.5, 2.0, 0.01);
-uniform float dual_roughness1 : hint_range(0.5, 2.0, 0.01);
-uniform float dual_lobe_mix : hint_range(0.1, 0.9, 0.01);
+		code += R"(uniform float dual_roughness0 : hint_range(0.0, 1.0, 0.01);
+uniform float dual_roughness1 : hint_range(0.0, 1.0, 0.01);
+uniform float dual_lobe_mix : hint_range(0.0, 1.0, 0.01);
 		)";
 	}
 	if (features[FEATURE_ANISOTROPY]) {
@@ -1532,18 +1532,6 @@ vec4 triplanar_texture(sampler2D p_sampler, vec3 p_weights, vec3 p_triplanar_pos
 	return samp;
 }
 )";
-	}
-
-	if (features[FEATURE_HEIGHT_MAPPING]) {
-		code += R"(
-vec4 height_texture(sampler2D p_sampler, vec2 uv) {
-)";
-		if (flags[FLAG_INVERT_HEIGHTMAP]) {
-			code += "	return texture(p_sampler, uv);\n";
-		} else {
-			code += "	return 1.0 - texture(p_sampler, uv);\n";
-		}
-		code += "}\n";
 	}
 
 	// Generate fragment shader.
@@ -2700,6 +2688,7 @@ void BaseMaterial3D::_validate_property(PropertyInfo &p_property) const {
 	_validate_feature("rim", FEATURE_RIM, p_property);
 	_validate_feature("sheen", FEATURE_SHEEN, p_property);
 	_validate_feature("clearcoat", FEATURE_CLEARCOAT, p_property);
+	_validate_feature("dual_specular", FEATURE_DUAL_SPECULAR, p_property);
 	_validate_feature("anisotropy", FEATURE_ANISOTROPY, p_property);
 	_validate_feature("ao", FEATURE_AMBIENT_OCCLUSION, p_property);
 	_validate_feature("heightmap", FEATURE_HEIGHT_MAPPING, p_property);
@@ -3798,9 +3787,9 @@ void BaseMaterial3D::_bind_methods() {
 
 	ADD_GROUP("Dual Specular", "dual_specular_");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "dual_specular_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_DUAL_SPECULAR);
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "dual_specular_roughness0", PROPERTY_HINT_RANGE, "0.5,2.0,0.01"), "set_dual_roughness0", "get_dual_roughness0");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "dual_specular_roughness1", PROPERTY_HINT_RANGE, "0.5,2.0,0.01"), "set_dual_roughness1", "get_dual_roughness1");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "dual_specular_lobe_mix", PROPERTY_HINT_RANGE, "0.1,0.9,0.01"), "set_dual_lobe_mix", "get_dual_lobe_mix");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "dual_specular_roughness0", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_dual_roughness0", "get_dual_roughness0");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "dual_specular_roughness1", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_dual_roughness1", "get_dual_roughness1");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "dual_specular_lobe_mix", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_dual_lobe_mix", "get_dual_lobe_mix");
 
 	ADD_GROUP("Anisotropy", "anisotropy_");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "anisotropy_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_ANISOTROPY);
@@ -3915,7 +3904,7 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "distance_fade_max_distance", PROPERTY_HINT_RANGE, "0,4096,0.01,suffix:m"), "set_distance_fade_max_distance", "get_distance_fade_max_distance");
 
 	ADD_GROUP("Stencil", "stencil_");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "stencil_mode", PROPERTY_HINT_ENUM, "Disabled,Outline,Xray,Custom"), "set_stencil_mode", "get_stencil_mode");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "stencil_mode", PROPERTY_HINT_ENUM, "Disabled,Outline,X-Ray,Custom"), "set_stencil_mode", "get_stencil_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "stencil_flags", PROPERTY_HINT_FLAGS, "Read,Write,Write Depth Fail"), "set_stencil_flags", "get_stencil_flags");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "stencil_compare", PROPERTY_HINT_ENUM, "Less,Equal,Less Or Equal,Greater,Not Equal,Greater Or Equal,Always"), "set_stencil_compare", "get_stencil_compare");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "stencil_reference", PROPERTY_HINT_RANGE, "0,255,1"), "set_stencil_reference", "get_stencil_reference");
@@ -4106,7 +4095,7 @@ BaseMaterial3D::BaseMaterial3D(bool p_orm) :
 	set_clearcoat_roughness(0.5);
 	set_dual_roughness0(1.0);
 	set_dual_roughness1(1.0);
-	set_dual_lobe_mix(1.0);
+	set_dual_lobe_mix(0.5);
 	set_anisotropy(0);
 	set_heightmap_scale(5.0);
 	set_subsurface_scattering_strength(0);

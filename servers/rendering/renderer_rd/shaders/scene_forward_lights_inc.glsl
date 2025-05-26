@@ -58,7 +58,7 @@ vec3 dual_specular(float avg_roughness, float dual_roughness0, float dual_roughn
 	float roughness1 = dual_roughness1 * dual_roughness1;
 
 	float D = mix(D_GGX(cNdotH, roughness0), D_GGX(cNdotH, roughness1), dual_lobe_mix);
-	float G = V_GGX(cNdotL, cNdotV, alpha_ggx);
+	float G = V_GGX(cNdotL, cNdotV, avg_roughness);
 
 	// Calculate Fresnel using specular occlusion term from Filament:
 	// https://google.github.io/filament/Filament.html#lighting/occlusion/specularocclusion
