@@ -653,8 +653,6 @@ private:
 
 	Ref<Texture2D> textures[TEXTURE_MAX];
 
-	_FORCE_INLINE_ void _validate_feature(const String &text, Feature feature, PropertyInfo &property) const;
-
 	void _prepare_stencil_effect();
 	Ref<BaseMaterial3D> _get_stencil_next_pass() const;
 
