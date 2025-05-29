@@ -155,6 +155,7 @@
 #include "editor/plugins/plugin_config_dialog.h"
 #include "editor/plugins/root_motion_editor_plugin.h"
 #include "editor/plugins/script_text_editor.h"
+#include "editor/plugins/shader_baker_export_plugin.h"
 #include "editor/plugins/text_editor.h"
 #include "editor/plugins/version_control_editor_plugin.h"
 #include "editor/plugins/visual_shader_editor_plugin.h"
@@ -166,6 +167,18 @@
 #include "editor/themes/editor_scale.h"
 #include "editor/themes/editor_theme_manager.h"
 #include "editor/window_wrapper.h"
+
+#ifdef VULKAN_ENABLED
+#include "editor/plugins/shader_baker/shader_baker_export_plugin_platform_vulkan.h"
+#endif
+
+#ifdef D3D12_ENABLED
+#include "editor/plugins/shader_baker/shader_baker_export_plugin_platform_d3d12.h"
+#endif
+
+#ifdef METAL_ENABLED
+#include "editor/plugins/shader_baker/shader_baker_export_plugin_platform_metal.h"
+#endif
 
 #include "modules/modules_enabled.gen.h" // For gdscript, mono.
 
@@ -4005,9 +4018,10 @@ void EditorNode::_remove_edited_scene(bool p_change_tab) {
 }
 
 void EditorNode::_remove_scene(int index, bool p_change_tab) {
-	// Clear icon cache in case some scripts are no longer needed.
+	// Clear icon cache in case some scripts are no longer needed or class icons are outdated.
 	// FIXME: Ideally the cache should never be cleared and only updated on per-script basis, when an icon changes.
 	editor_data.clear_script_icon_cache();
+	class_icon_cache.clear();
 
 	if (editor_data.get_edited_scene() == index) {
 		// Scene to remove is current scene.
@@ -5188,6 +5202,13 @@ Ref<Texture2D> EditorNode::get_object_icon(const Object *p_object, const String 
 
 Ref<Texture2D> EditorNode::get_class_icon(const String &p_class, const String &p_fallback) {
 	ERR_FAIL_COND_V_MSG(p_class.is_empty(), nullptr, "Class name cannot be empty.");
+	// Take from the local cache, if available.
+	{
+		Ref<Texture2D> *icon = class_icon_cache.getptr(p_class);
+		if (icon) {
+			return *icon;
+		}
+	}
 
 	String script_path;
 	if (ScriptServer::is_global_class(p_class)) {
@@ -5196,7 +5217,9 @@ Ref<Texture2D> EditorNode::get_class_icon(const String &p_class, const String &p
 		script_path = p_class;
 	}
 
-	return _get_class_or_script_icon(p_class, script_path, p_fallback, true);
+	Ref<Texture2D> icon = _get_class_or_script_icon(p_class, script_path, p_fallback, true);
+	class_icon_cache[p_class] = icon;
+	return icon;
 }
 
 bool EditorNode::is_object_of_custom_type(const Object *p_object, const StringName &p_class) {
@@ -8530,6 +8553,29 @@ EditorNode::EditorNode() {
 	dedicated_server_export_plugin.instantiate();
 
 	EditorExport::get_singleton()->add_export_plugin(dedicated_server_export_plugin);
+
+	Ref<ShaderBakerExportPlugin> shader_baker_export_plugin;
+	shader_baker_export_plugin.instantiate();
+
+#ifdef VULKAN_ENABLED
+	Ref<ShaderBakerExportPluginPlatformVulkan> shader_baker_export_plugin_platform_vulkan;
+	shader_baker_export_plugin_platform_vulkan.instantiate();
+	shader_baker_export_plugin->add_platform(shader_baker_export_plugin_platform_vulkan);
+#endif
+
+#ifdef D3D12_ENABLED
+	Ref<ShaderBakerExportPluginPlatformD3D12> shader_baker_export_plugin_platform_d3d12;
+	shader_baker_export_plugin_platform_d3d12.instantiate();
+	shader_baker_export_plugin->add_platform(shader_baker_export_plugin_platform_d3d12);
+#endif
+
+#ifdef METAL_ENABLED
+	Ref<ShaderBakerExportPluginPlatformMetal> shader_baker_export_plugin_platform_metal;
+	shader_baker_export_plugin_platform_metal.instantiate();
+	shader_baker_export_plugin->add_platform(shader_baker_export_plugin_platform_metal);
+#endif
+
+	EditorExport::get_singleton()->add_export_plugin(shader_baker_export_plugin);
 
 	Ref<PackedSceneEditorTranslationParserPlugin> packed_scene_translation_parser_plugin;
 	packed_scene_translation_parser_plugin.instantiate();

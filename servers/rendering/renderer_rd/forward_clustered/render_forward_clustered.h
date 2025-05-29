@@ -78,7 +78,6 @@ class RenderForwardClustered : public RendererSceneRenderRD {
 	enum RenderListType {
 		RENDER_LIST_OPAQUE, //used for opaque objects
 		RENDER_LIST_MOTION, //used for opaque objects with motion
-		RENDER_LIST_OPAQUE_NO_DEPTH_PREPASS, // Used for opaque objects which cannot use depth prepass.
 		RENDER_LIST_ALPHA, //used for transparent objects
 		RENDER_LIST_SECONDARY, //used for shadows and other objects
 		RENDER_LIST_MAX
@@ -410,7 +409,6 @@ private:
 		bool used_depth_texture = false;
 		bool used_sss = false;
 		bool used_lightmap = false;
-		bool used_opaque_no_depth_prepass = false;
 
 		struct ShadowPass {
 			uint32_t element_from;
@@ -488,7 +486,6 @@ private:
 			FLAG_USES_DOUBLE_SIDED_SHADOWS = 32768,
 			FLAG_USES_PARTICLE_TRAILS = 65536,
 			FLAG_USES_MOTION_VECTOR = 131072,
-			FLAG_NO_DEPTH_PREPASS = 262144,
 		};
 
 		union {
@@ -815,6 +812,11 @@ public:
 
 	virtual void mesh_generate_pipelines(RID p_mesh, bool p_background_compilation) override;
 	virtual uint32_t get_pipeline_compilations(RS::PipelineSource p_source) override;
+
+	/* SHADER LIBRARY */
+
+	virtual void enable_features(BitField<FeatureBits> p_feature_bits) override;
+	virtual String get_name() const override;
 
 	virtual bool free(RID p_rid) override;
 

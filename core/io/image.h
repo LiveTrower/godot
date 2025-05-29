@@ -325,7 +325,7 @@ public:
 	void flip_y();
 
 	// Generate a mipmap chain of an image (creates an image 1/4 the size, with averaging of 4->1).
-	Error generate_mipmaps(bool p_renormalize = false, bool p_preserve_alpha_test_coverage = false, float alpha_test_threshold = 0.5);
+	Error generate_mipmaps(bool p_renormalize = false, bool p_preserve_alpha_test_coverage = false, float target_coverage = 0.5);
 
 	Error generate_mipmap_roughness(RoughnessChannel p_roughness_channel, const Ref<Image> &p_normal_map);
 

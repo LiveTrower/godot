@@ -1100,160 +1100,6 @@ static void _scale_lanczos(const uint8_t *__restrict p_src, uint8_t *__restrict 
 	memdelete_arr(buffer);
 }
 
-template <int CC, typename T>
-static void _scale_dpid(const uint8_t* __restrict p_src, uint8_t* __restrict p_dst, uint32_t p_src_width, uint32_t p_src_height, uint32_t p_dst_width, uint32_t p_dst_height, float _lambda = 1.0f) {
-    
-    const float pWidth = static_cast<float>(p_src_width) / p_dst_width;
-    const float pHeight = static_cast<float>(p_src_height) / p_dst_height;
-    
-	uint32_t buffer_size = p_dst_width * p_dst_height * CC;
-	T* avgImage = memnew_arr(T, buffer_size);
-
-    for (uint32_t py = 0; py < p_dst_height; py++) {
-        for (uint32_t px = 0; px < p_dst_width; px++) {
-            float sx = MAX(px * pWidth, 0.0f);
-            float ex = MIN((px+1) * pWidth, static_cast<float>(p_src_width));
-            float sy = MAX(py * pHeight, 0.0f);
-            float ey = MIN((py+1) * pHeight, static_cast<float>(p_src_height));
-            
-            uint32_t sxr = Math::floor(sx);
-            uint32_t syr = Math::floor(sy);
-            uint32_t exr = Math::ceil(ex);
-            uint32_t eyr = Math::ceil(ey);
-            
-            float avg_values[CC] = {0};
-            float avgF = 0;
-            
-            for (uint32_t iy = syr; iy < eyr; iy++) {
-                for (uint32_t ix = sxr; ix < exr; ix++) {
-                    float f = 1.0f;
-                    if (ix < sx) {
-                        f = f * (1.0f - (sx - ix));
-                    }
-                    if ((ix+1) > ex) {
-                        f = f * (1.0f - ((ix+1) - ex));
-                    }
-                    if (iy < sy) {
-                        f = f * (1.0f - (sy - iy));
-                    }
-                    if ((iy+1) > ey) {
-                        f = f * (1.0f - ((iy+1) - ey));
-                    }
-                    
-                    uint32_t src_idx = (iy * p_src_width + ix) * CC;
-                    for (uint32_t c = 0; c < CC; c++) {
-                        avg_values[c] += p_src[src_idx + c] * f;
-                    }
-                    avgF += f;
-                }
-            }
-            
-            if (avgF > 0) {
-                uint32_t dst_idx = (py * p_dst_width + px) * CC;
-                for (uint32_t c = 0; c < CC; c++) {
-                    avgImage[dst_idx + c] = avg_values[c] / avgF;
-                }
-            }
-        }
-    }
-    
-    for (uint32_t py = 0; py < p_dst_height; py++) {
-        for (uint32_t px = 0; px < p_dst_width; px++) {
-            float avg_values[CC] = {0};
-            float total_weight = 0.0f;
-            
-            for (int dy = -1; dy <= 1; dy++) {
-                int ny = py + dy;
-                if (ny < 0 || ny >= static_cast<int>(p_dst_height)) continue;
-                
-                for (int dx = -1; dx <= 1; dx++) {
-                    int nx = px + dx;
-                    if (nx < 0 || nx >= static_cast<int>(p_dst_width)) continue;
-                    
-                    float weight = 1.0f;
-                    if (dx == 0 || dy == 0) weight = 2.0f;
-                    if (dx == 0 && dy == 0) weight = 4.0f;
-                    
-                    uint32_t avg_idx = (ny * p_dst_width + nx) * CC;
-                    for (uint32_t c = 0; c < CC; c++) {
-                        avg_values[c] += avgImage[avg_idx + c] * weight;
-                    }
-                    total_weight += weight;
-                }
-            }
-            
-            if (total_weight > 0) {
-                for (uint32_t c = 0; c < CC; c++) {
-                    avg_values[c] /= total_weight;
-                }
-            }
-            
-            float sx = MAX(px * pWidth, 0.0f);
-            float ex = MIN((px+1) * pWidth, static_cast<float>(p_src_width));
-            float sy = MAX(py * pHeight, 0.0f);
-            float ey = MIN((py+1) * pHeight, static_cast<float>(p_src_height));
-            
-            uint32_t sxr = Math::floor(sx);
-            uint32_t syr = Math::floor(sy);
-            uint32_t exr = Math::ceil(ex);
-            uint32_t eyr = Math::ceil(ey);
-            
-            float out_values[CC] = {0};
-            float out_weight = 0.0f;
-            
-            for (uint32_t iy = syr; iy < eyr; iy++) {
-                for (uint32_t ix = sxr; ix < exr; ix++) {
-                    float f;
-                    
-                    if (_lambda == 0) {
-                        f = 1.0f;
-                    } else {
-                        float dist_sq = 0.0f;
-                        uint32_t src_idx = (iy * p_src_width + ix) * CC;
-                        for (uint32_t c = 0; c < CC; c++) {
-                            float diff = avg_values[c] - p_src[src_idx + c];
-                            dist_sq += diff * diff;
-                        }
-                        f = Math::pow(Math::sqrt(dist_sq), _lambda);
-                    }
-                    
-                    if (ix < sx) {
-                        f = f * (1.0f - (sx - ix));
-                    }
-                    if ((ix+1) > ex) {
-                        f = f * (1.0f - ((ix+1) - ex));
-                    }
-                    if (iy < sy) {
-                        f = f * (1.0f - (sy - iy));
-                    }
-                    if ((iy+1) > ey) {
-                        f = f * (1.0f - ((iy+1) - ey));
-                    }
-                    
-                    uint32_t src_idx = (iy * p_src_width + ix) * CC;
-                    for (uint32_t c = 0; c < CC; c++) {
-                        out_values[c] += p_src[src_idx + c] * f;
-                    }
-                    out_weight += f;
-                }
-            }
-            
-            uint32_t dst_idx = (py * p_dst_width + px) * CC;
-            if (out_weight > 0) {
-                for (uint32_t c = 0; c < CC; c++) {
-                    p_dst[dst_idx + c] = out_values[c] / out_weight;
-                }
-            } else {
-                for (uint32_t c = 0; c < CC; c++) {
-                    p_dst[dst_idx + c] = avg_values[c];
-                }
-            }
-        }
-    }
-
-	memdelete_arr(avgImage);
-}
-
 static void _overlay(const uint8_t *__restrict p_src, uint8_t *__restrict p_dst, float p_alpha, uint32_t p_width, uint32_t p_height, uint32_t p_pixel_size) {
 	uint16_t alpha = MIN((uint16_t)(p_alpha * 256.0f), 256);
 
@@ -2160,7 +2006,7 @@ void Image::scale_mipmap_alpha_bias(uint8_t *p_dst, uint32_t p_width, uint32_t p
 	}
 }
 
-Error Image::generate_mipmaps(bool p_renormalize, bool p_preserve_alpha_test_coverage, float alpha_test_threshold) {
+Error Image::generate_mipmaps(bool p_renormalize, bool p_preserve_alpha_test_coverage, float target_coverage) {
 	ERR_FAIL_COND_V_MSG(is_compressed(), ERR_UNAVAILABLE, "Cannot generate mipmaps from compressed image formats.");
 	ERR_FAIL_COND_V_MSG(format == FORMAT_RGBA4444, ERR_UNAVAILABLE, "Cannot generate mipmaps from RGBA4444 format.");
 	ERR_FAIL_COND_V_MSG(width == 0 || height == 0, ERR_UNCONFIGURED, "Cannot generate mipmaps with width or height equal to 0.");
@@ -2176,7 +2022,7 @@ Error Image::generate_mipmaps(bool p_renormalize, bool p_preserve_alpha_test_cov
 	int prev_w = width;
 
 	if (p_preserve_alpha_test_coverage) {
-		desired_atc = alpha_test_coverage(wp, width, height, alpha_test_threshold, 1.0);
+		desired_atc = alpha_test_coverage(wp, width, height, target_coverage, 1.0);
 	}
 
 	for (int i = 1; i <= gen_mipmap_count; i++) {
@@ -2187,7 +2033,7 @@ Error Image::generate_mipmaps(bool p_renormalize, bool p_preserve_alpha_test_cov
 		_generate_mipmap_from_format(format, wp + prev_ofs, wp + ofs, prev_w, prev_h, p_renormalize, p_preserve_alpha_test_coverage);
 
 		if (p_preserve_alpha_test_coverage) {
-			scale_alpha_to_coverage(wp + ofs, w, h, desired_atc, alpha_test_threshold);
+			scale_alpha_to_coverage(wp + ofs, w, h, desired_atc, target_coverage);
 		}
 
 		prev_ofs = ofs;

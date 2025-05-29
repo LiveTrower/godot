@@ -260,35 +260,6 @@ struct SceneShaderData : public ShaderData {
 		DEPTH_TEST_ENABLED
 	};
 
-	enum DepthFunction {
-		DEPTH_FUNCTION_GREATER_OR_EQUAL,
-		DEPTH_FUNCTION_LESS_OR_EQUAL,
-		DEPTH_FUNCTION_LESS,
-		DEPTH_FUNCTION_EQUAL,
-		DEPTH_FUNCTION_GREATER,
-		DEPTH_FUNCTION_NOT_EQUAL,
-		DEPTH_FUNCTION_ALWAYS,
-		DEPTH_FUNCTION_NEVER,
-		DEPTH_FUNCTION_MAX
-	};
-
-	enum StencilCompare {
-		STENCIL_COMPARE_LESS,
-		STENCIL_COMPARE_EQUAL,
-		STENCIL_COMPARE_LESS_OR_EQUAL,
-		STENCIL_COMPARE_GREATER,
-		STENCIL_COMPARE_NOT_EQUAL,
-		STENCIL_COMPARE_GREATER_OR_EQUAL,
-		STENCIL_COMPARE_ALWAYS,
-		STENCIL_COMPARE_MAX // not an actual operator, just the amount of operators
-	};
-
-	enum StencilFlags {
-		STENCIL_FLAG_READ = 1,
-		STENCIL_FLAG_WRITE = 2,
-		STENCIL_FLAG_WRITE_DEPTH_FAIL = 4,
-	};
-
 	enum AlphaAntiAliasing {
 		ALPHA_ANTIALIASING_OFF,
 		ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE,
@@ -313,12 +284,6 @@ struct SceneShaderData : public ShaderData {
 	DepthDraw depth_draw;
 	DepthTest depth_test;
 	RS::CullMode cull_mode;
-	DepthFunction depth_function;
-
-	StencilCompare stencil_compare;
-	uint32_t stencil_flags;
-	int32_t stencil_reference;
-	bool stencil_enabled;
 
 	bool uses_point_size;
 	bool uses_alpha;
@@ -517,6 +482,7 @@ private:
 	mutable RID_Owner<Material, true> material_owner;
 
 	SelfList<Material>::List material_update_list;
+	HashSet<RID> dummy_embedded_set;
 
 public:
 	static MaterialStorage *get_singleton();
@@ -609,7 +575,7 @@ public:
 	void _shader_make_dirty(Shader *p_shader);
 
 	virtual RID shader_allocate() override;
-	virtual void shader_initialize(RID p_rid) override;
+	virtual void shader_initialize(RID p_rid, bool p_embedded = true) override;
 	virtual void shader_free(RID p_rid) override;
 
 	virtual void shader_set_code(RID p_shader, const String &p_code) override;
@@ -622,6 +588,9 @@ public:
 	virtual Variant shader_get_parameter_default(RID p_shader, const StringName &p_name) const override;
 
 	virtual RS::ShaderNativeSourceCode shader_get_native_source_code(RID p_shader) const override;
+	virtual void shader_embedded_set_lock() override {}
+	virtual const HashSet<RID> &shader_embedded_set_get() const override { return dummy_embedded_set; }
+	virtual void shader_embedded_set_unlock() override {}
 
 	/* MATERIAL API */
 

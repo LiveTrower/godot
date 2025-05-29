@@ -36,7 +36,7 @@
 #include "scene/resources/shader.h"
 #include "scene/resources/texture.h"
 
-class TextureChannelMipSelector;
+class ColorChannelSelector;
 
 class TextureLayeredEditor : public Control {
 	GDCLASS(TextureLayeredEditor, Control);
@@ -58,9 +58,7 @@ class TextureLayeredEditor : public Control {
 
 	bool setting = false;
 
-	TextureChannelMipSelector *channel_mip_selector = nullptr;
-
-	String texture_filter = "filter_nearest_mipmap";
+	ColorChannelSelector *channel_selector = nullptr;
 
 	void _draw_outline();
 
@@ -80,7 +78,7 @@ class TextureLayeredEditor : public Control {
 
 	void _update_gui();
 
-	void on_selected_channels_mipmaps_changed();
+	void on_selected_channels_changed();
 
 protected:
 	void _notification(int p_what);

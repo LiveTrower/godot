@@ -351,6 +351,20 @@ uint32_t RenderForwardMobile::get_pipeline_compilations(RS::PipelineSource p_sou
 	return scene_shader.get_pipeline_compilations(p_source);
 }
 
+void RenderForwardMobile::enable_features(BitField<FeatureBits> p_feature_bits) {
+	if (p_feature_bits.has_flag(FEATURE_MULTIVIEW_BIT)) {
+		scene_shader.enable_multiview_shader_group();
+	}
+
+	if (p_feature_bits.has_flag(FEATURE_VRS_BIT)) {
+		gi.enable_vrs_shader_group();
+	}
+}
+
+String RenderForwardMobile::get_name() const {
+	return "forward_mobile";
+}
+
 bool RenderForwardMobile::free(RID p_rid) {
 	if (RendererSceneRenderRD::free(p_rid)) {
 		return true;
@@ -2591,17 +2605,6 @@ void RenderForwardMobile::_geometry_instance_add_surface_with_material(GeometryI
 		flags |= GeometryInstanceSurfaceDataCache::FLAG_USES_PARTICLE_TRAILS;
 	}
 
-	if (p_material->shader_data->stencil_enabled) {
-		if (p_material->shader_data->stencil_flags & SceneShaderForwardMobile::ShaderData::STENCIL_FLAG_READ) {
-			// Stencil materials which read from the stencil buffer must be in the alpha pass.
-			// This is critical to preserve compatibility once we'll have the compositor.
-			if (!(flags & GeometryInstanceSurfaceDataCache::FLAG_PASS_ALPHA)) {
-				String shader_path = p_material->shader_data->path.is_empty() ? "" : "(" + p_material->shader_data->path + ")";
-				ERR_PRINT_ED(vformat("Attempting to use a shader %s that reads stencil but is not in the alpha queue. Ensure the material uses alpha blending or has depth_draw disabled or depth_test disabled.", shader_path));
-			}
-		}
-	}
-
 	SceneShaderForwardMobile::MaterialData *material_shadow = nullptr;
 	void *surface_shadow = nullptr;
 	if (p_material->shader_data->uses_shared_shadow_material()) {
@@ -3024,7 +3027,7 @@ void RenderForwardMobile::_mesh_compile_pipelines_for_surface(const SurfacePipel
 	pipeline_key.primitive_type = mesh_storage->mesh_surface_get_primitive(p_surface.mesh_surface);
 	pipeline_key.wireframe = false;
 
-	const bool multiview_enabled = p_global.use_multiview && scene_shader.is_multiview_enabled();
+	const bool multiview_enabled = p_global.use_multiview && scene_shader.is_multiview_shader_group_enabled();
 	const RD::DataFormat buffers_color_format = _render_buffers_get_color_format();
 	const bool buffers_can_be_storage = _render_buffers_can_be_storage();
 	const uint32_t vrs_iterations = p_global.use_vrs ? 2 : 1;

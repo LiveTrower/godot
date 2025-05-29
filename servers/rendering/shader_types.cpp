@@ -38,10 +38,6 @@ const Vector<ShaderLanguage::ModeInfo> &ShaderTypes::get_modes(RS::ShaderMode p_
 	return shader_modes[p_mode].modes;
 }
 
-const Vector<ShaderLanguage::ModeInfo> &ShaderTypes::get_stencil_modes(RS::ShaderMode p_mode) const {
-	return shader_modes[p_mode].stencil_modes;
-}
-
 const HashSet<String> &ShaderTypes::get_types() const {
 	return shader_types;
 }
@@ -235,7 +231,6 @@ ShaderTypes::ShaderTypes() {
 	{
 		shader_modes[RS::SHADER_SPATIAL].modes.push_back({ PNAME("blend"), "mix", "add", "sub", "mul", "premul_alpha" });
 		shader_modes[RS::SHADER_SPATIAL].modes.push_back({ PNAME("depth_draw"), "opaque", "always", "never" });
-		shader_modes[RS::SHADER_SPATIAL].modes.push_back({ PNAME("depth_function"), { "greater_or_equal", "less_or_equal", "less", "equal", "greater", "not_equal", "always", "never" } });
 		shader_modes[RS::SHADER_SPATIAL].modes.push_back({ PNAME("depth_prepass_alpha") });
 		shader_modes[RS::SHADER_SPATIAL].modes.push_back({ PNAME("depth_test_disabled") });
 		shader_modes[RS::SHADER_SPATIAL].modes.push_back({ PNAME("sss_mode_skin") });
@@ -257,10 +252,6 @@ ShaderTypes::ShaderTypes() {
 		shader_modes[RS::SHADER_SPATIAL].modes.push_back({ PNAME("debug_shadow_splits") });
 		shader_modes[RS::SHADER_SPATIAL].modes.push_back({ PNAME("fog_disabled") });
 		shader_modes[RS::SHADER_SPATIAL].modes.push_back({ PNAME("specular_occlusion_disabled") });
-		shader_modes[RS::SHADER_SPATIAL].stencil_modes.push_back({ PNAME("read") });
-		shader_modes[RS::SHADER_SPATIAL].stencil_modes.push_back({ PNAME("write") });
-		shader_modes[RS::SHADER_SPATIAL].stencil_modes.push_back({ PNAME("write_depth_fail") });
-		shader_modes[RS::SHADER_SPATIAL].stencil_modes.push_back({ PNAME("compare"), { "less", "equal", "less_or_equal", "greater", "not_equal", "greater_or_equal", "always" } });
 	}
 
 	/************ CANVAS ITEM **************************/

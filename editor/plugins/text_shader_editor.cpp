@@ -269,31 +269,17 @@ void ShaderTextEditor::_load_theme_settings() {
 				}
 			}
 
-			{
-				const Vector<ShaderLanguage::ModeInfo> &render_modes = ShaderTypes::get_singleton()->get_modes(RenderingServer::ShaderMode(i));
+			const Vector<ShaderLanguage::ModeInfo> &modes = ShaderTypes::get_singleton()->get_modes(RenderingServer::ShaderMode(i));
 
-				for (const ShaderLanguage::ModeInfo &mode_info : render_modes) {
-					if (!mode_info.options.is_empty()) {
-						for (const StringName &option : mode_info.options) {
-							built_ins.push_back(String(mode_info.name) + "_" + String(option));
-						}
-					} else {
-						built_ins.push_back(String(mode_info.name));
+			for (int j = 0; j < modes.size(); j++) {
+				const ShaderLanguage::ModeInfo &mode_info = modes[j];
+
+				if (!mode_info.options.is_empty()) {
+					for (int k = 0; k < mode_info.options.size(); k++) {
+						built_ins.push_back(String(mode_info.name) + "_" + String(mode_info.options[k]));
 					}
-				}
-			}
-
-			{
-				const Vector<ShaderLanguage::ModeInfo> &stencil_modes = ShaderTypes::get_singleton()->get_stencil_modes(RenderingServer::ShaderMode(i));
-
-				for (const ShaderLanguage::ModeInfo &mode_info : stencil_modes) {
-					if (!mode_info.options.is_empty()) {
-						for (const StringName &option : mode_info.options) {
-							built_ins.push_back(String(mode_info.name) + "_" + String(option));
-						}
-					} else {
-						built_ins.push_back(String(mode_info.name));
-					}
+				} else {
+					built_ins.push_back(String(mode_info.name));
 				}
 			}
 		}
@@ -304,31 +290,17 @@ void ShaderTextEditor::_load_theme_settings() {
 			}
 		}
 
-		{
-			const Vector<ShaderLanguage::ModeInfo> &shader_modes = ShaderTypes::get_singleton()->get_modes(RenderingServer::ShaderMode(shader->get_mode()));
+		const Vector<ShaderLanguage::ModeInfo> &modes = ShaderTypes::get_singleton()->get_modes(RenderingServer::ShaderMode(shader->get_mode()));
 
-			for (const ShaderLanguage::ModeInfo &mode_info : shader_modes) {
-				if (!mode_info.options.is_empty()) {
-					for (const StringName &option : mode_info.options) {
-						built_ins.push_back(String(mode_info.name) + "_" + String(option));
-					}
-				} else {
-					built_ins.push_back(String(mode_info.name));
+		for (int i = 0; i < modes.size(); i++) {
+			const ShaderLanguage::ModeInfo &mode_info = modes[i];
+
+			if (!mode_info.options.is_empty()) {
+				for (int j = 0; j < mode_info.options.size(); j++) {
+					built_ins.push_back(String(mode_info.name) + "_" + String(mode_info.options[j]));
 				}
-			}
-		}
-
-		{
-			const Vector<ShaderLanguage::ModeInfo> &stencil_modes = ShaderTypes::get_singleton()->get_stencil_modes(RenderingServer::ShaderMode(shader->get_mode()));
-
-			for (const ShaderLanguage::ModeInfo &mode_info : stencil_modes) {
-				if (!mode_info.options.is_empty()) {
-					for (const StringName &option : mode_info.options) {
-						built_ins.push_back(String(mode_info.name) + "_" + String(option));
-					}
-				} else {
-					built_ins.push_back(String(mode_info.name));
-				}
+			} else {
+				built_ins.push_back(String(mode_info.name));
 			}
 		}
 	}
@@ -465,7 +437,6 @@ void ShaderTextEditor::_code_complete_script(const String &p_code, List<ScriptLa
 	_check_shader_mode();
 	comp_info.functions = ShaderTypes::get_singleton()->get_functions(RenderingServer::ShaderMode(shader->get_mode()));
 	comp_info.render_modes = ShaderTypes::get_singleton()->get_modes(RenderingServer::ShaderMode(shader->get_mode()));
-	comp_info.stencil_modes = ShaderTypes::get_singleton()->get_stencil_modes(RenderingServer::ShaderMode(shader->get_mode()));
 	comp_info.shader_types = ShaderTypes::get_singleton()->get_types();
 
 	sl.complete(code, comp_info, r_options, calltip);
@@ -570,7 +541,6 @@ void ShaderTextEditor::_validate_script() {
 			Shader::Mode mode = shader->get_mode();
 			comp_info.functions = ShaderTypes::get_singleton()->get_functions(RenderingServer::ShaderMode(mode));
 			comp_info.render_modes = ShaderTypes::get_singleton()->get_modes(RenderingServer::ShaderMode(mode));
-			comp_info.stencil_modes = ShaderTypes::get_singleton()->get_stencil_modes(RenderingServer::ShaderMode(mode));
 			comp_info.shader_types = ShaderTypes::get_singleton()->get_types();
 		}
 

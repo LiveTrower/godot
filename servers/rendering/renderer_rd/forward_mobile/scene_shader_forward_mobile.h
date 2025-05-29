@@ -72,6 +72,11 @@ public:
 		}
 	}
 
+	enum ShaderGroup {
+		SHADER_GROUP_BASE, // Always compiled at the beginning.
+		SHADER_GROUP_MULTIVIEW,
+	};
+
 	struct ShaderSpecialization {
 		union {
 			uint32_t packed_0;
@@ -140,18 +145,6 @@ public:
 			DEPTH_DRAW_ALWAYS
 		};
 
-		enum DepthFunction {
-			DEPTH_FUNCTION_GREATER_OR_EQUAL,
-			DEPTH_FUNCTION_LESS_OR_EQUAL,
-			DEPTH_FUNCTION_LESS,
-			DEPTH_FUNCTION_EQUAL,
-			DEPTH_FUNCTION_GREATER,
-			DEPTH_FUNCTION_NOT_EQUAL,
-			DEPTH_FUNCTION_ALWAYS,
-			DEPTH_FUNCTION_NEVER,
-			DEPTH_FUNCTION_MAX
-		};
-
 		enum DepthTest {
 			DEPTH_TEST_DISABLED,
 			DEPTH_TEST_ENABLED
@@ -169,23 +162,6 @@ public:
 			ALPHA_ANTIALIASING_OFF,
 			ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE,
 			ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE
-		};
-
-		enum StencilFlags {
-			STENCIL_FLAG_READ = 1,
-			STENCIL_FLAG_WRITE = 2,
-			STENCIL_FLAG_WRITE_DEPTH_FAIL = 4,
-		};
-
-		enum StencilCompare {
-			STENCIL_COMPARE_LESS,
-			STENCIL_COMPARE_EQUAL,
-			STENCIL_COMPARE_LESS_OR_EQUAL,
-			STENCIL_COMPARE_GREATER,
-			STENCIL_COMPARE_NOT_EQUAL,
-			STENCIL_COMPARE_GREATER_OR_EQUAL,
-			STENCIL_COMPARE_ALWAYS,
-			STENCIL_COMPARE_MAX // Not an actual operator, just the amount of operators.
 		};
 
 		struct PipelineKey {
@@ -231,7 +207,6 @@ public:
 		String code;
 
 		DepthDraw depth_draw;
-		DepthFunction depth_function;
 		DepthTest depth_test;
 
 		int blend_mode = BLEND_MODE_MIX;
@@ -268,11 +243,6 @@ public:
 		bool writes_modelview_or_projection = false;
 		bool uses_world_coordinates = false;
 
-		bool stencil_enabled = false;
-		uint32_t stencil_flags = 0;
-		StencilCompare stencil_compare = STENCIL_COMPARE_LESS;
-		uint32_t stencil_reference = 0;
-
 		uint64_t last_pass = 0;
 		uint32_t index = 0;
 
@@ -300,6 +270,7 @@ public:
 		virtual bool is_animated() const;
 		virtual bool casts_shadows() const;
 		virtual RS::ShaderNativeSourceCode get_native_source_code() const;
+		virtual Pair<ShaderRD *, RID> get_native_shader_and_version() const;
 		RD::PolygonCullMode get_cull_mode_from_cull_variant(CullVariant p_cull_variant);
 		void _clear_vertex_input_mask_cache();
 		RID get_shader_variant(ShaderVersion p_shader_version, bool p_ubershader) const;
@@ -372,7 +343,8 @@ public:
 	void init(const String p_defines);
 	void set_default_specialization(const ShaderSpecialization &p_specialization);
 	uint32_t get_pipeline_compilations(RS::PipelineSource p_source);
-	bool is_multiview_enabled() const;
+	void enable_multiview_shader_group();
+	bool is_multiview_shader_group_enabled() const;
 };
 
 } // namespace RendererSceneRenderImplementation
