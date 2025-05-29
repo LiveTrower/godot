@@ -1559,7 +1559,7 @@ void main() {
 #else
 
 		float NdotV = clamp(dot(normal, view), 0.0001, 1.0);
-		vec2 env = BRDF_Aprox(roughness, ndotv);
+		vec2 env = BRDF_Aprox(roughness, NdotV);
 
 		indirect_specular_light *= env.x * f0 + env.y * clamp(50.0 * f0.g, metallic, 1.0);
 #endif

@@ -68,7 +68,8 @@ vec3 dual_specular(float avg_roughness, float dual_roughness0, float dual_roughn
 }
 
 vec3 sheen_lobe(float sheen_roughness, float sheen, vec3 sheen_color, float cNdotH, float cNdotV, float cNdotL, out float attenuation){
-	float D = D_Charlie(sheen_roughness, cNdotH);
+	float alpha_sheen = sheen_roughness * sheen_roughness;
+	float D = D_Charlie(alpha_sheen, cNdotH);
 	float V = V_Neubelt(cNdotV, cNdotL);
 	float dfg_sheen = prefiltered_dfg(sheen_roughness, cNdotV).z;
 	// Albedo scaling of the base layer before we layer sheen on top

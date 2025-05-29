@@ -53,18 +53,18 @@ float D_Charlie(float roughness, float NoH) {
     // Estevez and Kulla 2017, "Production Friendly Microfacet Sheen BRDF"
     float invAlpha  = 1.0 / roughness;
     float cos2h = NoH * NoH;
-    float sin2h = max(1.0 - cos2h, 0.0078125); // 2^(-14/2), so sin2h^2 > 0 in fp16
+    float sin2h = 1.0 - cos2h;
     return (2.0 + invAlpha) * pow(sin2h, invAlpha * 0.5) / (2.0 * M_PI);
 }
 
 float V_Neubelt(float NoV, float NoL) {
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-    return saturateMediump(1.0 / (4.0 * (NoL + NoV - NoL * NoV)));
+    return 1.0 / (4.0 * (NoL + NoV - NoL * NoV));
 }
 
 float V_Kelemen(float LoH) {
     // Kelemen 2001, "A Microfacet Based Coupled Specular-Matte BRDF Model with Importance Sampling"
-    return saturateMediump(0.25 / (LoH * LoH));
+    return 0.25 / (LoH * LoH);
 }
 
 float Diffuse_Lambert(float NoL) {

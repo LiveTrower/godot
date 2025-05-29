@@ -1589,8 +1589,8 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef NORMAL_USED
 	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
 		float cc_roughness2 = cc_roughness * cc_roughness;
-		cc_roughness2 = min(1.0, cc_roughness2 + kernelRoughness2);
-		cc_roughness = sqrt(cc_roughness2);
+		float filteredCCRoughness2 = min(1.0, cc_roughness2 + kernelRoughness2);
+		cc_roughness = sqrt(filteredCCRoughness2);
 	}
 #endif // NORMAL_USED
 
@@ -1601,8 +1601,8 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef NORMAL_USED
 	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
 		float sheen_roughness2 = sheen_roughness * sheen_roughness;
-		sheen_roughness2 = min(1.0, sheen_roughness2 + kernelRoughness2);
-		sheen_roughness = sqrt(sheen_roughness2);
+		float filteredSheenRoughness2 = min(1.0, sheen_roughness2 + kernelRoughness2);
+		sheen_roughness = sqrt(filteredSheenRoughness2);
 	}
 #endif
 
@@ -1612,11 +1612,11 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef NORMAL_USED
 	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
 		float dual_roughness2 = dual_roughness0 * dual_roughness0;
-		dual_roughness2 = min(1.0, dual_roughness2 + kernelRoughness2);
-		dual_roughness0 = sqrt(dual_roughness2);
+		float filteredDualRoughness2 = min(1.0, dual_roughness2 + kernelRoughness2);
+		dual_roughness0 = sqrt(filteredDualRoughness2);
 		dual_roughness2 = dual_roughness1 * dual_roughness1;
-		dual_roughness2 = min(1.0, dual_roughness2 + kernelRoughness2);
-		dual_roughness1 = sqrt(dual_roughness2);
+		filteredDualRoughness2 = min(1.0, dual_roughness2 + kernelRoughness2);
+		dual_roughness1 = sqrt(filteredDualRoughness2);
 	}
 #endif
 	dual_roughness0 = max(clamp(roughness * dual_roughness0, 0, 1), 0.02);
