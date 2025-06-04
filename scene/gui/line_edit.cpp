@@ -872,13 +872,13 @@ void LineEdit::gui_input(const Ref<InputEvent> &p_event) {
 	// Default is ENTER and KP_ENTER. Cannot use ui_accept as default includes SPACE.
 	if (k->is_action_pressed("ui_text_submit")) {
 		emit_signal(SceneStringName(text_submitted), text);
-		if (DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_VIRTUAL_KEYBOARD) && virtual_keyboard_enabled) {
-			DisplayServer::get_singleton()->virtual_keyboard_hide();
-		}
 
 		if (editing && !keep_editing_on_text_submit) {
 			unedit();
 			emit_signal(SNAME("editing_toggled"), false);
+			if (DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_VIRTUAL_KEYBOARD) && virtual_keyboard_enabled) {
+				DisplayServer::get_singleton()->virtual_keyboard_hide();
+			}
 		}
 
 		accept_event();
@@ -1636,6 +1636,14 @@ void LineEdit::_notification(int p_what) {
 			}
 			drag_action = false;
 			drag_caret_force_displayed = false;
+			queue_redraw();
+		} break;
+
+		case NOTIFICATION_MOUSE_EXIT: {
+			if (drag_caret_force_displayed) {
+				drag_caret_force_displayed = false;
+				queue_redraw();
+			}
 		} break;
 	}
 }
