@@ -1079,6 +1079,9 @@ void main() {
 	vec3 sheen_color_highp = vec3(0.0);
 	float clearcoat_highp = 0.0;
 	float clearcoat_roughness_highp = 0.0;
+	float dual_roughness0_highp = 0.0;
+	float dual_roughness1_highp = 0.0;
+	float dual_lobe_mix_highp = 0.0;
 	float anisotropy_highp = 0.0;
 	vec2 anisotropy_flow_highp = vec2(1.0, 0.0);
 #ifdef PREMUL_ALPHA_USED
@@ -1199,8 +1202,14 @@ void main() {
 	half roughness = half(roughness_highp);
 	half rim = half(rim_highp);
 	half rim_tint = half(rim_tint_highp);
+	half sheen = half(sheen_highp);
+	half sheen_roughness = half(sheen_roughness_highp);
+	hvec3 sheen_color = hvec3(sheen_color_highp);
 	half clearcoat = half(clearcoat_highp);
 	half clearcoat_roughness = half(clearcoat_roughness_highp);
+	half dual_roughness0 = half(dual_roughness0_highp);
+	half dual_roughness1 = half(dual_roughness1_highp);
+	half dual_lobe_mix = half(dual_lobe_mix_highp);
 	half anisotropy = half(anisotropy_highp);
 	hvec2 anisotropy_flow = hvec2(anisotropy_flow_highp);
 	half ao = half(ao_highp);
@@ -1472,16 +1481,47 @@ void main() {
 	/////////////////////// LIGHTING //////////////////////////////
 
 #ifdef NORMAL_USED
+	half kernelRoughness2 = half(0.0);
 	if (sc_scene_roughness_limiter_enabled()) {
 		//https://www.jp.square-enix.com/tech/library/pdf/ImprovedGeometricSpecularAA.pdf
 		half roughness2 = roughness * roughness;
 		hvec3 dndu = dFdx(normal), dndv = dFdy(normal);
 		half variance = half(scene_data.roughness_limiter_amount) * (dot(dndu, dndu) + dot(dndv, dndv));
-		half kernelRoughness2 = min(half(2.0) * variance, half(scene_data.roughness_limiter_limit));
+		kernelRoughness2 = min(half(2.0) * variance, half(scene_data.roughness_limiter_limit));
 		half filteredRoughness2 = min(half(1.0), roughness2 + kernelRoughness2);
 		roughness = sqrt(filteredRoughness2);
 	}
 #endif // NORMAL_USED
+
+#ifdef LIGHT_CLEARCOAT_USED
+	hvec3 cc_specular_light = hvec3(0.0);
+	half cc_roughness = clearcoat_roughness * half(0.1);
+#ifdef NORMAL_USED
+	if (sc_scene_roughness_limiter_enabled()) {
+		half cc_roughness2 = cc_roughness * cc_roughness;
+		half filteredCCRoughness2 = min(half(1.0), cc_roughness2 + kernelRoughness2);
+		cc_roughness = sqrt(filteredCCRoughness2);
+	}
+#endif // NORMAL_USED
+
+#endif // LIGHT_CLEARCOAT_USED
+
+#ifdef LIGHT_DUAL_SPECULAR_USED
+#ifdef NORMAL_USED
+	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
+		half dual_roughness2 = dual_roughness0 * dual_roughness0;
+		half filteredDualRoughness2 = min(half(1.0), dual_roughness2 + kernelRoughness2);
+		dual_roughness0 = sqrt(filteredDualRoughness2);
+		dual_roughness2 = dual_roughness1 * dual_roughness1;
+		filteredDualRoughness2 = min(half(1.0), dual_roughness2 + kernelRoughness2);
+		dual_roughness1 = sqrt(filteredDualRoughness2);
+	}
+#endif
+	dual_roughness0 = max(clamp(roughness * dual_roughness0, half(0), half(1)), half(0.02));
+	dual_roughness1 = clamp(roughness * dual_roughness1, half(0), half(1));
+	half avg_roughness = mix(dual_roughness0, dual_roughness1, dual_lobe_mix);
+	roughness = clamp(roughness * avg_roughness, half(0), half(1));
+#endif // LIGHT_DUAL_SPECULAR_USED
 	//apply energy conservation
 
 	hvec3 indirect_specular_light = hvec3(0.0);
@@ -1565,59 +1605,24 @@ void main() {
 	ambient_light = mix(ambient_light, custom_irradiance.rgb, custom_irradiance.a);
 #endif // CUSTOM_IRRADIANCE_USED
 
-#ifdef LIGHT_SHEEN_USED
-	if (scene_data.use_reflection_cubemap) {
-		vec3 ref_vec = reflect(-view, normal);
-		ref_vec = mix(ref_vec, normal, sheen_roughness * sheen_roughness);
-		ref_vec = scene_data.radiance_inverse_xform * ref_vec;
-		float ndotv = max(dot(normal, view), 1e-4);
-		// Albedo scaling of the base layer before we layer sheen on top
-		float sheen_scaling = 1.0 - max(sheen_color.x, max(sheen_color.y, sheen_color.z));
-		ambient_light *= sheen_scaling;
-		specular_light *= sheen_scaling;
-#ifdef USE_RADIANCE_CUBEMAP_ARRAY
-
-		float lod, blend;
-		blend = modf(sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD, lod);
-		vec3 sheen_light = texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ref_vec, lod)).rgb;
-		sheen_light = mix(sheen_light, texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ref_vec, lod + 1)).rgb, blend);
-
-#else
-		vec3 sheen_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_vec, sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD).rgb;
-
-#endif //USE_RADIANCE_CUBEMAP_ARRAY
-		specular_light += sheen_light * scene_data.ambient_light_color_energy.a;
-	}
-#endif
-
 #ifdef LIGHT_CLEARCOAT_USED
+	// Note: We want to use geometric normal for clearcoat reflections/BRDF, ie. we ignore the normal map.
+	hvec3 cc_ref_vec = reflect(-view, geo_normal);
+	cc_ref_vec = mix(cc_ref_vec, geo_normal, cc_roughness * cc_roughness);
 
-	if (sc_scene_use_reflection_cubemap()) {
-		half NoV = max(dot(geo_normal, view), half(0.0001));
-		hvec3 ref_vec = reflect(-view, geo_normal);
-		ref_vec = mix(ref_vec, geo_normal, clearcoat_roughness * clearcoat_roughness);
-		// The clear coat layer assumes an IOR of 1.5 (4% reflectance)
-		half Fc = clearcoat * (half(0.04) + half(0.96) * SchlickFresnel(NoV));
-		half attenuation = half(1.0) - Fc;
-		ambient_light *= attenuation;
-		indirect_specular_light *= attenuation;
+	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_REFLECTION_CUBEMAP)) {
+		hvec3 cc_radiance_ref_vec = scene_data.radiance_inverse_xform * cc_ref_vec;
 
-		half horizon = min(half(1.0) + dot(ref_vec, indirect_normal), half(1.0));
-		ref_vec = hvec3(scene_data.radiance_inverse_xform * vec3(ref_vec));
-		float roughness_lod = mix(0.001, 0.1, sqrt(float(clearcoat_roughness))) * MAX_ROUGHNESS_LOD;
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
+		half lod, blend;
+		blend = modf(sqrt(cc_roughness) * MAX_ROUGHNESS_LOD, lod);
+		hvec3 clearcoat_light = texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), hvec4(cc_radiance_ref_vec, lod)).rgb;
+		clearcoat_light = mix(clearcoat_light, texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), hvec4(cc_radiance_ref_vec, lod + half(1))).rgb, blend);
+#else // USE_RADIANCE_CUBEMAP_ARRAY
+		hvec3 clearcoat_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), cc_radiance_ref_vec, sqrt(cc_roughness) * MAX_ROUGHNESS_LOD).rgb;
+#endif // USE_RADIANCE_CUBEMAP_ARRAY
 
-		float lod;
-		half blend = half(modf(roughness_lod, lod));
-		hvec3 clearcoat_sample_a = hvec3(texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ref_vec, lod)).rgb);
-		hvec3 clearcoat_sample_b = hvec3(texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ref_vec, lod + 1)).rgb);
-		hvec3 clearcoat_light = mix(clearcoat_sample_a, clearcoat_sample_b, blend);
-
-#else
-		hvec3 clearcoat_light = hvec3(textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(ref_vec), roughness_lod).rgb);
-
-#endif //USE_RADIANCE_CUBEMAP_ARRAY
-		indirect_specular_light += clearcoat_light * horizon * horizon * Fc * half(scene_data.ambient_light_color_energy.a);
+		cc_specular_light += clearcoat_light * (scene_data.IBL_exposure_normalization * scene_data.ambient_light_color_energy.a);
 	}
 #endif // LIGHT_CLEARCOAT_USED
 #endif // !AMBIENT_LIGHT_DISABLED
@@ -1709,6 +1714,12 @@ void main() {
 	if (reflection_probe_count > 0) {
 		hvec4 reflection_accum = hvec4(0.0);
 		hvec4 ambient_accum = hvec4(0.0);
+#ifdef LIGHT_CLEARCOAT_USED
+		hvec3 cc_reflection_accum = hvec3(0.0);
+#endif
+#ifdef LIGHT_SHEEN_USED
+		hvec3 sh_reflection_accum = hvec3(0.0);
+#endif
 
 #ifdef LIGHT_ANISOTROPY_USED
 		// https://google.github.io/filament/Filament.html#lighting/imagebasedlights/anisotropy
@@ -1734,7 +1745,14 @@ void main() {
 				break;
 			}
 
-			reflection_process(reflection_index, vertex, ref_vec, normal, roughness, ambient_light, indirect_specular_light, ambient_accum, reflection_accum);
+			reflection_process(reflection_index, vertex, ref_vec, normal, roughness, ambient_light, indirect_specular_light,
+#ifdef LIGHT_CLEARCOAT_USED
+			cc_specular_light, cc_ref_vec, cc_roughness, cc_reflection_accum,
+#endif
+#ifdef LIGHT_SHEEN_USED
+			hvec3(1.0), hvec3(1.0), sheen_roughness, sh_reflection_accum,
+#endif
+			ambient_accum, reflection_accum);
 		}
 
 		if (ambient_accum.a < half(1.0)) {
@@ -1747,6 +1765,9 @@ void main() {
 
 		if (reflection_accum.a > half(0.0)) {
 			indirect_specular_light = reflection_accum.rgb;
+#ifdef LIGHT_CLEARCOAT_USED
+			cc_specular_light = cc_reflection_accum.rgb;
+#endif
 		}
 
 #if !defined(USE_LIGHTMAP)
@@ -1797,7 +1818,20 @@ void main() {
 		hvec2 env = BRDF_Aprox(roughness, NdotV);
 
 		indirect_specular_light *= env.x * f0 + env.y * clamp(half(50.0) * f0.g, metallic, half(1.0));
+
+#ifdef LIGHT_CLEARCOAT_USED
+		// The clearcoat layer assumes an IOR of 1.5 (4% reflectance).
+		// Attenuate underlying diffuse/specular by clearcoat fresnel (ONLY fresnel, hence we don't just invert the BRDF below).
+		half geo_ndotv = max(dot(geo_normal, view), half(0.0001));
+		half cc_attenuation = half(1.0) - clearcoat * SchlickFresnel(half(0.04), half(0.96), geo_ndotv);
+		ambient_light *= cc_attenuation;
+		indirect_specular_light *= cc_attenuation;
+
+		half cc_env = BRDF_Aprox_Nonmetal(cc_roughness, geo_ndotv);
+		indirect_specular_light += cc_specular_light * (cc_env * clearcoat);
 #endif
+
+#endif // DIFFUSE_TOON
 	}
 
 #endif // !AMBIENT_LIGHT_DISABLED
@@ -2036,12 +2070,17 @@ void main() {
 #ifdef LIGHT_RIM_USED
 					rim, rim_tint,
 #endif
+/* not supported here
 #ifdef LIGHT_SHEEN_USED
 					sheen, sheen_roughness, sheen_color,
 #endif
+*/
 #ifdef LIGHT_CLEARCOAT_USED
 					clearcoat, clearcoat_roughness, geo_normal,
 #endif // LIGHT_CLEARCOAT_USED
+#ifdef LIGHT_DUAL_SPECULAR_USED
+					avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix,
+#endif
 #ifdef LIGHT_ANISOTROPY_USED
 					binormal, tangent, anisotropy,
 #endif
@@ -2075,12 +2114,17 @@ void main() {
 				rim,
 				rim_tint,
 #endif
+/*
 #ifdef LIGHT_SHEEN_USED
-						sheen, sheen_roughness, sheen_color,
+				sheen, sheen_roughness, sheen_color,
 #endif
+*/
 #ifdef LIGHT_CLEARCOAT_USED
 				clearcoat, clearcoat_roughness, geo_normal,
 #endif // LIGHT_CLEARCOAT_USED
+#ifdef LIGHT_DUAL_SPECULAR_USED
+				avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix,
+#endif
 #ifdef LIGHT_ANISOTROPY_USED
 				binormal, tangent, anisotropy,
 #endif
@@ -2110,12 +2154,17 @@ void main() {
 				rim,
 				rim_tint,
 #endif
+/*
 #ifdef LIGHT_SHEEN_USED
 						sheen, sheen_roughness, sheen_color,
 #endif
+*/
 #ifdef LIGHT_CLEARCOAT_USED
 				clearcoat, clearcoat_roughness, geo_normal,
 #endif // LIGHT_CLEARCOAT_USED
+#ifdef LIGHT_DUAL_SPECULAR_USED
+				avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix,
+#endif
 #ifdef LIGHT_ANISOTROPY_USED
 				binormal, tangent, anisotropy,
 #endif

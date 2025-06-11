@@ -76,6 +76,7 @@ void SceneShaderForwardMobile::ShaderData::set_code(const String &p_code) {
 	uses_vertex = false;
 	uses_sss = false;
 	uses_transmittance = false;
+	uses_sheen = false;
 	uses_time = false;
 	writes_modelview_or_projection = false;
 	uses_world_coordinates = false;
@@ -121,6 +122,8 @@ void SceneShaderForwardMobile::ShaderData::set_code(const String &p_code) {
 
 	actions.usage_flag_pointers["SSS_STRENGTH"] = &uses_sss;
 	actions.usage_flag_pointers["SSS_TRANSMITTANCE_DEPTH"] = &uses_transmittance;
+
+	actions.usage_flag_pointers["SHEEN"] = &uses_sheen;
 
 	actions.usage_flag_pointers["DISCARD"] = &uses_discard;
 	actions.usage_flag_pointers["TIME"] = &uses_time;
@@ -178,6 +181,10 @@ void SceneShaderForwardMobile::ShaderData::set_code(const String &p_code) {
 
 	if (uses_transmittance) {
 		WARN_PRINT_ONCE_ED("Transmittance is only available when using the Forward+ renderer.");
+	}
+
+	if (uses_sheen) {
+		WARN_PRINT_ONCE_ED("Sheen is only available when using the Forward+ renderer.");
 	}
 #endif
 
@@ -595,6 +602,9 @@ void SceneShaderForwardMobile::init(const String p_defines) {
 		actions.renames["SHEEN_COLOR"] = "sheen_color_highp";
 		actions.renames["CLEARCOAT"] = "clearcoat_highp";
 		actions.renames["CLEARCOAT_ROUGHNESS"] = "clearcoat_roughness_highp";
+		actions.renames["DUAL_ROUGHNESS0"] = "dual_roughness0_highp";
+		actions.renames["DUAL_ROUGHNESS1"] = "dual_roughness1_highp";
+		actions.renames["DUAL_LOBE_MIX"] = "dual_lobe_mix_highp";
 		actions.renames["ANISOTROPY"] = "anisotropy_highp";
 		actions.renames["ANISOTROPY_FLOW"] = "anisotropy_flow_highp";
 		actions.renames["SSS_STRENGTH"] = "sss_strength_highp";
@@ -651,6 +661,9 @@ void SceneShaderForwardMobile::init(const String p_defines) {
 		actions.usage_defines["SHEEN_COLOR"] = "@SHEEN";
 		actions.usage_defines["CLEARCOAT"] = "#define LIGHT_CLEARCOAT_USED\n";
 		actions.usage_defines["CLEARCOAT_ROUGHNESS"] = "@CLEARCOAT";
+		actions.usage_defines["DUAL_ROUGHNESS0"] = "#define LIGHT_DUAL_SPECULAR_USED\n";
+		actions.usage_defines["DUAL_ROUGHNESS1"] = "@DUAL_ROUGHNESS0";
+		actions.usage_defines["DUAL_LOBE_MIX"] = "@DUAL_ROUGHNESS0";
 		actions.usage_defines["ANISOTROPY"] = "#define LIGHT_ANISOTROPY_USED\n";
 		actions.usage_defines["ANISOTROPY_FLOW"] = "@ANISOTROPY";
 		actions.usage_defines["AO"] = "#define AO_USED\n";

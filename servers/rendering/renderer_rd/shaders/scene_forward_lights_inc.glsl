@@ -15,7 +15,7 @@
 
 hvec3 anisotropic_lobe(half roughness, half metallic, hvec3 f0, half anisotropy, hvec3 T, hvec3 B, hvec3 H, hvec3 V, hvec3 L, half cNdotH, half cNdotL, half cNdotV, half cLdotH, hvec3 energy_compensation) {
 	half alpha_ggx = roughness * roughness;
-	half aspect = sqrt_IEEE_int_approximation(half(1.0) - anisotropy * half(0.9));
+	half aspect = sqrt(half(1.0) - anisotropy * half(0.9));
 	half ax = alpha_ggx / aspect;
 	half ay = alpha_ggx * aspect;
 	if (anisotropy < half(0.0)) {
@@ -42,7 +42,7 @@ hvec3 anisotropic_lobe(half roughness, half metallic, hvec3 f0, half anisotropy,
 hvec3 isotropic_lobe(half roughness, half metallic, hvec3 f0, half cNdotH, half cNdotL, half cNdotV, half cLdotH, hvec3 normal, hvec3 H, hvec3 energy_compensation){
 	half alpha_ggx = roughness * roughness;
 
-	half D = D_GGX(cNdotH, alpha_ggx);
+	half D = D_GGX(cNdotH, alpha_ggx, normal, H);
 	half G = V_GGX(cNdotL, cNdotV, alpha_ggx);
 
 	// Calculate Fresnel using specular occlusion term from Filament:
@@ -57,7 +57,7 @@ hvec3 dual_specular(half avg_roughness, half dual_roughness0, half dual_roughnes
 	half roughness0 = dual_roughness0 * dual_roughness0;
 	half roughness1 = dual_roughness1 * dual_roughness1;
 
-	half D = mix(D_GGX(cNdotH, roughness0), D_GGX(cNdotH, roughness1), dual_lobe_mix);
+	half D = mix(D_GGX(cNdotH, roughness0, normal, H), D_GGX(cNdotH, roughness1, normal, H), dual_lobe_mix);
 	half G = V_GGX(cNdotL, cNdotV, avg_roughness);
 
 	// Calculate Fresnel using specular occlusion term from Filament:
@@ -217,9 +217,9 @@ void light_compute(hvec3 N, hvec3 L, hvec3 V, half A, hvec3 light_color, bool is
 			hvec3 specular_brdf_NL = anisotropic_lobe(roughness, metallic, f0, anisotropy, T, B, H, V, L, cNdotH, cNdotL, cNdotV, cLdotH, energy_compensation);
 #else
 #if !defined(LIGHT_DUAL_SPECULAR_USED)
-			hvec3 specular_brdf_NL = isotropic_lobe(roughness, metallic, f0, cNdotH, cNdotL, cNdotV, cLdotH, energy_compensation);
+			hvec3 specular_brdf_NL = isotropic_lobe(roughness, metallic, f0, cNdotH, cNdotL, cNdotV, cLdotH, N, H, energy_compensation);
 #else
-			hvec3 specular_brdf_NL = dual_specular(avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix, metallic, f0, cNdotH, cNdotL, cNdotV, cLdotH, energy_compensation);
+			hvec3 specular_brdf_NL = dual_specular(avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix, metallic, f0, cNdotH, cNdotL, cNdotV, cLdotH, N, H, energy_compensation);
 #endif // LIGHT_DUAL_SPECULAR_USED
 #endif // LIGHT_ANISOTROPY_USED
 
@@ -352,7 +352,7 @@ half sample_omni_pcf_shadow(texture2D shadow, float blur_scale, vec2 coord, vec4
 		bool do_flip = sample_coord_length_squared > 1.0;
 
 		if (do_flip) {
-			float len = sqrt_IEEE_int_approximation(sample_coord_length_squared);
+			float len = sqrt(sample_coord_length_squared);
 			sample_coord = sample_coord * (2.0 / len - 1.0);
 		}
 

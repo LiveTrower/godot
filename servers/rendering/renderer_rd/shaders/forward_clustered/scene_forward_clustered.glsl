@@ -1569,12 +1569,6 @@ void fragment_shader(in SceneData scene_data) {
 	}
 #endif
 
-	vec3 direct_specular_light = vec3(0.0, 0.0, 0.0);
-	vec3 indirect_specular_light = vec3(0.0, 0.0, 0.0);
-	vec3 diffuse_light = vec3(0.0, 0.0, 0.0);
-	vec3 ambient_light = vec3(0.0, 0.0, 0.0);
-#ifndef MODE_UNSHADED
-
 #ifdef LIGHT_CLEARCOAT_USED
 	vec3 cc_specular_light = vec3(0.0);
 	float cc_roughness = clearcoat_roughness * 0.1;
@@ -1616,7 +1610,13 @@ void fragment_shader(in SceneData scene_data) {
 	float avg_roughness = mix(dual_roughness0, dual_roughness1, dual_lobe_mix);
 	roughness = clamp(roughness * avg_roughness, 0, 1);
 #endif // LIGHT_DUAL_SPECULAR_USED
+	//apply energy conservation
 
+	vec3 direct_specular_light = vec3(0.0, 0.0, 0.0);
+	vec3 indirect_specular_light = vec3(0.0, 0.0, 0.0);
+	vec3 diffuse_light = vec3(0.0, 0.0, 0.0);
+	vec3 ambient_light = vec3(0.0, 0.0, 0.0);
+#ifndef MODE_UNSHADED
 	// Used in regular draw pass and when drawing SDFs for SDFGI and materials for VoxelGI.
 	emission *= scene_data.emissive_exposure_normalization;
 #endif

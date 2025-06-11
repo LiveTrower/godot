@@ -15,16 +15,8 @@ half D_GGX(half NoH, half roughness, hvec3 n, hvec3 h) {
 }
 
 half V_GGX(half NdotL, half NdotV, half alpha) {
-#ifdef EXPLICIT_FP16
 	half v = half(0.5) / mix(half(2.0) * NdotL * NdotV, NdotL + NdotV, alpha);
 	return saturateHalf(v);
-#else
-	// From "Course Notes: Moving Frostbite to PBR", page 12: https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/course-notes-moving-frostbite-to-pbr-v32.pdf
-	float Lambda_GGXV = NdotL * sqrt_IEEE_int_approximation((-NdotV * alpha + NdotV) * NdotV + alpha);
-	float Lambda_GGXL = NdotV * sqrt_IEEE_int_approximation((-NdotL * alpha + NdotL) * NdotL + alpha);
-
-	return 0.5 / (Lambda_GGXV + Lambda_GGXL);
-#endif
 }
 
 half D_GGX_anisotropic(half cos_theta_m, half alpha_x, half alpha_y, half cos_phi, half sin_phi) {
@@ -35,23 +27,14 @@ half D_GGX_anisotropic(half cos_theta_m, half alpha_x, half alpha_y, half cos_ph
 	return alpha2 * w2 * w2 * half(1.0 / M_PI);
 }
 
-// From "Course Notes: Moving Frostbite to PBR", page 12: https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/course-notes-moving-frostbite-to-pbr-v32.pdf
-// This is a modified version to take anisotropy into account
 half V_GGX_anisotropic(half alpha_x, half alpha_y, half TdotV, half TdotL, half BdotV, half BdotL, half NdotV, half NdotL) {
-#ifdef EXPLICIT_FP16
 	half Lambda_V = NdotL * length(hvec3(alpha_x * TdotV, alpha_y * BdotV, NdotV));
 	half Lambda_L = NdotV * length(hvec3(alpha_x * TdotL, alpha_y * BdotL, NdotL));
 	half v = half(0.5) / (Lambda_V + Lambda_L);
 	return saturateHalf(v);
-#else
-	float Lambda_GGXV = NdotL * sqrt_IEEE_int_approximation((-NdotV * (alpha_x * TdotV * TdotV + alpha_y * BdotV * BdotV) + NdotV) * NdotV + alpha_x * TdotV * TdotV + alpha_y * BdotV * BdotV);
-	float Lambda_GGXL = NdotV * sqrt_IEEE_int_approximation((-NdotL * (alpha_x * TdotL * TdotL + alpha_y * BdotL * BdotL) + NdotL) * NdotL + alpha_x * TdotL * TdotL + alpha_y * BdotL * BdotL);
-
-	return 0.5 / (Lambda_GGXV + Lambda_GGXL);
-#endif
 }
 
-hvec3 SchlickFresnel(half f0, half f90, half u) {
+hvec3 SchlickFresnel(hvec3 f0, half f90, half u) {
 	return f0 + (f90 - f0) * pow5(1.0 - u);
 }
 
@@ -66,17 +49,17 @@ hvec3 F0(half metallic, half specular, hvec3 albedo) {
 	return mix(hvec3(dielectric), albedo, hvec3(metallic));
 }
 
-half D_Charlie(half roughness, half NoH) {
+float D_Charlie(float roughness, float NoH) {
     // Estevez and Kulla 2017, "Production Friendly Microfacet Sheen BRDF"
-    half invAlpha  = 1.0 / roughness;
-    half cos2h = NoH * NoH;
-    half sin2h = max(half(1.0) - cos2h, 0.0078125); // 2^(-14/2), so sin2h^2 > 0 in fp16
-    return (half(2.0) + invAlpha) * pow(sin2h, invAlpha * half(0.5)) / half(2.0 * M_PI);
+    float invAlpha  = 1.0 / roughness;
+    float cos2h = NoH * NoH;
+    float sin2h = 1.0 - cos2h;
+    return (2.0 + invAlpha) * pow(sin2h, invAlpha * 0.5) / (2.0 * M_PI);
 }
 
-half V_Neubelt(half NoV, half NoL) {
+float V_Neubelt(float NoV, float NoL) {
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-    return saturateHalf(half(1.0) / (half(4.0) * (NoL + NoV - NoL * NoV)));
+    return 1.0 / (4.0 * (NoL + NoV - NoL * NoV));
 }
 
 half V_Kelemen(half LoH) {
@@ -92,14 +75,14 @@ half Diffuse_Lambert(half NoL) {
 // https://web.archive.org/web/20210228210901/http://blog.stevemcauley.com/2011/12/03/energy-conserving-wrapped-diffuse/
 half Diffuse_Lambert_Wrap(half NoL, half roughness){
 	half op_roughness = half(1.0) + roughness;
-	return max(half(0.0), (NdotL + roughness) / (op_roughness * op_roughness)) * half(1.0 / M_PI);
+	return max(half(0.0), (NoL + roughness) / (op_roughness * op_roughness)) * half(1.0 / M_PI);
 }
 
 half Diffuse_Burley(half LoH, half NoV, half NoL, half roughness){
-	half FD90_minus_1 = half(2.0) * cLdotH * cLdotH * roughness - half(0.5);
+	half FD90_minus_1 = half(2.0) * LoH * LoH * roughness - half(0.5);
 	half FdV = half(1.0) + FD90_minus_1 * pow5(NoV);
 	half FdL = half(1.0) + FD90_minus_1 * pow5(NoL);
-	return half(1.0 / M_PI) * FdV * FdL * cNdotL;
+	return half(1.0 / M_PI) * FdV * FdL * NoL;
 }
 
 // Normalized Disney diffuse function taken from Frostbite's PBR course notes (page 10):
@@ -117,7 +100,7 @@ half Normalized_Diffuse_Burley(half roughness, half NoV, half NoL, half LoH)
 }
 
 half Diffuse_Toon(half NoL, half roughness){
-	return smoothstep(-roughness, max(roughness, half(0.01)), NdotL) * half(1.0 / M_PI);
+	return smoothstep(-roughness, max(roughness, half(0.01)), NoL) * half(1.0 / M_PI);
 }
 
 // [ Chan 2018, "Material Advances in Call of Duty: WWII" ]
@@ -133,7 +116,7 @@ half Diffuse_Chan(half roughness, half NoV, half NoL, half LoH, half NoH)
 	half FdL = half(1 - 0.75) * pow5( half(1) - NoL );
 
 	// Rough (F0) to smooth (FdV * FdL) response interpolation
-	half Fd = mix( F0, FdV * FdL, saturateHalf( half(2.2) * g - half(0.5) ) );
+	half Fd = mix( F0, FdV * FdL, saturate( half(2.2) * g - half(0.5) ) );
 
 	// Retro reflectivity contribution.
 	half Fb = ( half(34.5 * g - 59) * g + half(24.5) ) * LoH * exp2( -max( half(73.2) * g - half(21.2), half(8.9) ) * sqrt( NoH ) );

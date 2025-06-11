@@ -1,11 +1,4 @@
-/* [Drobot2014a] Low Level Optimizations for GCN. */
-float sqrt_IEEE_int_approximation(float v) {
-	return intBitsToFloat(0x1fbd1df5 + (floatBitsToInt(v) >> 1));
-}
-
-vec2 sqrt_IEEE_int_approximation(vec2 v) {
-	return intBitsToFloat(0x1fbd1df5 + (floatBitsToInt(v) >> 1));
-}
+#define saturate(x) clamp(x, half(0.0), half(1.0))
 
 half pow5(half x) {
     half x2 = x * x;
