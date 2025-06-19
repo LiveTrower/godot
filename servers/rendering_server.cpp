@@ -2560,6 +2560,7 @@ void RenderingServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(LIGHT_PARAM_SHADOW_BLUR);
 	BIND_ENUM_CONSTANT(LIGHT_PARAM_TRANSMITTANCE_BIAS);
 	BIND_ENUM_CONSTANT(LIGHT_PARAM_INTENSITY);
+	BIND_ENUM_CONSTANT(LIGHT_PARAM_CONTACT_SHADOW_LENGTH);
 	BIND_ENUM_CONSTANT(LIGHT_PARAM_MAX);
 
 	BIND_ENUM_CONSTANT(LIGHT_BAKE_DISABLED);
@@ -2976,6 +2977,7 @@ void RenderingServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(VIEWPORT_DEBUG_DRAW_OCCLUDERS);
 	BIND_ENUM_CONSTANT(VIEWPORT_DEBUG_DRAW_MOTION_VECTORS);
 	BIND_ENUM_CONSTANT(VIEWPORT_DEBUG_DRAW_INTERNAL_BUFFER);
+	BIND_ENUM_CONSTANT(VIEWPORT_DEBUG_DRAW_SSS);
 
 	BIND_ENUM_CONSTANT(VIEWPORT_VRS_DISABLED);
 	BIND_ENUM_CONSTANT(VIEWPORT_VRS_TEXTURE);
@@ -3063,6 +3065,9 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("screen_space_roughness_limiter_set_active", "enable", "amount", "limit"), &RenderingServer::screen_space_roughness_limiter_set_active);
 	ClassDB::bind_method(D_METHOD("sub_surface_scattering_set_quality", "quality"), &RenderingServer::sub_surface_scattering_set_quality);
 	ClassDB::bind_method(D_METHOD("sub_surface_scattering_set_scale", "scale", "depth_scale"), &RenderingServer::sub_surface_scattering_set_scale);
+
+	ClassDB::bind_method(D_METHOD("ss_shadows_set_quality", "quality"), &RenderingServer::ss_shadows_set_quality);
+	ClassDB::bind_method(D_METHOD("ss_shadows_set_thickness", "thickness"), &RenderingServer::ss_shadows_set_thickness);
 
 	BIND_ENUM_CONSTANT(ENV_BG_CLEAR_COLOR);
 	BIND_ENUM_CONSTANT(ENV_BG_COLOR);
@@ -3628,6 +3633,9 @@ void RenderingServer::init() {
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/lights_and_shadows/positional_shadow/soft_shadow_filter_quality", PROPERTY_HINT_ENUM, "Hard (Fastest),Soft Very Low (Faster),Soft Low (Fast),Soft Medium (Average),Soft High (Slow),Soft Ultra (Slowest)"), 2);
 	GLOBAL_DEF("rendering/lights_and_shadows/positional_shadow/soft_shadow_filter_quality.mobile", 0);
 	GLOBAL_DEF("rendering/lights_and_shadows/positional_shadow/atlas_16_bits", true);
+
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/lights_and_shadows/contact_shadows/ss_shadows_quality", PROPERTY_HINT_ENUM, "Disabled (Fastest),Low (Fast),Medium (Average),High (Slow)"), 1);
+	GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "rendering/lights_and_shadows/contact_shadows/thickness", PROPERTY_HINT_RANGE, "0.001,0.05,0.001"), 0.01);
 
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/2d/shadow_atlas/size", PROPERTY_HINT_RANGE, "128,16384"), 2048);
 	GLOBAL_DEF_RST(PropertyInfo(Variant::INT, "rendering/2d/batching/item_buffer_size", PROPERTY_HINT_RANGE, "128,1048576,1"), 16384);

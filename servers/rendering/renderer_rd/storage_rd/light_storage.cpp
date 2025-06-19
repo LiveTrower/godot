@@ -139,6 +139,7 @@ void LightStorage::_light_initialize(RID p_light, RS::LightType p_type) {
 	light.param[RS::LIGHT_PARAM_SHADOW_OPACITY] = 1.0;
 	light.param[RS::LIGHT_PARAM_SHADOW_BLUR] = 0;
 	light.param[RS::LIGHT_PARAM_SHADOW_PANCAKE_SIZE] = 20.0;
+	light.param[RS::LIGHT_PARAM_CONTACT_SHADOW_LENGTH] = 0.05;
 	light.param[RS::LIGHT_PARAM_TRANSMITTANCE_BIAS] = 0.05;
 	light.param[RS::LIGHT_PARAM_INTENSITY] = p_type == RS::LIGHT_DIRECTIONAL ? 100000.0 : 1000.0;
 
@@ -203,6 +204,7 @@ void LightStorage::light_set_param(RID p_light, RS::LightParam p_param, float p_
 		case RS::LIGHT_PARAM_SHADOW_SPLIT_3_OFFSET:
 		case RS::LIGHT_PARAM_SHADOW_NORMAL_BIAS:
 		case RS::LIGHT_PARAM_SHADOW_PANCAKE_SIZE:
+		case RS::LIGHT_PARAM_CONTACT_SHADOW_LENGTH:
 		case RS::LIGHT_PARAM_SHADOW_BIAS: {
 			light->version++;
 			light->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_LIGHT);
@@ -721,6 +723,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 						light_data.shadow_z_range[j] = light_instance->shadow_transform[j].farplane;
 						light_data.shadow_range_begin[j] = light_instance->shadow_transform[j].range_begin;
 						RendererRD::MaterialStorage::store_camera(shadow_mtx, light_data.shadow_matrices[j]);
+						light_data.contact_shadow_length[j] = light->param[RS::LIGHT_PARAM_CONTACT_SHADOW_LENGTH];
 
 						Vector2 uv_scale = light_instance->shadow_transform[j].uv_scale;
 						uv_scale *= atlas_rect.size; //adapt to atlas size
@@ -967,6 +970,8 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 			} else { //omni
 				light_data.shadow_bias = light->param[RS::LIGHT_PARAM_SHADOW_BIAS];
 			}
+
+			light_data.contact_shadow_length = light->param[RS::LIGHT_PARAM_CONTACT_SHADOW_LENGTH];
 
 			light_data.transmittance_bias = light->param[RS::LIGHT_PARAM_TRANSMITTANCE_BIAS];
 

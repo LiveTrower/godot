@@ -4038,6 +4038,12 @@ void RasterizerSceneGLES3::sub_surface_scattering_set_quality(RS::SubSurfaceScat
 void RasterizerSceneGLES3::sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) {
 }
 
+void RasterizerSceneGLES3::ss_shadows_set_quality(RS::SSShadowsQuality p_quality) {
+}
+
+void RasterizerSceneGLES3::ss_shadows_set_thickness(float p_thickness) {
+}
+
 TypedArray<Image> RasterizerSceneGLES3::bake_render_uv2(RID p_base, const TypedArray<RID> &p_material_overrides, const Size2i &p_image_size) {
 	GLES3::Config *config = GLES3::Config::get_singleton();
 	ERR_FAIL_COND_V_MSG(p_image_size.width <= 0, TypedArray<Image>(), "Image width must be greater than 0.");

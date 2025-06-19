@@ -557,6 +557,7 @@ public:
 		LIGHT_PARAM_SHADOW_BLUR,
 		LIGHT_PARAM_TRANSMITTANCE_BIAS,
 		LIGHT_PARAM_INTENSITY,
+		LIGHT_PARAM_CONTACT_SHADOW_LENGTH,
 		LIGHT_PARAM_MAX
 	};
 
@@ -1146,6 +1147,7 @@ public:
 		VIEWPORT_DEBUG_DRAW_OCCLUDERS,
 		VIEWPORT_DEBUG_DRAW_MOTION_VECTORS,
 		VIEWPORT_DEBUG_DRAW_INTERNAL_BUFFER,
+		VIEWPORT_DEBUG_DRAW_SSS,
 	};
 
 	virtual void viewport_set_debug_draw(RID p_viewport, ViewportDebugDraw p_draw) = 0;
@@ -1384,6 +1386,16 @@ public:
 
 	virtual void sub_surface_scattering_set_quality(SubSurfaceScatteringQuality p_quality) = 0;
 	virtual void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) = 0;
+
+	enum SSShadowsQuality {
+		SS_SHADOWS_QUALITY_DISABLED,
+		SS_SHADOWS_QUALITY_LOW,
+		SS_SHADOWS_QUALITY_MEDIUM,
+		SS_SHADOWS_QUALITY_HIGH,
+	};
+
+	virtual void ss_shadows_set_quality(SSShadowsQuality p_quality) = 0;
+	virtual void ss_shadows_set_thickness(float p_thickness) = 0;
 
 	/* CAMERA EFFECTS */
 
@@ -1973,6 +1985,7 @@ VARIANT_ENUM_CAST(RenderingServer::EnvironmentSDFGIRayCount);
 VARIANT_ENUM_CAST(RenderingServer::EnvironmentSDFGIFramesToUpdateLight);
 VARIANT_ENUM_CAST(RenderingServer::EnvironmentSDFGIYScale);
 VARIANT_ENUM_CAST(RenderingServer::SubSurfaceScatteringQuality);
+VARIANT_ENUM_CAST(RenderingServer::SSShadowsQuality);
 VARIANT_ENUM_CAST(RenderingServer::DOFBlurQuality);
 VARIANT_ENUM_CAST(RenderingServer::DOFBokehShape);
 VARIANT_ENUM_CAST(RenderingServer::ShadowQuality);

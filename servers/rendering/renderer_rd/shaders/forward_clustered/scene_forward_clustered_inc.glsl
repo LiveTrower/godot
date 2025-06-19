@@ -431,8 +431,10 @@ layout(set = 1, binding = 33) uniform texture3D volumetric_fog_texture;
 
 #ifdef USE_MULTIVIEW
 layout(set = 1, binding = 34) uniform texture2DArray ssil_buffer;
+layout(set = 1, binding = 35) uniform texture2DArray ss_shadows_buffer;
 #else
 layout(set = 1, binding = 34) uniform texture2D ssil_buffer;
+layout(set = 1, binding = 35) uniform texture2D ss_shadows_buffer;
 #endif // USE_MULTIVIEW
 
 #endif

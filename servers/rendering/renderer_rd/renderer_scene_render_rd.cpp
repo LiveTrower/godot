@@ -882,6 +882,7 @@ bool RendererSceneRenderRD::_debug_draw_can_use_effects(RS::ViewportDebugDraw p_
 		case RS::VIEWPORT_DEBUG_DRAW_SDFGI:
 		case RS::VIEWPORT_DEBUG_DRAW_GI_BUFFER:
 		case RS::VIEWPORT_DEBUG_DRAW_OCCLUDERS:
+		case RS::VIEWPORT_DEBUG_DRAW_SSS:
 			can_use_effects = true;
 			break;
 		// Other debug draw modes keep camera effects.

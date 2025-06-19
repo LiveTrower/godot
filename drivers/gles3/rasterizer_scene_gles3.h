@@ -930,6 +930,9 @@ public:
 	void sub_surface_scattering_set_quality(RS::SubSurfaceScatteringQuality p_quality) override;
 	void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) override;
 
+	void ss_shadows_set_quality(RS::SSShadowsQuality p_quality) override;
+	void ss_shadows_set_thickness(float p_thickness) override;
+
 	TypedArray<Image> bake_render_uv2(RID p_base, const TypedArray<RID> &p_material_overrides, const Size2i &p_image_size) override;
 	void _render_uv2(const PagedArray<RenderGeometryInstance *> &p_instances, GLuint p_framebuffer, const Rect2i &p_region);
 

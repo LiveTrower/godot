@@ -156,6 +156,7 @@ private:
 		float transmittance_bias;
 		float soft_shadow_size;
 		float soft_shadow_scale;
+		float contact_shadow_length;
 		uint32_t mask;
 		float volumetric_fog_energy;
 		uint32_t bake_mode;
@@ -205,6 +206,7 @@ private:
 		float shadow_z_range[4];
 		float shadow_range_begin[4];
 		float shadow_split_offsets[4];
+		float contact_shadow_length[4];
 		float shadow_matrices[4][16];
 		float uv_scale1[2];
 		float uv_scale2[2];

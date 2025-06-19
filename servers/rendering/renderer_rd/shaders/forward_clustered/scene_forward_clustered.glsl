@@ -2181,6 +2181,8 @@ void fragment_shader(in SceneData scene_data) {
 	direct_specular_light += specular_light_interp.rgb * f0;
 #endif
 
+	float contact_shadows = textureLod(sampler2D(ss_shadows_buffer, SAMPLER_LINEAR_CLAMP), screen_uv, 0.0).r;
+
 	{ // Directional light.
 
 		// Do shadow and lighting in two passes to reduce register pressure.
@@ -2552,6 +2554,9 @@ void fragment_shader(in SceneData scene_data) {
 			shadow = 1.0;
 #endif // DEBUG_DRAW_PSSM_SPLITS
 
+			// Apply screen space shadows.
+			shadow = min(shadow, contact_shadows);
+
 			float size_A = sc_use_directional_soft_shadows() ? directional_lights.data[i].size : 0.0;
 
 			light_compute(normal, directional_lights.data[i].direction, normalize(view), size_A,
@@ -2629,7 +2634,7 @@ void fragment_shader(in SceneData scene_data) {
 					continue; // Statically baked light and object uses lightmap, skip
 				}
 
-				light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation,
+				light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation, contact_shadows,
 #ifdef LIGHT_BACKLIGHT_USED
 						backlight,
 #endif

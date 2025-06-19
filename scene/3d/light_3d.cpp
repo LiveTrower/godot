@@ -406,6 +406,7 @@ void Light3D::_bind_methods() {
 	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "shadow_transmittance_bias", PROPERTY_HINT_RANGE, "-16,16,0.001"), "set_param", "get_param", PARAM_TRANSMITTANCE_BIAS);
 	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "shadow_opacity", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_param", "get_param", PARAM_SHADOW_OPACITY);
 	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "shadow_blur", PROPERTY_HINT_RANGE, "0,10,0.001"), "set_param", "get_param", PARAM_SHADOW_BLUR);
+	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "shadow_length", PROPERTY_HINT_RANGE, "0.01,0.05,0.001"), "set_param", "get_param", PARAM_CONTACT_SHADOW_LENGTH);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "shadow_caster_mask", PROPERTY_HINT_LAYERS_3D_RENDER), "set_shadow_caster_mask", "get_shadow_caster_mask");
 
 	ADD_GROUP("Distance Fade", "distance_fade_");
@@ -440,6 +441,7 @@ void Light3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(PARAM_SHADOW_BLUR);
 	BIND_ENUM_CONSTANT(PARAM_TRANSMITTANCE_BIAS);
 	BIND_ENUM_CONSTANT(PARAM_INTENSITY);
+	BIND_ENUM_CONSTANT(PARAM_CONTACT_SHADOW_LENGTH);
 	BIND_ENUM_CONSTANT(PARAM_MAX);
 
 	BIND_ENUM_CONSTANT(BAKE_DISABLED);
@@ -491,6 +493,7 @@ Light3D::Light3D(RenderingServer::LightType p_type) {
 	set_param(PARAM_SHADOW_NORMAL_BIAS, 1.0);
 	set_param(PARAM_TRANSMITTANCE_BIAS, 0.05);
 	set_param(PARAM_SHADOW_FADE_START, 1);
+	set_param(PARAM_CONTACT_SHADOW_LENGTH, 0.05);
 	// For OmniLight3D and SpotLight3D, specified in Lumens.
 	set_param(PARAM_INTENSITY, 1000.0);
 	set_temperature(6500.0); // Nearly white.
@@ -602,6 +605,7 @@ DirectionalLight3D::DirectionalLight3D() :
 	set_param(PARAM_SHADOW_FADE_START, 0.8);
 	// Increase the default shadow normal bias to better suit most scenes.
 	set_param(PARAM_SHADOW_NORMAL_BIAS, 2.0);
+	set_param(PARAM_CONTACT_SHADOW_LENGTH, 0.05);
 	set_param(PARAM_INTENSITY, 100000.0); // Specified in Lux, approximate mid-day sun.
 	set_param(PARAM_SPECULAR, 1.0);
 	set_shadow_mode(SHADOW_PARALLEL_4_SPLITS);

@@ -1374,6 +1374,9 @@ public:
 	PASS1(sub_surface_scattering_set_quality, RS::SubSurfaceScatteringQuality)
 	PASS2(sub_surface_scattering_set_scale, float, float)
 
+	PASS1(ss_shadows_set_quality, RS::SSShadowsQuality)
+	PASS1(ss_shadows_set_thickness, float)
+
 	PASS1(positional_soft_shadow_filter_set_quality, RS::ShadowQuality)
 	PASS1(directional_soft_shadow_filter_set_quality, RS::ShadowQuality)
 

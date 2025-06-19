@@ -43,12 +43,14 @@
 #include "servers/rendering/renderer_rd/shaders/effects/ssil_importance_map.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssil_interleave.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/subsurface_scattering.glsl.gen.h"
+#include "servers/rendering/renderer_rd/shaders/effects/ss_shadows.glsl.gen.h"
 #include "servers/rendering_server.h"
 
 #define RB_SCOPE_SSDS SNAME("rb_ssds")
 #define RB_SCOPE_SSIL SNAME("rb_ssil")
 #define RB_SCOPE_SSAO SNAME("rb_ssao")
 #define RB_SCOPE_SSR SNAME("rb_ssr")
+#define RB_SCOPE_SSS SNAME("rb_sss")
 
 #define RB_LINEAR_DEPTH SNAME("linear_depth")
 #define RB_FINAL SNAME("final")
@@ -149,6 +151,12 @@ public:
 
 	void sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_diffuse, RID p_depth, const Projection &p_camera, const Size2i &p_screen_size);
 
+	void ss_shadows_set_quality(RS::SSShadowsQuality p_quality);
+	RS::SSShadowsQuality ss_shadows_get_quality() const;
+ 	void ss_shadows_set_thickness(float p_thickness);
+	void ss_shadows_allocate_buffer(Ref<RenderSceneBuffersRD> p_render_buffers);
+	void screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_depth, const Projection &p_projection, RID p_directional_light_buffer, int p_directional_light_count, RID p_omni_light_buffer, RID p_spot_light_buffer, RID p_cluster_buffer, uint32_t p_cluster_shift, uint32_t p_cluster_width, uint32_t p_max_cluster, const Size2i &p_screen_size);
+
 private:
 	/* Settings */
 
@@ -171,6 +179,9 @@ private:
 	RS::SubSurfaceScatteringQuality sss_quality = RS::SUB_SURFACE_SCATTERING_QUALITY_MEDIUM;
 	float sss_scale = 0.05;
 	float sss_depth_scale = 0.01;
+
+	RS::SSShadowsQuality ss_shadows_quality = RS::SS_SHADOWS_QUALITY_MEDIUM;
+	float ss_shadows_thickness = 0.05;
 
 	/* SS Downsampler */
 
@@ -514,6 +525,34 @@ private:
 		RID shader_version;
 		RID pipelines[3]; //3 quality levels
 	} sss;
+
+	struct SSShadowsSceneData {
+		float projection[16];
+		float projection_inverse[16];
+		float z_far;
+		float z_near;
+		uint32_t pad[4];
+	};
+
+	struct SSShadowsPushConstant {
+		int32_t screen_size[2];
+		uint32_t cluster_shift;
+		uint32_t cluster_width;
+		uint32_t max_cluster_element_count_div_32;
+		float thickness;
+		uint32_t directional_light_count;
+		float taa_frame_count;
+		uint32_t pad[4];
+	};
+
+	struct SSShadows {
+		SSShadowsPushConstant push_constant;
+		SsShadowsShaderRD shader;
+		RID shader_version;
+		RID pipelines[3];
+		RID uniform_set;
+		RID ubo;
+	} ss_shadows;
 };
 
 } // namespace RendererRD

@@ -752,9 +752,10 @@ private:
 	void _process_ssao(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, const RID *p_normal_buffers, const Projection *p_projections);
 	void _process_ssil(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, const RID *p_normal_buffers, const Projection *p_projections, const Transform3D &p_transform);
 	void _copy_framebuffer_to_ssil(Ref<RenderSceneBuffersRD> p_render_buffers);
-	void _pre_opaque_render(RenderDataRD *p_render_data, bool p_use_ssao, bool p_use_ssil, bool p_use_gi, const RID *p_normal_roughness_slices, RID p_voxel_gi_buffer);
+	void _pre_opaque_render(RenderDataRD *p_render_data, bool p_use_ssao, bool p_use_ssil, bool p_use_gi, bool p_use_ss_shadows, const RID *p_normal_roughness_slices, RID p_voxel_gi_buffer);
 	void _process_ssr(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_dest_framebuffer, const RID *p_normal_buffer_slices, RID p_specular_buffer, const RID *p_metallic_slices, RID p_environment, const Projection *p_projections, const Vector3 *p_eye_offsets, bool p_use_additive);
 	void _process_sss(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_camera);
+	void _process_ss_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_projection, int p_directional_light_count);
 
 	/* Debug */
 	void _debug_draw_cluster(Ref<RenderSceneBuffersRD> p_render_buffers);
@@ -771,6 +772,9 @@ protected:
 
 	virtual void sub_surface_scattering_set_quality(RS::SubSurfaceScatteringQuality p_quality) override;
 	virtual void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) override;
+
+	virtual void ss_shadows_set_quality(RS::SSShadowsQuality p_quality) override;
+	virtual void ss_shadows_set_thickness(float p_thickness) override;
 
 	/* Rendering */
 

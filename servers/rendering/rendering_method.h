@@ -323,6 +323,9 @@ public:
 	virtual void screen_space_roughness_limiter_set_active(bool p_enable, float p_amount, float p_limit) = 0;
 	virtual void sub_surface_scattering_set_quality(RS::SubSurfaceScatteringQuality p_quality) = 0;
 	virtual void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) = 0;
+	
+	virtual void ss_shadows_set_quality(RS::SSShadowsQuality p_quality) = 0;
+	virtual void ss_shadows_set_thickness(float p_thickness) = 0;
 
 	virtual void positional_soft_shadow_filter_set_quality(RS::ShadowQuality p_quality) = 0;
 	virtual void directional_soft_shadow_filter_set_quality(RS::ShadowQuality p_quality) = 0;
