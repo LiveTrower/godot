@@ -36,10 +36,4 @@ vec3 get_position(vec2 uv, mat4 inv_projection_matrix)
 	return view_position.xyz / view_position.w;
 }
 
-float smoothbumpstep(float edge0, float edge1, float x)
-{
-	x = 1.0 - abs(clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0) - .5) * 2.0;
-	return x * x * (3.0 - x - x);
-}
-
 bool is_valid_uv(vec2 value) { return (value.x >= 0.0f && value.x <= 1.0f) && (value.y >= 0.0f && value.y <= 1.0f); }

@@ -1183,7 +1183,9 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 
 	float ao = 1.0;
+	float direct_ao = 0.0;
 	float ao_light_affect = 0.0;
+	float micro_shadows = 0.0;
 
 	float alpha_highp = float(instances.data[instance_index].flags >> INSTANCE_FLAGS_FADE_SHIFT) / float(255.0);
 
@@ -2138,7 +2140,7 @@ void fragment_shader(in SceneData scene_data) {
 #endif // AMBIENT_LIGHT_DISABLED
 
 	// convert ao to direct light ao
-	ao = mix(1.0, ao, ao_light_affect);
+	direct_ao = mix(1.0, ao, ao_light_affect);
 
 	//this saves some VGPRs
 	vec3 f0 = F0(metallic, specular, albedo);
@@ -2569,7 +2571,12 @@ void fragment_shader(in SceneData scene_data) {
 #endif // DEBUG_DRAW_PSSM_SPLITS
 
 			// Apply screen space shadows.
-			shadow = min(shadow, contact_shadows);
+			//shadow = min(shadow, contact_shadows);
+#ifdef MICRO_SHADOWS_USED
+			float NdotL = dot(normal, directional_lights.data[i].direction);
+			// Disable microshadowing when facing away from light.
+			shadow *= NdotL >= 0.0 ? compute_micro_shadowing(NdotL, ao, micro_shadows) : 1.0;
+#endif
 
 			float size_A = sc_use_directional_soft_shadows() ? directional_lights.data[i].size : 0.0;
 
@@ -2715,7 +2722,7 @@ void fragment_shader(in SceneData scene_data) {
 					continue; // Statically baked light and object uses lightmap, skip
 				}
 
-				light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation,
+				light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation, contact_shadows,
 #ifdef LIGHT_BACKLIGHT_USED
 						backlight,
 #endif
@@ -2874,7 +2881,7 @@ void fragment_shader(in SceneData scene_data) {
 	normal_output_buffer.a = 0.0;
 	depth_output_buffer.r = -vertex.z;
 
-	orm_output_buffer.r = ao;
+	orm_output_buffer.r = direct_ao;
 	orm_output_buffer.g = roughness;
 	orm_output_buffer.b = metallic;
 	orm_output_buffer.a = sss_strength;
@@ -2915,8 +2922,8 @@ void fragment_shader(in SceneData scene_data) {
 	diffuse_light *= albedo; // ambient must be multiplied by albedo at the end
 
 	// apply direct light AO
-	diffuse_light *= ao;
-	direct_specular_light *= ao;
+	diffuse_light *= direct_ao;
+	direct_specular_light *= direct_ao;
 
 	// apply metallic
 	diffuse_light *= 1.0 - metallic;

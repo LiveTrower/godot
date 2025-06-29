@@ -1599,12 +1599,12 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 		_update_volumetric_fog(rb, p_render_data->environment, p_render_data->scene_data->cam_projection, p_render_data->scene_data->cam_transform, p_render_data->scene_data->prev_cam_transform.affine_inverse(), p_render_data->shadow_atlas, directional_light_count, directional_shadows, positional_light_count, p_render_data->voxel_gi_count, *p_render_data->fog_volumes);
 	}
 
-	if (render_shadows && p_use_ss_shadows) {
+	/*if (p_use_ss_shadows) {
 		RENDER_TIMESTAMP("Screen-Space Shadows");
 		RD::get_singleton()->draw_command_begin_label("Process Screen-Space Shadows");
-		_process_ss_shadows(rb, p_render_data->scene_data->cam_projection, directional_light_count);
+		_process_ss_shadows(rb, p_render_data->scene_data->cam_projection, directional_light_count, p_render_data->scene_data->taa_frame_count);
 		RD::get_singleton()->draw_command_end_label();
-	}
+	}*/
 }
 
 void RenderForwardClustered::_process_ssr(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_dest_framebuffer, const RID *p_normal_slices, RID p_specular_buffer, const RID *p_metallic_slices, RID p_environment, const Projection *p_projections, const Vector3 *p_eye_offsets, bool p_use_additive) {
@@ -1654,7 +1654,7 @@ void RenderForwardClustered::_process_sss(Ref<RenderSceneBuffersRD> p_render_buf
 	}
 }
 
-void RenderForwardClustered::_process_ss_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_projection, int p_directional_light_count) {
+void RenderForwardClustered::_process_ss_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_projection, int p_directional_light_count, float p_taa_frame_count) {
 	ERR_FAIL_NULL(ss_effects);
 	ERR_FAIL_COND(p_render_buffers.is_null());
 
@@ -1666,13 +1666,6 @@ void RenderForwardClustered::_process_ss_shadows(Ref<RenderSceneBuffersRD> p_ren
 	RID directional_light_buffer = RendererRD::LightStorage::get_singleton()->get_directional_light_buffer();
 	RID omni_light_buffer = RendererRD::LightStorage::get_singleton()->get_omni_light_buffer();
 	RID spot_light_buffer = RendererRD::LightStorage::get_singleton()->get_spot_light_buffer();
-	RID cluster_buffer = rb_data->cluster_builder->get_cluster_buffer();
-	uint32_t cluster_size = rb_data->cluster_builder->get_cluster_size();
-	uint32_t cluster_shift = get_shift_from_power_of_2(cluster_size);
-	uint32_t cluster_screen_width = Math::division_round_up((uint32_t)internal_size.x, cluster_size);
-	uint32_t cluster_screen_height = Math::division_round_up((uint32_t)internal_size.y, cluster_size);
-	uint32_t cluster_width = cluster_screen_width;
-	uint32_t max_cluster_element_count_div_32 = RendererRD::LightStorage::get_singleton()->get_max_cluster_elements() / 32;
 
 	if (!can_use_effects) {
   		//just copy
@@ -1683,7 +1676,7 @@ void RenderForwardClustered::_process_ss_shadows(Ref<RenderSceneBuffersRD> p_ren
 
 	for (uint32_t v = 0; v < p_render_buffers->get_view_count(); v++) {
 		RID depth_texture = p_render_buffers->get_depth_texture(v);
-		ss_effects->screen_space_shadows(p_render_buffers, depth_texture, p_projection, directional_light_buffer, p_directional_light_count, omni_light_buffer, spot_light_buffer, cluster_buffer, cluster_shift, cluster_width, max_cluster_element_count_div_32, internal_size);
+		ss_effects->screen_space_shadows(p_render_buffers, depth_texture, p_projection, directional_light_buffer, internal_size);
 	}
 }
 
@@ -2698,7 +2691,6 @@ void RenderForwardClustered::_render_shadow_pass(RID p_light, RID p_shadow_atlas
 		atlas_rect.size.height = shadow_size;
 
 		zfar = light_storage->light_get_param(base, RS::LIGHT_PARAM_RANGE);
-
 		if (light_storage->light_get_type(base) == RS::LIGHT_OMNI) {
 			bool wrap = (shadow + 1) % subdivision == 0;
 			dual_paraboloid_offset = wrap ? Vector2i(1 - subdivision, 1) : Vector2i(1, 0);
@@ -3625,7 +3617,7 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 		u.binding = 35;
 		u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
 		RID ss_shadows = rb.is_valid() && rb->has_texture(RB_SCOPE_SSS, RB_FINAL) ? rb->get_texture(RB_SCOPE_SSS, RB_FINAL) : RID();
-		RID texture = ss_shadows.is_valid() ? ss_shadows : texture_storage->texture_rd_get_default(is_multiview ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
+		RID texture = ss_shadows.is_valid() ? ss_shadows : texture_storage->texture_rd_get_default(is_multiview ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_WHITE : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_WHITE);
 		u.append_id(texture);
 		uniforms.push_back(u);
 	}

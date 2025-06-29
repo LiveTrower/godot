@@ -363,19 +363,15 @@ SSEffects::SSEffects() {
 
 	{
 		Vector<String> ss_shadows_modes;
-		ss_shadows_modes.push_back("\n#define SAMPLES 8\n");
-		ss_shadows_modes.push_back("\n#define SAMPLES 16\n");
-		ss_shadows_modes.push_back("\n#define SAMPLES 32\n");
-		uint32_t p_max_directional_lights = RendererSceneRender::MAX_DIRECTIONAL_LIGHTS;
-		String defines = "\n#define MAX_DIRECTIONAL_LIGHT_DATA_STRUCTS " + itos(p_max_directional_lights);
+		ss_shadows_modes.push_back("\n");
+		uint32_t max_directional_lights = RendererSceneRender::MAX_DIRECTIONAL_LIGHTS;
+		String defines = "\n#define MAX_DIRECTIONAL_LIGHT_DATA_STRUCTS " + itos(max_directional_lights);
 
 		ss_shadows.shader.initialize(ss_shadows_modes, defines);
 
 		ss_shadows.shader_version = ss_shadows.shader.version_create();
 
-		for (int i = 0; i < ss_shadows_modes.size(); i++) {
-			ss_shadows.pipelines[i] = RD::get_singleton()->compute_pipeline_create(ss_shadows.shader.version_get_shader(ss_shadows.shader_version, i));
-		}
+		ss_shadows.pipeline = RD::get_singleton()->compute_pipeline_create(ss_shadows.shader.version_get_shader(ss_shadows.shader_version, 0));
 	}
 }
 
@@ -1738,14 +1734,14 @@ void SSEffects::ss_shadows_set_thickness(float p_thickness) {
 	 ss_shadows_thickness = p_thickness;
 }
 
-void SSEffects::ss_shadows_allocate_buffer(Ref<RenderSceneBuffersRD> p_render_buffers) {
+/*void SSEffects::ss_shadows_allocate_buffer(Ref<RenderSceneBuffersRD> p_render_buffers) {
 	Size2i internal_size = p_render_buffers->get_internal_size();
 	RD::DataFormat format = RD::DATA_FORMAT_R16_SFLOAT;
 
-	RID ss_shadows_texture = p_render_buffers->create_texture(RB_SCOPE_SSS, RB_FINAL, format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, internal_size, 1);
+	RID ss_shadows_texture = p_render_buffers->create_texture(RB_SCOPE_SSS, RB_FINAL, format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, internal_size, 1);
 }
 
-void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_depth, const Projection &p_projection, RID p_directional_light_buffer, int p_directional_light_count, RID p_omni_light_buffer, RID p_spot_light_buffer, RID p_cluster_buffer, uint32_t p_cluster_shift, uint32_t p_cluster_width, uint32_t p_max_cluster, const Size2i &p_screen_size) {
+void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_depth, const Projection &p_projection, RID p_directional_light_buffer, const Size2i &p_screen_size) {
 	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
 	ERR_FAIL_NULL(uniform_set_cache);
 	MaterialStorage *material_storage = MaterialStorage::get_singleton();
@@ -1766,9 +1762,6 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 		}
 
 		store_camera(temp, scene_data.projection);
-		store_camera(temp.inverse(), scene_data.projection_inverse);
-		scene_data.z_far = p_projection.get_z_far();
-		scene_data.z_near = p_projection.get_z_near();
 
 		RD::get_singleton()->buffer_update(ss_shadows.ubo, 0, sizeof(SSShadowsSceneData), &scene_data);
 	}
@@ -1778,15 +1771,13 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 
 		ss_shadows.push_constant.screen_size[0] = p_screen_size.x;
 		ss_shadows.push_constant.screen_size[1] = p_screen_size.y;
-		ss_shadows.push_constant.cluster_shift = p_cluster_shift;
-		ss_shadows.push_constant.cluster_width = p_cluster_width;
-		ss_shadows.push_constant.max_cluster_element_count_div_32 = p_max_cluster;
-  		ss_shadows.push_constant.thickness = ss_shadows_thickness;
-		ss_shadows.push_constant.directional_light_count = p_directional_light_count;
-		ss_shadows.push_constant.taa_frame_count = (RSG::rasterizer->get_frame_number() % 16);
+		ss_shadows.push_constant.far_depth_value = 0.0;
+		ss_shadows.push_constant.near_depth_value = 1.0;
+		ss_shadows.push_constant.invsource_depth_size[0] = 1.0 / float(p_screen_size.x);
+		ss_shadows.push_constant.invsource_depth_size[1] = 1.0 / float(p_screen_size.y);
 
-		RID shader = ss_shadows.shader.version_get_shader(ss_shadows.shader_version, ss_shadows_quality - 1);
-		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, ss_shadows.pipelines[ss_shadows_quality - 1]);
+		RID shader = ss_shadows.shader.version_get_shader(ss_shadows.shader_version, 0);
+		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, ss_shadows.pipeline);
 
 		RID output = p_render_buffers->get_texture(RB_SCOPE_SSS, RB_FINAL);
 
@@ -1821,28 +1812,6 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 				u.append_id(p_directional_light_buffer);
 				uniforms.push_back(u);
 			}
-			{
-				RD::Uniform u;
-				u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;
-				u.binding = 4;
-				u.append_id(p_omni_light_buffer);
-				uniforms.push_back(u);
-			}
-			{
-				RD::Uniform u;
-				u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;
-				u.binding = 5;
-				u.append_id(p_spot_light_buffer);
-				uniforms.push_back(u);
-			}
-			{
-				RD::Uniform u;
-				u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;
-				u.binding = 6;
-				u.append_id(p_cluster_buffer);
-				uniforms.push_back(u);
-			}
-
 			ss_shadows.uniform_set = RD::get_singleton()->uniform_set_create(uniforms, ss_shadows.shader.version_get_shader(ss_shadows.shader_version, 0), 0);
 		}
 
@@ -1852,4 +1821,4 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 
 		RD::get_singleton()->compute_list_end();
 	}
-}
+}*/

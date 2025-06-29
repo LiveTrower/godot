@@ -755,7 +755,7 @@ private:
 	void _pre_opaque_render(RenderDataRD *p_render_data, bool p_use_ssao, bool p_use_ssil, bool p_use_gi, bool p_use_ss_shadows, const RID *p_normal_roughness_slices, RID p_voxel_gi_buffer);
 	void _process_ssr(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_dest_framebuffer, const RID *p_normal_buffer_slices, RID p_specular_buffer, const RID *p_metallic_slices, RID p_environment, const Projection *p_projections, const Vector3 *p_eye_offsets, bool p_use_additive);
 	void _process_sss(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_camera);
-	void _process_ss_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_projection, int p_directional_light_count);
+	void _process_ss_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_projection, int p_directional_light_count, float taa_frame_count);
 
 	/* Debug */
 	void _debug_draw_cluster(Ref<RenderSceneBuffersRD> p_render_buffers);

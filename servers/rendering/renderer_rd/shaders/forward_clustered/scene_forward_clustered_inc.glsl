@@ -460,6 +460,42 @@ vec3 get_energy_compensation(vec3 f0, float env) {
 	return 1.0 + f0 * (1.0 / env - 1.0);
 }
 
+// Chan 2018, "Material Advances in Call of Duty: WWII"
+/*float compute_micro_shadowing(float NoL, float ao, float opacity) {
+    float aperture = inversesqrt(1.0 - min(ao, 0.9999));
+    float microShadow = clamp(NoL * aperture, 0, 1);
+    return mix(1.0, microShadow * microShadow, opacity);
+}*/
+
+/*float adjust_cos_cone_angle(float cosConeAngle , float gloss, float NdotV) {
+	// The cone is an especially poor approximation to actual visibility for high gloss values .
+	// This is an ad hoc adjustment .
+	// Gloss above 0.67 is unaffected by the cone , i .e .\ we set to full cone angle .
+	float gloss2 = gloss * gloss ;
+	float gloss4 = gloss2 * gloss2 ;
+	float gloss8 = gloss4 * gloss4 ;
+	float oneMinusNdotV2 = ( 1 - NdotV ) * ( 1 - NdotV );
+	float oneMinusNdotV4 = oneMinusNdotV2 * oneMinusNdotV2 ;
+	// We lerp towards full cone angle based on gloss and NdotV .
+	cosConeAngle = mix( 0, cosConeAngle , ( 1 - gloss8 ) * ( 1 - oneMinusNdotV4 ) );
+	return cosConeAngle ;
+}
+
+float compute_micro_shadowing(float gloss, float NoV, float NoL, float ao, float opacity) {
+    float cos_cone_angle = sqrt(1.0 - ao);
+	float adjusted_cos_cone_angle = adjust_cos_cone_angle(cos_cone_angle, gloss , NoV);
+	adjusted_cos_cone_angle = max(adjusted_cos_cone_angle, 0.001);
+	float microShadow = clamp(NoL / adjusted_cos_cone_angle, 0, 1);
+    return mix(1.0, microShadow * microShadow, opacity);
+}*/
+
+// Brinck and Maximov 2016, "The Technical Art of Uncharted 4"
+float compute_micro_shadowing(float NoL, float ao, float opacity) {
+	float aperture = 2.0 * ao * ao;
+	float microshadow = clamp(NoL + aperture - 1.0, 0.0, 1.0);
+	return mix(1.0, microshadow, opacity);
+}
+
 /* Set 2 Skeleton & Instancing (can change per item) */
 
 layout(set = 2, binding = 0, std430) restrict readonly buffer Transforms {

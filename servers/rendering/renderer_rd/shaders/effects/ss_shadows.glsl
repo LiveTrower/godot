@@ -15,6 +15,7 @@ layout(set = 0, binding = 2, std140) uniform SceneData {
     mat4 inv_projection;
     float z_far;
     float z_near;
+    float taa_frame_count;
 } scene_data;
 
 layout(set = 0, binding = 3, std140) uniform DirectionalLights {
@@ -42,14 +43,13 @@ layout(push_constant, std430) uniform Params {
     uint cluster_shift;
 	uint cluster_width;
     uint max_cluster_element_count_div_32;
+    uint cluster_type_size;
     float thickness;
     uint directional_light_count;
-    float taa_frame_count;
     uint pad[4];
 } params;
 
 const float sss_max_depth = 5;
-
 
 float ScreenSpaceShadows(vec2 ssC, vec3 ray_pos, vec3 ray_dir, float step_length)
 {
@@ -57,7 +57,7 @@ float ScreenSpaceShadows(vec2 ssC, vec3 ray_pos, vec3 ray_dir, float step_length
     vec3 ray_step = ray_dir * step_length;
 
     // Offset starting position with temporal interleaved gradient noise
-	float offset  = quick_hash(ssC, params.taa_frame_count);
+	float offset  = quick_hash(ssC, scene_data.taa_frame_count);
     ray_pos      += ray_step * offset;
 
     // Ray march towards the light
@@ -73,15 +73,14 @@ float ScreenSpaceShadows(vec2 ssC, vec3 ray_pos, vec3 ray_dir, float step_length
         //if (!is_valid_uv(ray_uv) || depth_z > sss_max_depth)
         if (!is_valid_uv(ray_uv))
             return 1.0f;
-
+        
         // Compute the difference between the ray's and the camera's depth
         float depth_z = get_linear_depth(ray_uv, scene_data.z_near, scene_data.z_far);
         float depth_delta   = -ray_pos.z - depth_z;
 
         if ((depth_delta > 0.0f) && (depth_delta < params.thickness))
         {
-            // Mark as occluded
-            occlusion = 1.0f;
+            occlusion = 1.0;
 
             // Fade out as we approach the edges of the screen
             occlusion *= screen_fade(ray_uv);
@@ -161,6 +160,33 @@ void main() {
                 LightData omni_light = omni_lights.data[light_index];
                 float step_length = omni_light.contact_shadow_length / SAMPLES;
                 result += ScreenSpaceShadows(ssC, position, omni_light.position, step_length);
+            }
+        }
+    }
+
+    { //spot lights
+		uint cluster_spot_offset = cluster_offset + params.cluster_type_size;
+
+		uint item_min;
+		uint item_max;
+		uint item_from;
+		uint item_to;
+
+		cluster_get_item_range(cluster_spot_offset + params.max_cluster_element_count_div_32 + cluster_z, item_min, item_max, item_from, item_to);
+
+        for (uint i = item_from; i < item_to; i++) {
+			uint mask = cluster_buffer.data[cluster_spot_offset + i];
+			mask &= cluster_get_range_clip_mask(i, item_min, item_max);
+			uint merged_mask = mask;
+
+			while (merged_mask != 0) {
+				uint bit = findMSB(merged_mask);
+				merged_mask &= ~(1 << bit);
+
+                uint light_index = 32 * i + bit;
+                LightData spot_light = spot_lights.data[light_index];
+                float step_length = spot_light.contact_shadow_length / SAMPLES;
+                result += ScreenSpaceShadows(ssC, position, spot_light.position, step_length);
             }
         }
     }

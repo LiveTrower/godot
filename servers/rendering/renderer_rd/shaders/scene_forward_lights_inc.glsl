@@ -433,7 +433,7 @@ half get_omni_attenuation(float distance, float inv_range, float decay) {
 	return half(nd * pow(max(distance, 0.0001), -decay));
 }
 
-void light_process_omni(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3 vertex_ddx, vec3 vertex_ddy, hvec3 f0, half roughness, half metallic, float taa_frame_count, hvec3 albedo, inout half alpha, vec2 screen_uv, hvec3 energy_compensation, float contact_shadow,
+void light_process_omni(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3 vertex_ddx, vec3 vertex_ddy, hvec3 f0, half roughness, half metallic, float taa_frame_count, hvec3 albedo, inout half alpha, vec2 screen_uv, hvec3 energy_compensation, float contact_shadows,
 #ifdef LIGHT_BACKLIGHT_USED
 		hvec3 backlight,
 #endif
@@ -701,7 +701,7 @@ void light_process_omni(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 	}
 
 	// Apply screen space shadows.
-	shadow = min(shadow, contact_shadow);
+	//shadow = min(shadow, contact_shadows);
 
 	vec3 light_rel_vec_norm = light_rel_vec / light_length;
 	light_compute(normal, hvec3(light_rel_vec_norm), eye_vec, size, hvec3(color), false, omni_attenuation * shadow, f0, roughness, metallic, half(omni_lights.data[idx].specular_amount), albedo, alpha, screen_uv, energy_compensation,
@@ -745,7 +745,7 @@ vec2 normal_to_panorama(vec3 n) {
 	return panorama_coords;
 }
 
-void light_process_spot(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3 vertex_ddx, vec3 vertex_ddy, hvec3 f0, half roughness, half metallic, float taa_frame_count, hvec3 albedo, inout half alpha, vec2 screen_uv, hvec3 energy_compensation,
+void light_process_spot(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3 vertex_ddx, vec3 vertex_ddy, hvec3 f0, half roughness, half metallic, float taa_frame_count, hvec3 albedo, inout half alpha, vec2 screen_uv, hvec3 energy_compensation, float contact_shadows,
 #ifdef LIGHT_BACKLIGHT_USED
 		hvec3 backlight,
 #endif
@@ -917,6 +917,9 @@ void light_process_spot(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 			color *= proj.rgb * proj.a;
 		}
 	}
+
+	// Apply screen space shadows.
+	//shadow = min(shadow, contact_shadows);
 
 	light_compute(normal, hvec3(light_rel_vec_norm), eye_vec, size, hvec3(color), false, spot_attenuation * shadow, f0, roughness, metallic, half(spot_lights.data[idx].specular_amount), albedo, alpha, screen_uv, energy_compensation,
 #ifdef LIGHT_BACKLIGHT_USED
