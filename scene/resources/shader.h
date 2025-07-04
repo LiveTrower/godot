@@ -60,6 +60,8 @@ private:
 	String code;
 	String include_path;
 
+	bool world_vertex_coords;
+
 	HashMap<StringName, HashMap<int, Ref<Texture>>> default_textures;
 
 	void _check_shader_rid() const;
@@ -80,6 +82,8 @@ protected:
 public:
 	//void set_mode(Mode p_mode);
 	virtual Mode get_mode() const;
+
+	virtual bool is_world_vertex_coords() const;
 
 	virtual void set_path(const String &p_path, bool p_take_over = false) override;
 	void set_include_path(const String &p_path);

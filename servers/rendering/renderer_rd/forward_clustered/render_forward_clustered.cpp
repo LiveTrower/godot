@@ -1654,7 +1654,7 @@ void RenderForwardClustered::_process_sss(Ref<RenderSceneBuffersRD> p_render_buf
 	}
 }
 
-void RenderForwardClustered::_process_ss_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_projection, int p_directional_light_count, float p_taa_frame_count) {
+/*void RenderForwardClustered::_process_ss_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_projection, int p_directional_light_count, float p_taa_frame_count) {
 	ERR_FAIL_NULL(ss_effects);
 	ERR_FAIL_COND(p_render_buffers.is_null());
 
@@ -1678,7 +1678,7 @@ void RenderForwardClustered::_process_ss_shadows(Ref<RenderSceneBuffersRD> p_ren
 		RID depth_texture = p_render_buffers->get_depth_texture(v);
 		ss_effects->screen_space_shadows(p_render_buffers, depth_texture, p_projection, directional_light_buffer, internal_size);
 	}
-}
+}*/
 
 void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Color &p_default_bg_color) {
 	RendererRD::LightStorage *light_storage = RendererRD::LightStorage::get_singleton();

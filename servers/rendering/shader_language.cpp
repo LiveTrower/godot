@@ -2003,7 +2003,7 @@ bool ShaderLanguage::_validate_operator(const BlockNode *p_block, const Function
 			DataType nb = p_op->arguments[1]->get_datatype();
 			DataType nc = p_op->arguments[2]->get_datatype();
 
-			valid = na == TYPE_BOOL && (nb == nc);
+			valid = na == TYPE_BOOL && (nb == nc) && !is_sampler_type(nb);
 			ret_type = nb;
 			ret_size = sa;
 		} break;
@@ -11243,6 +11243,17 @@ String ShaderLanguage::get_shader_type(const String &p_code) {
 	}
 
 	return String();
+}
+
+bool ShaderLanguage::is_world_vertex_coords(const String &p_code) {
+    Vector<String> lines = p_code.split("\n");
+    for (int i = 0; i < lines.size(); i++) {
+        const String &line = lines[i];
+        if (line.contains("render_mode") && line.contains("world_vertex_coords")) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool ShaderLanguage::is_builtin_func_out_parameter(const String &p_name, int p_param) {

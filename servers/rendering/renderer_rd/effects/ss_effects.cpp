@@ -1734,7 +1734,7 @@ void SSEffects::ss_shadows_set_thickness(float p_thickness) {
 	 ss_shadows_thickness = p_thickness;
 }
 
-/*void SSEffects::ss_shadows_allocate_buffer(Ref<RenderSceneBuffersRD> p_render_buffers) {
+void SSEffects::ss_shadows_allocate_buffer(Ref<RenderSceneBuffersRD> p_render_buffers) {
 	Size2i internal_size = p_render_buffers->get_internal_size();
 	RD::DataFormat format = RD::DATA_FORMAT_R16_SFLOAT;
 
@@ -1821,4 +1821,4 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 
 		RD::get_singleton()->compute_list_end();
 	}
-}*/
+}
