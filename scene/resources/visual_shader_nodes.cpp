@@ -2849,8 +2849,11 @@ String VisualShaderNodeVectorCoordinateTransform::generate_global_per_func(Shade
 		// For all tangent space transformations will be done based on world space.
 		// Note: Binormal is negative so it produces slightly different results than Unity.
 		// TODO: We need to detect the world_vertex_coords rendering mode.
-		code += "	TBN = mat3(normalize(TANGENT), normalize(-BINORMAL), normalize(NORMAL));\n"; // If the vector is direction conversion type we must normalize for better performance according to: https://docs.unity3d.com/Packages/com.unity.shadergraph@17.0/manual/Transform-Node.html
-		code += "	position_ws = VERTEX;\n"; // We need the position in world space to transform our vector to a position conversion type.
+		code += "	vec3 t = mat3(MODEL_MATRIX) * TANGENT;\n";
+		code += "	vec3 b = mat3(MODEL_MATRIX) * BINORMAL;\n";
+		code += "	vec3 n = mat3(MODEL_MATRIX) * NORMAL;\n";
+		code += "	TBN = mat3(normalize(t), normalize(-b), normalize(n));\n"; // If the vector is direction conversion type we must normalize for better performance according to: https://docs.unity3d.com/Packages/com.unity.shadergraph@17.0/manual/Transform-Node.html
+		code += "	position_ws = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;\n"; // We need the position in world space to transform our vector to a position conversion type.
 	}
 
 	return code;
@@ -2868,15 +2871,15 @@ String VisualShaderNodeVectorCoordinateTransform::generate_code(Shader::Mode p_m
 			matrix = "MODEL_MATRIX";
 			if (vector_type == VECTOR_TYPE_POSITION) code += vformat("		%s = (" + matrix + " * vec4(" + p_input_vars[0] + ", 1.0)).xyz;\n", p_output_vars[0]);
 			else {
-				if (normalize_output) code += vformat("		%s = normalize((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz);\n", p_output_vars[0]);
-				else code += vformat("		%s = (" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz;\n", p_output_vars[0]);
+				if (normalize_output) code += vformat("		%s = normalize(mat3(" + matrix + ") * " + p_input_vars[0] + ");\n", p_output_vars[0]);
+				else code += vformat("		%s = mat3(" + matrix + ") * " + p_input_vars[0] + ";\n", p_output_vars[0]);
 			}
 		} else if (to_space == SPACE_VIEW) {
 			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "MODELVIEW_MATRIX" : "VIEW_MATRIX * MODEL_MATRIX";
 			if (vector_type == VECTOR_TYPE_POSITION) code += vformat("		%s = (" + matrix + " * vec4(" + p_input_vars[0] + ", 1.0)).xyz;\n", p_output_vars[0]);
 			else {
-				if (normalize_output) code += vformat("		%s = normalize((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz);\n", p_output_vars[0]);
-				else code += vformat("		%s = (" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz;\n", p_output_vars[0]);
+				if (normalize_output) code += vformat("		%s = normalize(mat3(" + matrix + ") * " + p_input_vars[0] + ");\n", p_output_vars[0]);
+				else code += vformat("		%s = mat3(" + matrix + ") * " + p_input_vars[0] + ";\n", p_output_vars[0]);
 			}
 		} else if (to_space == SPACE_TANGENT) {
 			matrix = "TBN";
@@ -2906,8 +2909,8 @@ String VisualShaderNodeVectorCoordinateTransform::generate_code(Shader::Mode p_m
 			matrix = "inverse(MODEL_MATRIX)";
 			if (vector_type == VECTOR_TYPE_POSITION) code += vformat("		%s = (" + matrix + " * vec4(" + p_input_vars[0] + ", 1.0)).xyz;\n", p_output_vars[0]);
 			else {
-				if (normalize_output) code += vformat("		%s = normalize((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz);\n", p_output_vars[0]);
-				else code += vformat("		%s = (" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz;\n", p_output_vars[0]);
+				if (normalize_output) code += vformat("		%s = normalize(mat3(" + matrix + ") * " + p_input_vars[0] + ");\n", p_output_vars[0]);
+				else code += vformat("		%s = mat3(" + matrix + ") * " + p_input_vars[0] + ";\n", p_output_vars[0]);
 			}
 		} else if (to_space == SPACE_WORLD) {
 			return identity;
@@ -2915,8 +2918,8 @@ String VisualShaderNodeVectorCoordinateTransform::generate_code(Shader::Mode p_m
 			matrix = "VIEW_MATRIX";
 			if (vector_type == VECTOR_TYPE_POSITION) code += vformat("		%s = (" + matrix + " * vec4(" + p_input_vars[0] + ", 1.0)).xyz;\n", p_output_vars[0]);
 			else {
-				if (normalize_output) code += vformat("		%s = normalize((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz);\n", p_output_vars[0]);
-				else code += vformat("		%s = (" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz;\n", p_output_vars[0]);
+				if (normalize_output) code += vformat("		%s = normalize(mat3(" + matrix + ") * " + p_input_vars[0] + ");\n", p_output_vars[0]);
+				else code += vformat("		%s = mat3(" + matrix + ") * " + p_input_vars[0] + "\n", p_output_vars[0]);
 			}
 		} else if (to_space == SPACE_TANGENT) {
 			matrix = "TBN";
@@ -2944,15 +2947,15 @@ String VisualShaderNodeVectorCoordinateTransform::generate_code(Shader::Mode p_m
 			matrix = (p_type == VisualShader::TYPE_VERTEX) ? "inverse(MODELVIEW_MATRIX)" : "inverse(MODEL_MATRIX) * INV_VIEW_MATRIX";
 			if (vector_type == VECTOR_TYPE_POSITION) code += vformat("		%s = (" + matrix + " * vec4(" + p_input_vars[0] + ", 1.0)).xyz;\n", p_output_vars[0]);
 			else {
-				if (normalize_output) code += vformat("		%s = normalize((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz);\n", p_output_vars[0]);
-				else code += vformat("		%s = (" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz;\n", p_output_vars[0]);
+				if (normalize_output) code += vformat("		%s = normalize(mat3(" + matrix + ") * " + p_input_vars[0] + ");\n", p_output_vars[0]);
+				else code += vformat("		%s = mat3(" + matrix + ") * " + p_input_vars[0] + ";\n", p_output_vars[0]);
 			}
 		} else if (to_space == SPACE_WORLD) {
 			matrix = "INV_VIEW_MATRIX";
 			if (vector_type == VECTOR_TYPE_POSITION) code += vformat("		%s = (" + matrix + " * vec4(" + p_input_vars[0] + ", 1.0)).xyz;\n", p_output_vars[0]);
 			else {
-				if (normalize_output) code += vformat("		%s = normalize((" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz);\n", p_output_vars[0]);
-				else code += vformat("		%s = (" + matrix + " * vec4(" + p_input_vars[0] + ", 0.0)).xyz;\n", p_output_vars[0]);
+				if (normalize_output) code += vformat("		%s = normalize(mat3(" + matrix + ") * " + p_input_vars[0] + ");\n", p_output_vars[0]);
+				else code += vformat("		%s = mat3(" + matrix + ") * " + p_input_vars[0] + ";\n", p_output_vars[0]);
 			}
 		} else if (to_space == SPACE_VIEW) {
 			return identity;
@@ -3040,7 +3043,7 @@ String VisualShaderNodeVectorCoordinateTransform::generate_code(Shader::Mode p_m
 				matrix = "inverse(MODEL_MATRIX) * INV_VIEW_MATRIX";
 				code += vformat("		%s = (" + matrix + " * vec4(h_pos_ws.xyz, 1.0)).xyz;\n", p_output_vars[0]);
 			} else {
-				code += "		vec4 h_pos_ws = " + matrix + " * vec4(pos_cs, 0.0);\n";
+				code += "		vec4 h_pos_ws = mat3(" + matrix + ") * pos_cs;\n";
 				matrix = "inverse(MODEL_MATRIX) * INV_VIEW_MATRIX";
 				if (normalize_output) code += vformat("		%s = normalize((" + matrix + " * h_pos_ws).xyz);\n", p_output_vars[0]);
 				else code += vformat("		%s = (" + matrix + " * h_pos_ws).xyz;\n", p_output_vars[0]);
@@ -3054,7 +3057,7 @@ String VisualShaderNodeVectorCoordinateTransform::generate_code(Shader::Mode p_m
 				matrix = "INV_VIEW_MATRIX";
 				code += vformat("		%s = (" + matrix + " * vec4(h_pos_ws.xyz, 1.0)).xyz;\n", p_output_vars[0]);
 			} else {
-				code += "		vec4 h_pos_ws = " + matrix + " * vec4(pos_cs, 0.0);\n";
+				code += "		vec4 h_pos_ws = mat3(" + matrix + ") * pos_cs;\n";
 				matrix = "INV_VIEW_MATRIX";
 				if (normalize_output) code += vformat("		%s = normalize((" + matrix + " * h_pos_ws).xyz);\n", p_output_vars[0]);
 				else code += vformat("		%s = (" + matrix + " * h_pos_ws).xyz;\n", p_output_vars[0]);
@@ -3067,7 +3070,7 @@ String VisualShaderNodeVectorCoordinateTransform::generate_code(Shader::Mode p_m
 				code += "		h_pos_ws.xyz /= h_pos_ws.w;\n";
 				code += vformat("		%s = h_pos_ws.xyz;\n", p_output_vars[0]);
 			} else {
-				code += "		vec3 h_pos_ws = (" + matrix + " * vec4(pos_cs, 0.0)).xyz;\n";
+				code += "		vec3 h_pos_ws = mat3(" + matrix + ") * pos_cs;\n";
 				matrix = "VIEW_MATRIX";
 				if (normalize_output) code += vformat("		%s = normalize(mat3(" + matrix + ") * h_pos_ws.xyz);\n", p_output_vars[0]);
 				else code += vformat("		%s = mat3(" + matrix + ") * h_pos_ws.xyz;\n", p_output_vars[0]);
