@@ -450,6 +450,11 @@ void EditorNode::_update_from_settings() {
 		Viewport::DefaultCanvasItemTextureRepeat tr = (Viewport::DefaultCanvasItemTextureRepeat)current_repeat;
 		scene_root->set_default_canvas_item_texture_repeat(tr);
 	}
+	String current_fallback_locale = GLOBAL_GET("internationalization/locale/fallback");
+	if (current_fallback_locale != TranslationServer::get_singleton()->get_fallback_locale()) {
+		TranslationServer::get_singleton()->set_fallback_locale(current_fallback_locale);
+		scene_root->propagate_notification(Control::NOTIFICATION_LAYOUT_DIRECTION_CHANGED);
+	}
 
 	RS::DOFBokehShape dof_shape = RS::DOFBokehShape(int(GLOBAL_GET("rendering/camera/depth_of_field/depth_of_field_bokeh_shape")));
 	RS::get_singleton()->camera_attributes_set_dof_blur_bokeh_shape(dof_shape);
@@ -468,6 +473,10 @@ void EditorNode::_update_from_settings() {
 	float sss_scale = GLOBAL_GET("rendering/environment/subsurface_scattering/subsurface_scattering_scale");
 	float sss_depth_scale = GLOBAL_GET("rendering/environment/subsurface_scattering/subsurface_scattering_depth_scale");
 	RS::get_singleton()->sub_surface_scattering_set_scale(sss_scale, sss_depth_scale);
+	RS::SSShadowsQuality ss_shadows_quality = RS::SSShadowsQuality(int(GLOBAL_GET("rendering/lights_and_shadows/contact_shadows/ss_shadows_quality")));
+	RS::get_singleton()->ss_shadows_set_quality(ss_shadows_quality);
+	float ss_shadows_thickness = GLOBAL_GET("rendering/lights_and_shadows/contact_shadows/thickness");
+	RS::get_singleton()->ss_shadows_set_thickness(ss_shadows_thickness);
 
 	uint32_t directional_shadow_size = GLOBAL_GET("rendering/lights_and_shadows/directional_shadow/size");
 	uint32_t directional_shadow_16_bits = GLOBAL_GET("rendering/lights_and_shadows/directional_shadow/16_bits");
@@ -764,6 +773,7 @@ bool EditorNode::_is_project_data_missing() {
 void EditorNode::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_TRANSLATION_CHANGED: {
+			_update_title();
 			callable_mp(this, &EditorNode::_titlebar_resized).call_deferred();
 		} break;
 

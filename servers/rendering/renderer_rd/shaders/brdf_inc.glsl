@@ -64,7 +64,7 @@ float V_Neubelt(float NoV, float NoL) {
 
 half V_Kelemen(half LoH) {
     // Kelemen 2001, "A Microfacet Based Coupled Specular-Matte BRDF Model with Importance Sampling"
-    return saturateHalf(0.25 / (LoH * LoH));
+    return half(0.25) / (LoH * LoH + half(1e-4));
 }
 
 half Diffuse_Lambert(half NoL) {

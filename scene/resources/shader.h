@@ -83,8 +83,6 @@ public:
 	//void set_mode(Mode p_mode);
 	virtual Mode get_mode() const;
 
-	virtual bool is_world_vertex_coords() const;
-
 	virtual void set_path(const String &p_path, bool p_take_over = false) override;
 	void set_include_path(const String &p_path);
 

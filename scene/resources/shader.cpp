@@ -51,10 +51,6 @@ Shader::Mode Shader::get_mode() const {
 	return mode;
 }
 
-bool Shader::is_world_vertex_coords() const {
-	return world_vertex_coords;
-}
-
 void Shader::_check_shader_rid() const {
 	MutexLock lock(shader_rid_mutex);
 	if (shader_rid.is_null() && !preprocessed_code.is_empty()) {
@@ -125,8 +121,6 @@ void Shader::set_code(const String &p_code) {
 	} else {
 		mode = MODE_SPATIAL;
 	}
-
-	world_vertex_coords = ShaderLanguage::is_world_vertex_coords(preprocessed_code);
 
 	for (const Ref<ShaderInclude> &E : include_dependencies) {
 		E->connect_changed(callable_mp(this, &Shader::_dependency_changed));
@@ -273,8 +267,6 @@ Array Shader::_get_shader_uniform_list(bool p_get_groups) {
 
 void Shader::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_mode"), &Shader::get_mode);
-	
-	ClassDB::bind_method(D_METHOD("is_world_vertex_coords"), &Shader::is_world_vertex_coords);
 
 	ClassDB::bind_method(D_METHOD("set_code", "code"), &Shader::set_code);
 	ClassDB::bind_method(D_METHOD("get_code"), &Shader::get_code);
