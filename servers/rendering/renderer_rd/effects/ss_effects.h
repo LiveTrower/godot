@@ -152,11 +152,11 @@ public:
 
 	void sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_diffuse, RID p_depth, const Projection &p_camera, const Size2i &p_screen_size);
 
-	void ss_shadows_set_quality(RS::SSShadowsQuality p_quality);
+	/*void ss_shadows_set_quality(RS::SSShadowsQuality p_quality);
 	RS::SSShadowsQuality ss_shadows_get_quality() const;
  	void ss_shadows_set_thickness(float p_thickness);
 	void ss_shadows_allocate_buffer(Ref<RenderSceneBuffersRD> p_render_buffers);
-	void screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_depth, const Projection &p_projection, RID directional_light_buffer, const Size2i &p_screen_size);
+	void screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_depth, const Projection &p_projection, RID directional_light_buffer, const Size2i &p_screen_size);*/
 
 private:
 	/* Settings */
@@ -181,8 +181,8 @@ private:
 	float sss_scale = 0.05;
 	float sss_depth_scale = 0.01;
 
-	RS::SSShadowsQuality ss_shadows_quality = RS::SS_SHADOWS_QUALITY_MEDIUM;
-	float ss_shadows_thickness = 0.05;
+	//RS::SSShadowsQuality ss_shadows_quality = RS::SS_SHADOWS_QUALITY_MEDIUM;
+	//float ss_shadows_thickness = 0.05;
 
 	/* SS Downsampler */
 
@@ -527,7 +527,7 @@ private:
 		RID pipelines[3]; //3 quality levels
 	} sss;
 
-	struct SSShadowsSceneData {
+	/*struct SSShadowsSceneData {
 		float projection[16];
 	};
 
@@ -545,7 +545,7 @@ private:
 		RID pipeline;
 		RID uniform_set;
 		RID ubo;
-	} ss_shadows;
+	} ss_shadows;*/
 };
 
 } // namespace RendererRD

@@ -2494,7 +2494,7 @@ void RasterizerSceneGLES3::render_scene(const Ref<RenderSceneBuffers> &p_render_
 	}
 
 	GLuint fbo = 0;
-	if (is_reflection_probe) {
+	if (is_reflection_probe && GLES3::LightStorage::get_singleton()->reflection_probe_has_atlas_index(render_data.reflection_probe)) {
 		fbo = GLES3::LightStorage::get_singleton()->reflection_probe_instance_get_framebuffer(render_data.reflection_probe, render_data.reflection_probe_pass);
 	} else {
 		rb->set_apply_color_adjustments_in_post(apply_color_adjustments_in_post);
@@ -4036,12 +4036,6 @@ void RasterizerSceneGLES3::sub_surface_scattering_set_quality(RS::SubSurfaceScat
 }
 
 void RasterizerSceneGLES3::sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) {
-}
-
-void RasterizerSceneGLES3::ss_shadows_set_quality(RS::SSShadowsQuality p_quality) {
-}
-
-void RasterizerSceneGLES3::ss_shadows_set_thickness(float p_thickness) {
 }
 
 TypedArray<Image> RasterizerSceneGLES3::bake_render_uv2(RID p_base, const TypedArray<RID> &p_material_overrides, const Size2i &p_image_size) {

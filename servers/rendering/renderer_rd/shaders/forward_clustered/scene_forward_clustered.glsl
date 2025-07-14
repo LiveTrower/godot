@@ -2201,7 +2201,7 @@ void fragment_shader(in SceneData scene_data) {
 	direct_specular_light += specular_light_interp.rgb * f0;
 #endif
 
-	float contact_shadows = textureLod(sampler2D(ss_shadows_buffer, SAMPLER_LINEAR_CLAMP), screen_uv, 0.0).r;
+	//float contact_shadows = textureLod(sampler2D(ss_shadows_buffer, SAMPLER_LINEAR_CLAMP), screen_uv, 0.0).r;
 
 	{ // Directional light.
 
@@ -2659,7 +2659,7 @@ void fragment_shader(in SceneData scene_data) {
 					continue; // Statically baked light and object uses lightmap, skip
 				}
 
-				light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation, contact_shadows,
+				light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation,
 #ifdef LIGHT_BACKLIGHT_USED
 						backlight,
 #endif
@@ -2726,7 +2726,7 @@ void fragment_shader(in SceneData scene_data) {
 					continue; // Statically baked light and object uses lightmap, skip
 				}
 
-				light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation, contact_shadows,
+				light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation,
 #ifdef LIGHT_BACKLIGHT_USED
 						backlight,
 #endif

@@ -1,4 +1,3 @@
-#include "brdf_inc.glsl"
 // Simplified versions of light functions intended for the vertex shader.
 
 // Eyeballed approximation of `exp2(15.0 * (1.0 - roughness) + 1.0) * 0.25`.
@@ -18,10 +17,10 @@ void light_compute_vertex(hvec3 N, hvec3 L, hvec3 V, hvec3 light_color, bool is_
 #if defined(DIFFUSE_LAMBERT_WRAP)
 	// Energy conserving lambert wrap shader.
 	// https://web.archive.org/web/20210228210901/http://blog.stevemcauley.com/2011/12/03/energy-conserving-wrapped-diffuse/
-	half diffuse_brdf_NL = Diffuse_Lambert_Wrap(NdotL, roughness);
+	half diffuse_brdf_NL = max(half(0.0), (cNdotL + roughness) / ((half(1.0) + roughness) * (half(1.0) + roughness))) * half(1.0 / M_PI);
 #else
 	// lambert
-	half diffuse_brdf_NL = Diffuse_Lambert(NdotL);
+	half diffuse_brdf_NL = cNdotL * half(1.0 / M_PI);
 #endif
 
 	diffuse_light += light_color * diffuse_brdf_NL;

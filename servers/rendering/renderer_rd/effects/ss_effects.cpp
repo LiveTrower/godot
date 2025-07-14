@@ -358,7 +358,7 @@ SSEffects::SSEffects() {
 	}
 
 	// Screen space shadows
-	ss_shadows_quality = RS::SSShadowsQuality(int(GLOBAL_GET("rendering/lights_and_shadows/contact_shadows/ss_shadows_quality")));
+	/*ss_shadows_quality = RS::SSShadowsQuality(int(GLOBAL_GET("rendering/lights_and_shadows/contact_shadows/ss_shadows_quality")));
 	ss_shadows_thickness = GLOBAL_GET("rendering/lights_and_shadows/contact_shadows/thickness");
 
 	{
@@ -372,7 +372,7 @@ SSEffects::SSEffects() {
 		ss_shadows.shader_version = ss_shadows.shader.version_create();
 
 		ss_shadows.pipeline = RD::get_singleton()->compute_pipeline_create(ss_shadows.shader.version_get_shader(ss_shadows.shader_version, 0));
-	}
+	}*/
 }
 
 SSEffects::~SSEffects() {
@@ -421,7 +421,7 @@ SSEffects::~SSEffects() {
 		sss.shader.version_free(sss.shader_version);
 	}
 
-	{
+	/*{
 		// Cleanup Screen Space Shadows
 		ss_shadows.shader.version_free(ss_shadows.shader_version);
 
@@ -432,7 +432,7 @@ SSEffects::~SSEffects() {
 		if (ss_shadows.uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(ss_shadows.uniform_set)) {
 			RD::get_singleton()->free(ss_shadows.uniform_set);
 		}
-	}
+	}*/
 
 	singleton = nullptr;
 }
@@ -1722,7 +1722,7 @@ void SSEffects::sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffer
 	}
 }
 
-void SSEffects::ss_shadows_set_quality(RS::SSShadowsQuality p_quality) {
+/*void SSEffects::ss_shadows_set_quality(RS::SSShadowsQuality p_quality) {
 	ss_shadows_quality = p_quality;
 }
 
@@ -1821,4 +1821,4 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 
 		RD::get_singleton()->compute_list_end();
 	}
-}
+}*/
