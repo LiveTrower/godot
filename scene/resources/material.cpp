@@ -1929,7 +1929,7 @@ void fragment() {)";
 		} else {
 			code += "	vec2 sheen_tex = texture(texture_sheen, base_uv).xy;\n";
 		}
-		code += R"( SHEEN = sheen * sheen_tex.x;
+		code += R"(	SHEEN = sheen * sheen_tex.x;
 	SHEEN_ROUGHNESS = sheen_roughness;
 	SHEEN_COLOR = sheen_color;
 )";

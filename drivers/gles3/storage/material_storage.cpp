@@ -1290,6 +1290,9 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["SSS_TRANSMITTANCE_COLOR"] = "transmittance_color";
 		actions.renames["SSS_TRANSMITTANCE_DEPTH"] = "transmittance_depth";
 		actions.renames["SSS_TRANSMITTANCE_BOOST"] = "transmittance_boost";
+		actions.renames["DUAL_ROUGHNESS0"] = "dual_roughness0";
+		actions.renames["DUAL_ROUGHNESS1"] = "dual_roughness1";
+		actions.renames["DUAL_LOBE_MIX"] = "dual_lobe_mix";
 		actions.renames["BACKLIGHT"] = "backlight";
 		actions.renames["AO"] = "ao";
 		actions.renames["AO_LIGHT_AFFECT"] = "ao_light_affect";
