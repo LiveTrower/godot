@@ -372,14 +372,6 @@ layout(set = 1, binding = 13 + 9) uniform sampler SAMPLER_LINEAR_WITH_MIPMAPS_RE
 layout(set = 1, binding = 13 + 10) uniform sampler SAMPLER_NEAREST_WITH_MIPMAPS_ANISOTROPIC_REPEAT;
 layout(set = 1, binding = 13 + 11) uniform sampler SAMPLER_LINEAR_WITH_MIPMAPS_ANISOTROPIC_REPEAT;
 
-vec3 prefiltered_dfg(float lod, float NoV) {
-    return vec3(1.0);
-}
-
-vec3 get_energy_compensation(vec3 f0, float env){
-	return vec3(1.0);
-}
-
 // Brinck and Maximov 2016, "The Technical Art of Uncharted 4"
 float compute_micro_shadowing(float NoL, float ao, float opacity) {
 	float aperture = 2.0 * ao * ao;

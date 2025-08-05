@@ -1397,6 +1397,7 @@ MaterialStorage::MaterialStorage() {
 
 		actions.render_mode_defines["diffuse_lambert_wrap"] = "#define DIFFUSE_LAMBERT_WRAP\n";
 		actions.render_mode_defines["diffuse_toon"] = "#define DIFFUSE_TOON\n";
+		actions.render_mode_defines["diffuse_chan"] = "#define DIFFUSE_CHAN\n";
 
 		actions.render_mode_defines["sss_mode_skin"] = "#define SSS_MODE_SKIN\n";
 

@@ -177,12 +177,17 @@ layout(set = 0, binding = 4, std430) restrict readonly buffer SpotLights {
 }
 spot_lights;
 
-layout(set = 0, binding = 5, std430) restrict readonly buffer ReflectionProbeData {
+layout(set = 0, binding = 5, std430) restrict readonly buffer AreaLights {
+	LightData data[];
+}
+area_lights;
+
+layout(set = 0, binding = 6, std430) restrict readonly buffer ReflectionProbeData {
 	ReflectionData data[];
 }
 reflections;
 
-layout(set = 0, binding = 6, std140) uniform DirectionalLights {
+layout(set = 0, binding = 7, std140) uniform DirectionalLights {
 	DirectionalLightData data[MAX_DIRECTIONAL_LIGHT_DATA_STRUCTS];
 }
 directional_lights;
@@ -202,7 +207,7 @@ struct Lightmap {
 	uint flags;
 };
 
-layout(set = 0, binding = 7, std140) restrict readonly buffer Lightmaps {
+layout(set = 0, binding = 8, std140) restrict readonly buffer Lightmaps {
 	Lightmap data[];
 }
 lightmaps;
@@ -211,20 +216,20 @@ struct LightmapCapture {
 	vec4 sh[9];
 };
 
-layout(set = 0, binding = 8, std140) restrict readonly buffer LightmapCaptures {
+layout(set = 0, binding = 9, std140) restrict readonly buffer LightmapCaptures {
 	LightmapCapture data[];
 }
 lightmap_captures;
 
-layout(set = 0, binding = 9) uniform texture2D decal_atlas;
-layout(set = 0, binding = 10) uniform texture2D decal_atlas_srgb;
+layout(set = 0, binding = 10) uniform texture2D decal_atlas;
+layout(set = 0, binding = 11) uniform texture2D decal_atlas_srgb;
 
-layout(set = 0, binding = 11, std430) restrict readonly buffer Decals {
+layout(set = 0, binding = 12, std430) restrict readonly buffer Decals {
 	DecalData data[];
 }
 decals;
 
-layout(set = 0, binding = 12, std430) restrict readonly buffer GlobalShaderUniformData {
+layout(set = 0, binding = 13, std430) restrict readonly buffer GlobalShaderUniformData {
 	vec4 data[];
 }
 global_shader_uniforms;
@@ -238,7 +243,7 @@ struct SDFVoxelGICascadeData {
 	float exposure_normalization;
 };
 
-layout(set = 0, binding = 13, std140) uniform SDFGI {
+layout(set = 0, binding = 14, std140) uniform SDFGI {
 	vec3 grid_size;
 	uint max_cascades;
 
@@ -266,12 +271,17 @@ layout(set = 0, binding = 13, std140) uniform SDFGI {
 }
 sdfgi;
 
-layout(set = 0, binding = 14) uniform sampler DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP;
+layout(set = 0, binding = 15) uniform sampler DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP;
 
-layout(set = 0, binding = 15) uniform texture2D best_fit_normal_texture;
+layout(set = 0, binding = 16) uniform texture2D best_fit_normal_texture;
 
-layout(set = 0, binding = 16) uniform texture2D dfg;
+layout(set = 0, binding = 17) uniform texture2D dfg;
 
+layout(set = 0, binding = 18) uniform sampler2D ltc_lut1;
+
+layout(set = 0, binding = 19) uniform sampler2D ltc_lut2;
+
+layout(set = 0, binding = 20) uniform sampler2D ltc_sheen;
 /* Set 1: Render Pass (changes per render pass) */
 
 layout(set = 1, binding = 0, std140) uniform SceneDataBlock {
@@ -459,35 +469,6 @@ vec3 prefiltered_dfg(float lod, float NoV) {
 vec3 get_energy_compensation(vec3 f0, float env) {
 	return 1.0 + f0 * (1.0 / env - 1.0);
 }
-
-// Chan 2018, "Material Advances in Call of Duty: WWII"
-/*float compute_micro_shadowing(float NoL, float ao, float opacity) {
-    float aperture = inversesqrt(1.0 - min(ao, 0.9999));
-    float microShadow = clamp(NoL * aperture, 0, 1);
-    return mix(1.0, microShadow * microShadow, opacity);
-}*/
-
-/*float adjust_cos_cone_angle(float cosConeAngle , float gloss, float NdotV) {
-	// The cone is an especially poor approximation to actual visibility for high gloss values .
-	// This is an ad hoc adjustment .
-	// Gloss above 0.67 is unaffected by the cone , i .e .\ we set to full cone angle .
-	float gloss2 = gloss * gloss ;
-	float gloss4 = gloss2 * gloss2 ;
-	float gloss8 = gloss4 * gloss4 ;
-	float oneMinusNdotV2 = ( 1 - NdotV ) * ( 1 - NdotV );
-	float oneMinusNdotV4 = oneMinusNdotV2 * oneMinusNdotV2 ;
-	// We lerp towards full cone angle based on gloss and NdotV .
-	cosConeAngle = mix( 0, cosConeAngle , ( 1 - gloss8 ) * ( 1 - oneMinusNdotV4 ) );
-	return cosConeAngle ;
-}
-
-float compute_micro_shadowing(float gloss, float NoV, float NoL, float ao, float opacity) {
-    float cos_cone_angle = sqrt(1.0 - ao);
-	float adjusted_cos_cone_angle = adjust_cos_cone_angle(cos_cone_angle, gloss , NoV);
-	adjusted_cos_cone_angle = max(adjusted_cos_cone_angle, 0.001);
-	float microShadow = clamp(NoL / adjusted_cos_cone_angle, 0, 1);
-    return mix(1.0, microShadow * microShadow, opacity);
-}*/
 
 // Brinck and Maximov 2016, "The Technical Art of Uncharted 4"
 float compute_micro_shadowing(float NoL, float ao, float opacity) {

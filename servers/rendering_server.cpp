@@ -2506,6 +2506,7 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("directional_light_create"), &RenderingServer::directional_light_create);
 	ClassDB::bind_method(D_METHOD("omni_light_create"), &RenderingServer::omni_light_create);
 	ClassDB::bind_method(D_METHOD("spot_light_create"), &RenderingServer::spot_light_create);
+	ClassDB::bind_method(D_METHOD("area_light_create"), &RenderingServer::area_light_create);
 
 	ClassDB::bind_method(D_METHOD("light_set_color", "light", "color"), &RenderingServer::light_set_color);
 	ClassDB::bind_method(D_METHOD("light_set_param", "light", "param", "value"), &RenderingServer::light_set_param);
@@ -2525,6 +2526,10 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("light_directional_set_blend_splits", "light", "enable"), &RenderingServer::light_directional_set_blend_splits);
 	ClassDB::bind_method(D_METHOD("light_directional_set_sky_mode", "light", "mode"), &RenderingServer::light_directional_set_sky_mode);
 
+	ClassDB::bind_method(D_METHOD("light_area_set_shape", "light", "shape"), &RenderingServer::light_area_set_shape);
+	ClassDB::bind_method(D_METHOD("light_area_set_size", "light", "enabled"), &RenderingServer::light_area_set_size);
+	ClassDB::bind_method(D_METHOD("light_area_set_length", "light", "length"), &RenderingServer::light_area_set_length);
+
 	ClassDB::bind_method(D_METHOD("light_projectors_set_filter", "filter"), &RenderingServer::light_projectors_set_filter);
 	ClassDB::bind_method(D_METHOD("lightmaps_set_bicubic_filter", "enable"), &RenderingServer::lightmaps_set_bicubic_filter);
 
@@ -2538,6 +2543,7 @@ void RenderingServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(LIGHT_DIRECTIONAL);
 	BIND_ENUM_CONSTANT(LIGHT_OMNI);
 	BIND_ENUM_CONSTANT(LIGHT_SPOT);
+	BIND_ENUM_CONSTANT(LIGHT_AREA);
 
 	BIND_ENUM_CONSTANT(LIGHT_PARAM_ENERGY);
 	BIND_ENUM_CONSTANT(LIGHT_PARAM_INDIRECT_ENERGY);
@@ -2576,6 +2582,9 @@ void RenderingServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(LIGHT_DIRECTIONAL_SKY_MODE_LIGHT_AND_SKY);
 	BIND_ENUM_CONSTANT(LIGHT_DIRECTIONAL_SKY_MODE_LIGHT_ONLY);
 	BIND_ENUM_CONSTANT(LIGHT_DIRECTIONAL_SKY_MODE_SKY_ONLY);
+
+	BIND_ENUM_CONSTANT(LIGHT_AREA_SHAPE_QUAD);
+	BIND_ENUM_CONSTANT(LIGHT_AREA_SHAPE_LINE);
 
 	ClassDB::bind_method(D_METHOD("positional_soft_shadow_filter_set_quality", "quality"), &RenderingServer::positional_soft_shadow_filter_set_quality);
 	ClassDB::bind_method(D_METHOD("directional_soft_shadow_filter_set_quality", "quality"), &RenderingServer::directional_soft_shadow_filter_set_quality);
@@ -2976,7 +2985,6 @@ void RenderingServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(VIEWPORT_DEBUG_DRAW_OCCLUDERS);
 	BIND_ENUM_CONSTANT(VIEWPORT_DEBUG_DRAW_MOTION_VECTORS);
 	BIND_ENUM_CONSTANT(VIEWPORT_DEBUG_DRAW_INTERNAL_BUFFER);
-	BIND_ENUM_CONSTANT(VIEWPORT_DEBUG_DRAW_SSS);
 
 	BIND_ENUM_CONSTANT(VIEWPORT_VRS_DISABLED);
 	BIND_ENUM_CONSTANT(VIEWPORT_VRS_TEXTURE);

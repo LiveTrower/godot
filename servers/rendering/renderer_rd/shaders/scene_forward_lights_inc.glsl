@@ -1,4 +1,5 @@
 #include "brdf_inc.glsl"
+#include "area_light_inc.glsl"
 
 #extension GL_EXT_control_flow_attributes : require
 
@@ -947,6 +948,230 @@ void light_process_spot(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 			tangent, anisotropy, binormal,
 #endif
 			diffuse_light, specular_light);
+}
+
+// implementation of area lights with Linearly Transformed Cosines (LTC): https://eheitzresearch.wordpress.com/415-2/
+void light_process_area(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3 vertex_ddx, vec3 vertex_ddy, hvec3 f0, half roughness, half metallic, float taa_frame_count, hvec3 albedo, inout half alpha, vec2 screen_uv,
+#ifdef LIGHT_SHEEN_USED
+			half sheen, half sheen_roughness, hvec3 sheen_color,
+#endif
+			inout hvec3 diffuse_light, inout hvec3 specular_light) {
+	float EPSILON = 1e-4f;
+	vec3 area_width = area_lights.data[idx].area_width;
+	vec3 area_height = area_lights.data[idx].area_height;
+	vec3 area_direction = area_lights.data[idx].direction;
+
+	if (dot(area_width, area_width) < EPSILON || dot(area_height, area_height) < EPSILON) { // area is 0
+		return;
+	}
+	if (dot(area_direction, vertex - area_lights.data[idx].position) <= 0) {
+		return; // vertex is behind light
+	}
+
+	half theta = acos(dot(normal, eye_vec));
+
+	vec4 M_brdf_abcd;
+	vec3 M_brdf_e_mag_fres;
+
+	vec2 lut_uv = vec2(max(roughness, half(0.02)), theta / half(0.5 * M_PI));
+	float LTC_LUT_SIZE = 64.0;
+	lut_uv = lut_uv * (63.0 / LTC_LUT_SIZE) + vec2(0.5 / LTC_LUT_SIZE); // offset by 1 pixel
+	M_brdf_abcd = texture(ltc_lut1, lut_uv);
+	M_brdf_e_mag_fres = texture(ltc_lut2, lut_uv).xyz;
+
+	float scale = 1.0 / (M_brdf_abcd.x * M_brdf_e_mag_fres.x - M_brdf_abcd.y * M_brdf_abcd.w);
+
+	mat3 M_inv = mat3(
+			vec3(0, 0, 1.0 / M_brdf_abcd.z),
+			vec3(-M_brdf_abcd.w * scale, M_brdf_abcd.x * scale, 0),
+			vec3(-M_brdf_e_mag_fres.x * scale, M_brdf_abcd.y * scale, 0));
+
+	vec3 points[4];
+	points[0] = area_lights.data[idx].position - vertex;
+	points[1] = area_lights.data[idx].position + area_width - vertex;
+	points[2] = area_lights.data[idx].position + area_width + area_height - vertex;
+	points[3] = area_lights.data[idx].position + area_height - vertex;
+
+	vec3 diffuseL[5];
+	vec3 specularL[5];
+
+	hvec3 ltc_diffuse = max(hvec3(ltc_evaluate(vertex, normal, eye_vec, mat3(1), points, diffuseL)), hvec3(0));
+	hvec3 ltc_specular = max(hvec3(ltc_evaluate(vertex, normal, eye_vec, M_inv, points, specularL)), hvec3(0));
+
+	float a_len = length(area_width);
+	float b_len = length(area_height);
+	float a_half_len = a_len / 2.0;
+	float b_half_len = b_len / 2.0;
+	float inv_center_range = area_lights.data[idx].cone_attenuation;
+
+	mat4 light_mat = mat4(
+			vec4(normalize(area_width), 0),
+			vec4(normalize(area_height), 0),
+			vec4(-area_direction, 0),
+			vec4(area_lights.data[idx].position + (area_width + area_height) / 2.0, 1));
+	mat4 light_mat_inv = inverse(light_mat);
+	vec3 pos_local_to_light = (light_mat_inv * vec4(vertex, 1)).xyz;
+	vec3 closest_point_local_to_light = vec3(clamp(pos_local_to_light.x, -a_half_len, a_half_len), clamp(pos_local_to_light.y, -b_half_len, b_half_len), 0);
+	float dist = length(closest_point_local_to_light - pos_local_to_light);
+
+	float light_length = max(0, dist);
+	half light_attenuation = get_omni_attenuation(light_length, area_lights.data[idx].inv_radius, area_lights.data[idx].attenuation);
+	half shadow = half(1.0);
+
+#ifndef SHADOWS_DISABLED
+	// Area light shadow.
+	if (light_attenuation > HALF_FLT_MIN && area_lights.data[idx].shadow_opacity > 0.001) {
+		// there is a shadowmap
+		vec2 texel_size = scene_data_block.data.shadow_atlas_pixel_size;
+		vec4 base_uv_rect = area_lights.data[idx].atlas_rect;
+		base_uv_rect.xy += texel_size;
+		base_uv_rect.zw -= texel_size * 2.0;
+
+		vec3 local_vert = (area_lights.data[idx].shadow_matrix * vec4(vertex, 1.0)).xyz;
+
+		float shadow_len = length(local_vert); //need to remember shadow len from here
+		vec3 shadow_dir = normalize(local_vert);
+
+		vec3 local_normal = normalize(mat3(area_lights.data[idx].shadow_matrix) * vec3(normal));
+		vec3 normal_bias = local_normal * area_lights.data[idx].shadow_normal_bias * (1.0 - abs(dot(local_normal, shadow_dir)));
+
+		if (sc_use_light_soft_shadows() && area_lights.data[idx].soft_shadow_size > 0.0) {
+			//soft shadow
+
+			//find blocker
+
+			float blocker_count = 0.0;
+			float blocker_average = 0.0;
+
+			mat2 disk_rotation;
+			{
+				float r = quick_hash(gl_FragCoord.xy + vec2(taa_frame_count * 5.588238)) * 2.0 * M_PI;
+				float sr = sin(r);
+				float cr = cos(r);
+				disk_rotation = mat2(vec2(cr, -sr), vec2(sr, cr));
+			}
+
+			vec3 basis_normal = shadow_dir;
+			vec3 v0 = abs(basis_normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
+			vec3 tangent = normalize(cross(v0, basis_normal));
+			vec3 bitangent = normalize(cross(tangent, basis_normal));
+			float z_norm = 1.0 - shadow_len * inv_center_range;
+
+			tangent *= area_lights.data[idx].soft_shadow_size * area_lights.data[idx].soft_shadow_scale;
+			bitangent *= area_lights.data[idx].soft_shadow_size * area_lights.data[idx].soft_shadow_scale;
+
+			SPEC_CONSTANT_LOOP_ANNOTATION
+			for (uint i = 0; i < sc_penumbra_shadow_samples(); i++) {
+				vec2 disk = disk_rotation * scene_data_block.data.penumbra_shadow_kernel[i].xy;
+
+				vec3 pos = local_vert + tangent * disk.x + bitangent * disk.y;
+
+				pos = normalize(pos);
+
+				vec4 uv_rect = base_uv_rect;
+
+				pos.z = 1.0 + abs(pos.z);
+				pos.xy /= pos.z;
+
+				pos.xy = pos.xy * 0.5 + 0.5;
+				pos.xy = uv_rect.xy + pos.xy * uv_rect.zw;
+
+				float d = textureLod(sampler2D(shadow_atlas, SAMPLER_LINEAR_CLAMP), pos.xy, 0.0).r;
+				if (d > z_norm) {
+					blocker_average += d;
+					blocker_count += 1.0;
+				}
+			}
+
+			if (blocker_count > 0.0) {
+				//blockers found, do soft shadow
+				blocker_average /= blocker_count;
+				float penumbra = (-z_norm + blocker_average) / (1.0 - blocker_average);
+				tangent *= penumbra;
+				bitangent *= penumbra;
+
+				z_norm += inv_center_range * area_lights.data[idx].shadow_bias;
+
+				shadow = half(0.0);
+
+				SPEC_CONSTANT_LOOP_ANNOTATION
+				for (uint i = 0; i < sc_penumbra_shadow_samples(); i++) {
+					vec2 disk = disk_rotation * scene_data_block.data.penumbra_shadow_kernel[i].xy;
+					vec3 pos = local_vert + tangent * disk.x + bitangent * disk.y;
+
+					pos = normalize(pos);
+					pos = normalize(pos + normal_bias);
+
+					vec4 uv_rect = base_uv_rect;
+
+					pos.z = 1.0 + abs(pos.z);
+					pos.xy /= pos.z;
+
+					pos.xy = pos.xy * 0.5 + 0.5;
+					pos.xy = uv_rect.xy + pos.xy * uv_rect.zw;
+					shadow += half(textureProj(sampler2DShadow(shadow_atlas, shadow_sampler), vec4(pos.xy, z_norm, 1.0)));
+				}
+
+				shadow /= half(sc_penumbra_shadow_samples());
+				shadow = mix(half(1.0), shadow, half(area_lights.data[idx].shadow_opacity));
+
+			} else {
+				//no blockers found, so no shadow
+				shadow = half(1.0);
+			}
+		} else {
+			vec4 uv_rect = base_uv_rect;
+
+			vec3 shadow_sample = normalize(shadow_dir + normal_bias);
+
+			shadow_sample.z = 1.0 + abs(shadow_sample.z);
+			vec2 pos = shadow_sample.xy / shadow_sample.z;
+			float depth = shadow_len - area_lights.data[idx].shadow_bias;
+			depth *= inv_center_range;
+			depth = 1.0 - depth;
+			shadow = mix(half(1.0), sample_omni_pcf_shadow(shadow_atlas, area_lights.data[idx].soft_shadow_scale / shadow_sample.z, pos, uv_rect, vec2(0), depth, taa_frame_count), half(area_lights.data[idx].shadow_opacity));
+		}
+	}
+#endif
+
+	hvec3 color = hvec3(area_lights.data[idx].color);
+
+	if (sc_use_light_projector() && area_lights.data[idx].projector_rect != vec4(0.0)) {
+		if (sc_projector_use_mipmaps()) {
+			vec4 proj_1 = sample_area_light_cookie(diffuseL, ltc_diffuse, 1.0);
+			vec4 proj_2 = sample_area_light_cookie(specularL, ltc_specular, roughness);
+			ltc_diffuse *= proj_1.rgb * proj_1.a;
+			ltc_specular *= proj_2.rgb * proj_2.a;
+		}
+	}
+
+	light_attenuation = clamp(light_attenuation * shadow, half(0.0), half(1.0));
+
+	if (metallic < 1.0) {
+		diffuse_light += ltc_diffuse * color / half(2.0 * M_PI) * light_attenuation;
+	}
+	hvec3 spec = ltc_specular * color;
+	hvec3 spec_color = mix(hvec3(0.04), albedo, hvec3(metallic));
+
+	spec *= spec_color * max(half(M_brdf_e_mag_fres.y), half(0.0)) + (half(1.0) - spec_color) * max(half(M_brdf_e_mag_fres.z), half(0.0));
+	specular_light += spec / half(2.0 * M_PI) * half(area_lights.data[idx].specular_amount) * light_attenuation;
+
+#ifdef LIGHT_SHEEN_USED
+	half NdotV = clamp(dot(normal, eye_vec), half(0.0), half(1.0));
+	//hvec3 light = (closest_point_local_to_light - pos_local_to_light) / light_length;
+	hvec3 light = points[0] + points[1] + points[2] + points[3];
+	light = (vertex - light) / light_length;
+	half phiStd = phi(eye_vec);
+    hvec3 wiStd = rotate_vector(light, hvec3(0.0, 0.0, 1.0), -phiStd);
+
+	hvec3 ltcCoeffs = fetch_coeffs(sheen_roughness, NdotV);
+	half ltc_sheen_specular = ltc_evaluate_sheen(wiStd, ltcCoeffs, normal);
+	half R = ltcCoeffs[2];
+	ltc_sheen_specular *= R * sheen * half(7.0);
+	ltc_sheen_specular = clamp(ltc_sheen_specular, half(0.0), half(1.0));
+
+	specular_light += ltc_sheen_specular * sheen_color * half(area_lights.data[idx].specular_amount) * light_attenuation;
+#endif
 }
 
 void reflection_process(uint ref_index, vec3 vertex, hvec3 ref_vec, hvec3 normal, half roughness, hvec3 ambient_light, hvec3 specular_light,

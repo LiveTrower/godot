@@ -86,6 +86,8 @@ private:
 	Ref<Texture2D> projector;
 	Color correlated_color = Color(1.0, 1.0, 1.0);
 	float temperature = 6500.0;
+	Vector2 area_size;
+	float area_length;
 
 	// bind helpers
 
@@ -148,6 +150,12 @@ public:
 	void set_temperature(const float p_temperature);
 	float get_temperature() const;
 	Color get_correlated_color() const;
+
+	void set_area_size(Vector2 p_size);
+	Vector2 get_area_size() const;
+
+	void set_area_length(float p_length);
+	float get_area_length() const;
 
 	virtual AABB get_aabb() const override;
 	virtual PackedStringArray get_configuration_warnings() const override;
@@ -238,3 +246,30 @@ public:
 
 	SpotLight3D();
 };
+
+class AreaLight3D : public Light3D {
+	GDCLASS(AreaLight3D, Light3D);
+
+public:
+	enum Shape {
+		AREA_SHAPE_QUAD,
+		AREA_SHAPE_LINE
+	};
+
+private:
+	Shape shape = AREA_SHAPE_QUAD;
+
+protected:
+	static void _bind_methods();
+	void _validate_property(PropertyInfo &p_property) const;
+
+public:
+	void set_area_shape(Shape p_shape);
+	Shape get_area_shape() const;
+
+	PackedStringArray get_configuration_warnings() const override;
+
+	AreaLight3D();
+};
+
+VARIANT_ENUM_CAST(AreaLight3D::Shape)

@@ -171,10 +171,7 @@ void get_closest_pixel_velocity_3x3(in uvec2 group_pos, uvec2 group_top_left, ou
 							  HISTORY SAMPLING
 ------------------------------------------------------------------------------*/
 
-vec3 sample_catmull_rom_9(sampler2D stex, vec2 uv, vec2 resolution) {
-	// Source: https://gist.github.com/TheRealMJP/c83b8c0f46b63f3a88a5986f4fa982b1
-	// License: https://gist.github.com/TheRealMJP/bc503b0b87b643d3505d41eab8b332ae
-
+vec3 sample_catmull_rom_5(sampler2D stex, vec2 uv, vec2 resolution) {
 	// We're going to sample a 4x4 grid of texels surrounding the target UV coordinate. We'll do this by rounding
 	// down the sample location to get the exact center of our "starting" texel. The starting texel will be at
 	// location [1, 1] in the grid, where [0, 0] is the top left corner.
@@ -200,7 +197,7 @@ vec3 sample_catmull_rom_9(sampler2D stex, vec2 uv, vec2 resolution) {
 
 	// Compute the final UV coordinates we'll use for sampling the texture
 	vec2 texPos0 = texPos1 - 1.0f;
-	vec2 texPos3 = texPos1 + 2.0f;
+	vec2 texPos3 = (texPos1 + 2.0f);
 	vec2 texPos12 = texPos1 + offset12;
 
 	texPos0 /= resolution;
@@ -209,17 +206,11 @@ vec3 sample_catmull_rom_9(sampler2D stex, vec2 uv, vec2 resolution) {
 
 	vec3 result = vec3(0.0f, 0.0f, 0.0f);
 
-	result += textureLod(stex, vec2(texPos0.x, texPos0.y), 0.0).xyz * w0.x * w0.y;
 	result += textureLod(stex, vec2(texPos12.x, texPos0.y), 0.0).xyz * w12.x * w0.y;
-	result += textureLod(stex, vec2(texPos3.x, texPos0.y), 0.0).xyz * w3.x * w0.y;
-
 	result += textureLod(stex, vec2(texPos0.x, texPos12.y), 0.0).xyz * w0.x * w12.y;
 	result += textureLod(stex, vec2(texPos12.x, texPos12.y), 0.0).xyz * w12.x * w12.y;
 	result += textureLod(stex, vec2(texPos3.x, texPos12.y), 0.0).xyz * w3.x * w12.y;
-
-	result += textureLod(stex, vec2(texPos0.x, texPos3.y), 0.0).xyz * w0.x * w3.y;
 	result += textureLod(stex, vec2(texPos12.x, texPos3.y), 0.0).xyz * w12.x * w3.y;
-	result += textureLod(stex, vec2(texPos3.x, texPos3.y), 0.0).xyz * w3.x * w3.y;
 
 	return max(result, 0.0f);
 }
@@ -230,31 +221,19 @@ vec3 sample_catmull_rom_9(sampler2D stex, vec2 uv, vec2 resolution) {
 
 // Based on "Temporal Reprojection Anti-Aliasing" - https://github.com/playdeadgames/temporal
 vec3 clip_aabb(vec3 aabb_min, vec3 aabb_max, vec3 p, vec3 q) {
-	vec3 r = q - p;
-	vec3 rmax = (aabb_max - p.xyz);
-	vec3 rmin = (aabb_min - p.xyz);
+	// note: only clips towards aabb center (but fast!)
+	vec3 p_clip = 0.5 * (aabb_max + aabb_min);
+	vec3 e_clip = 0.5 * (aabb_max - aabb_min) + FLT_MIN;
 
-	if (r.x > rmax.x + FLT_MIN) {
-		r *= (rmax.x / r.x);
-	}
-	if (r.y > rmax.y + FLT_MIN) {
-		r *= (rmax.y / r.y);
-	}
-	if (r.z > rmax.z + FLT_MIN) {
-		r *= (rmax.z / r.z);
-	}
+	vec3 v_clip = q - p_clip;
+	vec3 v_unit = v_clip.xyz / e_clip;
+	vec3 a_unit = abs(v_unit);
+	float ma_unit = max(a_unit.x, max(a_unit.y, a_unit.z));
 
-	if (r.x < rmin.x - FLT_MIN) {
-		r *= (rmin.x / r.x);
-	}
-	if (r.y < rmin.y - FLT_MIN) {
-		r *= (rmin.y / r.y);
-	}
-	if (r.z < rmin.z - FLT_MIN) {
-		r *= (rmin.z / r.z);
-	}
-
-	return p + r;
+	if (ma_unit > 1.0)
+		return p_clip + (v_clip / ma_unit);
+	else
+		return q;// point inside aabb
 }
 
 // Clip history to the neighbourhood of the current sample
@@ -291,7 +270,7 @@ vec3 clip_history_3x3(uvec2 group_pos, vec3 color_history, vec2 velocity_closest
 									TAA
 ------------------------------------------------------------------------------*/
 
-const vec3 lumCoeff = vec3(0.2126f, 0.7152f, 0.0722f); // vec3(0.299f, 0.587f, 0.114f)
+const vec3 lumCoeff = vec3(0.2126f, 0.7152f, 0.0722f);
 
 float luminance(vec3 color) {
 	return max(dot(color, lumCoeff), 0.0001f);
@@ -318,7 +297,7 @@ vec3 temporal_antialiasing(uvec2 pos_group_top_left, uvec2 pos_group, uvec2 pos_
 	vec3 color_input = load_color(pos_group);
 
 	// Get history color (catmull-rom reduces a lot of the blurring that you get under motion)
-	vec3 color_history = sample_catmull_rom_9(tex_history, uv_reprojected, params.resolution).rgb;
+	vec3 color_history = sample_catmull_rom_5(tex_history, uv_reprojected, params.resolution).rgb;
 
 	// Clip history to the neighbourhood of the current sample (fixes a lot of the ghosting).
 	vec2 velocity_closest = vec2(0.0); // This is best done by using the velocity with the closest depth.
@@ -356,7 +335,7 @@ vec3 temporal_antialiasing(uvec2 pos_group_top_left, uvec2 pos_group, uvec2 pos_
 		// Lerp/blend
 		color_resolved = mix(color_history, color_input, blend_factor);
 
-		// Inverse tonemap
+		// Inverse tonemap;
 		color_resolved = reinhard_inverse(color_resolved);
 	}
 

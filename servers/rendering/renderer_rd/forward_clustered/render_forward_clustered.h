@@ -42,9 +42,10 @@
 #include "servers/rendering/renderer_rd/effects/taa.h"
 #include "servers/rendering/renderer_rd/forward_clustered/scene_shader_forward_clustered.h"
 #include "servers/rendering/renderer_rd/renderer_scene_render_rd.h"
-#include "servers/rendering/renderer_rd/shaders/forward_clustered/integrate_dfg.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/forward_clustered/best_fit_normal.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/forward_clustered/integrate_dfg.glsl.gen.h"
+#include "servers/rendering/storage/ltc_lut.gen.h"
+#include "servers/rendering/storage/ltc_sheen_lut.gen.h"
 
 #define RB_SCOPE_FORWARD_CLUSTERED SNAME("forward_clustered")
 
@@ -188,6 +189,12 @@ private:
 		RID pipeline;
 		RID texture;
 	} dfg_lut;
+
+	struct LTC {
+		RID lut1_texture;
+		RID lut2_texture;
+		RID lut_sheen_texture;
+	} ltc;
 
 	enum PassMode {
 		PASS_MODE_COLOR,
@@ -754,7 +761,7 @@ private:
 	void _copy_framebuffer_to_ssil(Ref<RenderSceneBuffersRD> p_render_buffers);
 	void _pre_opaque_render(RenderDataRD *p_render_data, bool p_use_ssao, bool p_use_ssil, bool p_use_gi, const RID *p_normal_roughness_slices, RID p_voxel_gi_buffer);
 	void _process_ssr(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_dest_framebuffer, const RID *p_normal_buffer_slices, RID p_specular_buffer, const RID *p_metallic_slices, RID p_environment, const Projection *p_projections, const Vector3 *p_eye_offsets, bool p_use_additive);
-	void _process_sss(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_camera);
+	void _process_sss(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_camera, float p_taa_frame_count);
 	//void _process_ss_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_projection, int p_directional_light_count, float taa_frame_count);
 
 	/* Debug */
@@ -794,7 +801,7 @@ public:
 
 	/* callback from updating our lighting UBOs, used to populate cluster builder */
 	virtual void setup_added_reflection_probe(const Transform3D &p_transform, const Vector3 &p_half_size) override;
-	virtual void setup_added_light(const RS::LightType p_type, const Transform3D &p_transform, float p_radius, float p_spot_aperture) override;
+	virtual void setup_added_light(const RS::LightType p_type, const Transform3D &p_transform, float p_radius, float p_spot_aperture, const Vector2 &p_area_size, float p_area_length, RS::LightAreaShape p_area_shape) override;
 	virtual void setup_added_decal(const Transform3D &p_transform, const Vector3 &p_half_size) override;
 
 	virtual void base_uniforms_changed() override;

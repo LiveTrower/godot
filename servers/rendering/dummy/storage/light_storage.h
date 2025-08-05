@@ -66,6 +66,8 @@ public:
 	virtual void omni_light_initialize(RID p_rid) override {}
 	virtual RID spot_light_allocate() override { return RID(); }
 	virtual void spot_light_initialize(RID p_rid) override {}
+	virtual RID area_light_allocate() override { return RID(); }
+	virtual void area_light_initialize(RID p_rid) override {}
 
 	virtual void light_free(RID p_rid) override {}
 
@@ -92,6 +94,13 @@ public:
 
 	virtual RS::LightDirectionalShadowMode light_directional_get_shadow_mode(RID p_light) override { return RS::LIGHT_DIRECTIONAL_SHADOW_ORTHOGONAL; }
 	virtual RS::LightOmniShadowMode light_omni_get_shadow_mode(RID p_light) override { return RS::LIGHT_OMNI_SHADOW_DUAL_PARABOLOID; }
+
+	virtual void light_area_set_shape(RID p_light, RS::LightAreaShape p_shape) override {}
+	virtual RS::LightAreaShape light_area_get_shape(RID p_light) override { return RS::LIGHT_AREA_SHAPE_QUAD; }
+	virtual void light_area_set_size(RID p_light, const Vector2 &p_size) override {}
+	virtual Vector2 light_area_get_size(RID p_light) const override { return Vector2(); }
+	virtual void light_area_set_length(RID p_light, float p_length) override {}
+	virtual float light_area_get_length(RID p_light) const override { return 0.0; }
 
 	virtual bool light_has_shadow(RID p_light) const override { return false; }
 	virtual bool light_has_projector(RID p_light) const override { return false; }

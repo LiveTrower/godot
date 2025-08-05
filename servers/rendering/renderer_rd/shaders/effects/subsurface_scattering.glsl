@@ -96,7 +96,8 @@ layout(push_constant, std430) uniform Params {
 
 	float scale;
 	float depth_scale;
-	uint pad[2];
+	float taa_frame_count;
+	uint pad[1];
 }
 params;
 
@@ -107,6 +108,7 @@ layout(set = 2, binding = 0) uniform sampler2D source_depth;
 // Interleaved Gradient Noise
 // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
 float quick_hash(vec2 pos) {
+	pos += 5.588238 * params.taa_frame_count;
 	const vec3 magic = vec3(0.06711056f, 0.00583715f, 52.9829189f);
 	return fract(magic.z * fract(dot(pos, magic.xy)));
 }
@@ -115,8 +117,9 @@ void do_filter(inout vec3 color_accum, inout vec3 divisor, vec2 uv, vec2 step, b
 	// Accumulate the other samples:
 	for (int i = 1; i < kernel_size; i++) {
 		// Fetch color and depth for current sample:
-		float dither = quick_hash(uv * params.screen_size) * 2.0 - 1.0;
-		vec2 offset = uv + dither * (kernel[i].y * step * 0.5);
+		float dither = quick_hash(uv * params.screen_size);
+		//vec2 offset = uv + dither * (kernel[i].y * step * 0.5);
+		vec2 offset = uv + kernel[i].y * step * dither;
 		vec4 color = texture(source_image, offset);
 
 		if (abs(color.a) < 0.001) {

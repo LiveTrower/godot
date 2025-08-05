@@ -61,10 +61,13 @@ struct Light {
 	real_t distance_fade_begin = 40.0;
 	real_t distance_fade_shadow = 50.0;
 	real_t distance_fade_length = 10.0;
+	RS::LightAreaShape area_shape = RS::LIGHT_AREA_SHAPE_QUAD;
 	RS::LightOmniShadowMode omni_shadow_mode = RS::LIGHT_OMNI_SHADOW_DUAL_PARABOLOID;
 	RS::LightDirectionalShadowMode directional_shadow_mode = RS::LIGHT_DIRECTIONAL_SHADOW_ORTHOGONAL;
 	bool directional_blend_splits = false;
 	RS::LightDirectionalSkyMode directional_sky_mode = RS::LIGHT_DIRECTIONAL_SKY_MODE_LIGHT_AND_SKY;
+	Vector2 area_size = Vector2(1, 1);
+	float area_length = 10.0;
 	uint64_t version = 0;
 
 	Dependency dependency;
@@ -315,6 +318,8 @@ public:
 	virtual void omni_light_initialize(RID p_rid) override;
 	virtual RID spot_light_allocate() override;
 	virtual void spot_light_initialize(RID p_rid) override;
+	virtual RID area_light_allocate() override;
+	virtual void area_light_initialize(RID p_rid) override;
 
 	virtual void light_free(RID p_rid) override;
 
@@ -338,6 +343,13 @@ public:
 	virtual bool light_directional_get_blend_splits(RID p_light) const override;
 	virtual void light_directional_set_sky_mode(RID p_light, RS::LightDirectionalSkyMode p_mode) override;
 	virtual RS::LightDirectionalSkyMode light_directional_get_sky_mode(RID p_light) const override;
+
+	virtual void light_area_set_shape(RID p_light, RS::LightAreaShape p_shape) override;
+	virtual RS::LightAreaShape light_area_get_shape(RID p_light) override;
+	virtual void light_area_set_size(RID p_light, const Vector2 &p_size) override;
+	virtual Vector2 light_area_get_size(RID p_light) const override;
+	virtual void light_area_set_length(RID p_light, float p_length) override;
+	virtual float light_area_get_length(RID p_light) const override;
 
 	virtual RS::LightDirectionalShadowMode light_directional_get_shadow_mode(RID p_light) override;
 	virtual RS::LightOmniShadowMode light_omni_get_shadow_mode(RID p_light) override;
