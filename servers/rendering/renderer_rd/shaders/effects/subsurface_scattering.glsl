@@ -96,8 +96,9 @@ layout(push_constant, std430) uniform Params {
 
 	float scale;
 	float depth_scale;
-	float taa_frame_count;
-	uint pad[1];
+	float jitter_scale;
+	float aspect_ratio;
+	//uint pad[1];
 }
 params;
 
@@ -105,22 +106,38 @@ layout(set = 0, binding = 0) uniform sampler2D source_image;
 layout(rgba16f, set = 1, binding = 0) uniform restrict writeonly image2D dest_image;
 layout(set = 2, binding = 0) uniform sampler2D source_depth;
 
-// Interleaved Gradient Noise
-// https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
-float quick_hash(vec2 pos) {
-	pos += 5.588238 * params.taa_frame_count;
-	const vec3 magic = vec3(0.06711056f, 0.00583715f, 52.9829189f);
-	return fract(magic.z * fract(dot(pos, magic.xy)));
+vec2 hash22(vec2 p) {
+	vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
+	p3 += dot(p3, p3.yzx+33.33);
+	return fract((p3.xx+p3.yz)*p3.zy);
 }
 
 void do_filter(inout vec3 color_accum, inout vec3 divisor, vec2 uv, vec2 step, bool p_skin) {
+	vec2 jitter = hash22(uv * params.screen_size);
+	mat2x2 rotation_matrix = mat2x2(jitter.x, jitter.y, -jitter.y, jitter.x);
+	mat2x2 identity_matrix = mat2x2(1.0, 0.0, 0.0, 1.0);
 	// Accumulate the other samples:
 	for (int i = 1; i < kernel_size; i++) {
 		// Fetch color and depth for current sample:
-		float dither = quick_hash(uv * params.screen_size);
-		//vec2 offset = uv + dither * (kernel[i].y * step * 0.5);
-		vec2 offset = uv + kernel[i].y * step * dither;
-		vec4 color = texture(source_image, offset);
+		vec2 offset;
+		mat2x2 tap_matrix = identity_matrix;
+
+		if (p_skin) {
+			offset = skin_kernel[i].a * step;
+
+			if (abs(skin_kernel[i].a) < params.jitter_scale) {
+				tap_matrix = rotation_matrix;
+			}
+		} else {
+			offset = kernel[i].y * step;
+
+			if (abs(kernel[i].y) < params.jitter_scale) {
+				tap_matrix = rotation_matrix;
+			}
+		}
+		offset = offset * tap_matrix;
+
+		vec4 color = texture(source_image, uv + vec2(params.aspect_ratio, 1.0) * offset);
 
 		if (abs(color.a) < 0.001) {
 			break; //mix no more

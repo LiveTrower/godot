@@ -1395,7 +1395,7 @@ public:
 	};
 
 	virtual void sub_surface_scattering_set_quality(SubSurfaceScatteringQuality p_quality) = 0;
-	virtual void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) = 0;
+	virtual void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale, float p_jitter_scale, float p_aspect_ratio) = 0;
 
 	/* CAMERA EFFECTS */
 

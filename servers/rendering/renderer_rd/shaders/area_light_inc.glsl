@@ -131,82 +131,17 @@ void clip_quad_to_horizon(inout vec3 L[5], out int vertex_count) {
 	}
 }
 
-vec4 sample_area_light_cookie(vec3 L[5], vec3 F, float perceptualRoughness) {
-    // L[0..3] : LL UL UR LR
-
-    vec3  origin = L[0];
-    vec3  right = L[3] - origin;
-    vec3  up = L[1] - origin;
-
-    vec3  normal = cross(right, up);
-    float   sqArea = dot(normal, normal);
-    normal *= inversesqrt(sqArea);
-
-    // Compute intersection of irradiance vector with the area light plane
-    float   hitDistance = dot(origin, normal) / dot(F, normal);
-    vec3  hitPosition = hitDistance * normal;
-    hitPosition -= origin;  // Relative to bottom-left corner
-
-    // Here, right and up vectors are not necessarily orthonormal
-    // We create the orthogonal vector "ortho" by projecting "up" onto the vector orthogonal to "right"
-    //  ortho = up - (up.right') * right'
-    // Where right' = right / sqrt( dot( right, right ) ), the normalized right vector
-    float   recSqLengthRight = 1.0 / dot(right, right);
-    float   upRightMixing = dot(up, right);
-    vec3  ortho = up - upRightMixing * right * recSqLengthRight;
-
-    // The V coordinate along the "up" vector is simply the projection against the ortho vector
-    float   v = dot(hitPosition, ortho) / dot(ortho, ortho);
-
-    // The U coordinate is not only the projection against the right vector
-    //  but also the subtraction of the influence of the up vector upon the right vector
-    //  (indeed, if the up & right vectors are not orthogonal then a certain amount of
-    //  the up coordinate also influences the right coordinate)
-    //
-    //       |    up
-    // ortho ^....*--------*
-    //       |   /:       /
-    //       |  / :      /
-    //       | /  :     /
-    //       |/   :    /
-    //       +----+-->*----->
-    //            : right
-    //          mix of up into right that needs to be subtracted from simple projection on right vector
-    //
-    float   u = (dot(hitPosition, right) - upRightMixing * v) * recSqLengthRight;
-    // We create automatic quad emissive mesh for area light. For those to be displayed in the direction
-    // of the light when they are single sided, we need to reverse the winding order.
-    // Because of this reverse of winding order, to get a matching area light reflection,
-    // we need to flip the x axis.
-    vec2  hitUV = vec2(u, v);
-
-    // Assuming the original cosine lobe distribution Do is enclosed in a cone of 90 deg  aperture,
-    //  following the idea of orthogonal projection upon the area light's plane we find the intersection
-    //  of the cone to be a disk of area PI*d^2 where d is the hit distance we computed above.
-    // We also know the area of the transformed polygon A = sqrt( sqArea ) and we pose the ratio of covered area as PI.d^2 / A.
-    //
-    // Knowing the area in square texels of the cookie texture A_sqTexels = texture width * texture height (default is 128x128 square texels)
-    //  we can deduce the actual area covered by the cone in square texels as:
-    //  A_covered = Pi.d^2 / A * A_sqTexels
-    //
-    // From this, we find the mip level as: mip = log2( sqrt( A_covered ) ) = log2( A_covered ) / 2
-    // Also, assuming that A_sqTexels is of the form 2^n * 2^n we get the simplified expression: mip = log2( Pi.d^2 / A ) / 2 + n
-    //
-    // Compute the cookie mip count using the cookie size in the atlas
-	float   cookieWidth = textureSize(sampler2D(decal_atlas_srgb, light_projector_sampler), 0).x; // cookies and atlas are guaranteed to be POT
-	float   cookieMipCount = round(log2(cookieWidth));
-    float   mipLevel = 0.5 * log2(1e-8 + M_PI * hitDistance*hitDistance * inversesqrt(sqArea)) + cookieMipCount;
-
-    // We want to prevent the texture from accessing to the lower mips when evaluating the specular lobe
-    // when operating on low roughness points. We progressively give access from mip 3 the rest of the mips between the range 0.0 -> 0.3
-    // in the perceptual roughness space
-    float mipTrimming = saturate((0.3 - perceptualRoughness) / 0.3);
-    mipLevel = clamp(mipLevel, 0, mix(cookieMipCount, 3.0, mipTrimming));
-
-    return textureLod(sampler2D(decal_atlas_srgb, light_projector_sampler), saturate(hitUV), mipLevel);
+vec3 wrapped_normal(vec3 N, vec3 L, float w) {
+    float cosTheta = dot(N, L);
+    float wrappedCosTheta = clamp((cosTheta + w) / (1.0 + w), 0.0, 1.0);
+    float sinMaximumAngleChange = w;
+    float sinMinimumAngleChange = 0.0;
+    float sinPhi = mix(sinMaximumAngleChange, sinMinimumAngleChange, wrappedCosTheta);
+    float cosPhi = sqrt(1.0 - sinPhi * sinPhi);
+    return normalize(cosPhi * N + sinPhi * cross(cross(N, L), N));
 }
 
-vec3 ltc_evaluate(vec3 vertex, vec3 normal, vec3 eye_vec, mat3 M_inv, vec3 points[4], out vec3 L1[5]) {
+vec3 ltc_evaluate(vec3 vertex, vec3 normal, vec3 eye_vec, mat3 M_inv, vec3 points[4]) {
 	// construct the orthonormal basis around the normal vector
 	vec3 x, z;
 	z = -normalize(eye_vec - normal * dot(eye_vec, normal)); // expanding the angle between view and normal vector to 90 degrees, this gives a normal vector, unless view=normal. TODO: in that case, we have a problem.
@@ -220,7 +155,6 @@ vec3 ltc_evaluate(vec3 vertex, vec3 normal, vec3 eye_vec, mat3 M_inv, vec3 point
 	L[1] = M_inv * points[1];
 	L[2] = M_inv * points[2];
 	L[3] = M_inv * points[3];
-	L1 = L;
 
 	int n = 0;
 	clip_quad_to_horizon(L, n);

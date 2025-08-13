@@ -148,7 +148,7 @@ public:
 	/* subsurface scattering */
 	void sss_set_quality(RS::SubSurfaceScatteringQuality p_quality);
 	RS::SubSurfaceScatteringQuality sss_get_quality() const;
-	void sss_set_scale(float p_scale, float p_depth_scale);
+	void sss_set_scale(float p_scale, float p_depth_scale, float p_jitter_scale, float p_aspect_ratio);
 
 	void sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_diffuse, RID p_depth, const Projection &p_camera, const Size2i &p_screen_size, float p_taa_frame_count);
 
@@ -180,6 +180,8 @@ private:
 	RS::SubSurfaceScatteringQuality sss_quality = RS::SUB_SURFACE_SCATTERING_QUALITY_MEDIUM;
 	float sss_scale = 0.05;
 	float sss_depth_scale = 0.01;
+	float sss_jitter_scale = 1.0;
+	float sss_aspect_ration = 1.0;
 
 	//RS::SSShadowsQuality ss_shadows_quality = RS::SS_SHADOWS_QUALITY_MEDIUM;
 	//float ss_shadows_thickness = 0.05;
@@ -517,8 +519,9 @@ private:
 
 		float scale;
 		float depth_scale;
-		float taa_frame_count;
-		uint32_t pad[1];
+		float jitter_scale;
+		float aspect_ratio;
+		//uint32_t pad[1];
 	};
 
 	struct SubSurfaceScattering {

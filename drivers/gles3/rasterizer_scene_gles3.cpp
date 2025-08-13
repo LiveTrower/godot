@@ -4033,7 +4033,7 @@ bool RasterizerSceneGLES3::screen_space_roughness_limiter_is_active() const {
 void RasterizerSceneGLES3::sub_surface_scattering_set_quality(RS::SubSurfaceScatteringQuality p_quality) {
 }
 
-void RasterizerSceneGLES3::sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) {
+void RasterizerSceneGLES3::sub_surface_scattering_set_scale(float p_scale, float p_depth_scale, float p_jitter_scale, float p_aspect_ratio) {
 }
 
 TypedArray<Image> RasterizerSceneGLES3::bake_render_uv2(RID p_base, const TypedArray<RID> &p_material_overrides, const Size2i &p_image_size) {

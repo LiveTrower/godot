@@ -59,7 +59,7 @@ hvec3 dual_specular(half avg_roughness, half dual_roughness0, half dual_roughnes
 	half roughness1 = dual_roughness1 * dual_roughness1;
 
 	half D = mix(D_GGX(cNdotH, roughness0, normal, H), D_GGX(cNdotH, roughness1, normal, H), dual_lobe_mix);
-	half G = V_GGX(cNdotL, cNdotV, avg_roughness);
+	half G = mix(V_GGX(cNdotL, cNdotV, roughness0), V_GGX(cNdotL, cNdotV, roughness1), dual_lobe_mix);
 
 	// Calculate Fresnel using specular occlusion term from Filament:
 	// https://google.github.io/filament/Filament.html#lighting/occlusion/specularocclusion
@@ -992,11 +992,8 @@ void light_process_area(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 	points[2] = area_lights.data[idx].position + area_width + area_height - vertex;
 	points[3] = area_lights.data[idx].position + area_height - vertex;
 
-	vec3 diffuseL[5];
-	vec3 specularL[5];
-
-	hvec3 ltc_diffuse = max(hvec3(ltc_evaluate(vertex, normal, eye_vec, mat3(1), points, diffuseL)), hvec3(0));
-	hvec3 ltc_specular = max(hvec3(ltc_evaluate(vertex, normal, eye_vec, M_inv, points, specularL)), hvec3(0));
+	hvec3 ltc_diffuse = max(hvec3(ltc_evaluate(vertex, normal, eye_vec, mat3(1), points)), hvec3(0));
+	hvec3 ltc_specular = max(hvec3(ltc_evaluate(vertex, normal, eye_vec, M_inv, points)), hvec3(0));
 
 	float a_len = length(area_width);
 	float b_len = length(area_height);
@@ -1136,24 +1133,17 @@ void light_process_area(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 
 	hvec3 color = hvec3(area_lights.data[idx].color);
 
-	if (sc_use_light_projector() && area_lights.data[idx].projector_rect != vec4(0.0)) {
-		if (sc_projector_use_mipmaps()) {
-			vec4 proj_1 = sample_area_light_cookie(diffuseL, ltc_diffuse, 1.0);
-			vec4 proj_2 = sample_area_light_cookie(specularL, ltc_specular, roughness);
-			ltc_diffuse *= proj_1.rgb * proj_1.a;
-			ltc_specular *= proj_2.rgb * proj_2.a;
-		}
-	}
-
 	light_attenuation = clamp(light_attenuation * shadow, half(0.0), half(1.0));
 
 	if (metallic < 1.0) {
 		diffuse_light += ltc_diffuse * color / half(2.0 * M_PI) * light_attenuation;
 	}
 	hvec3 spec = ltc_specular * color;
-	hvec3 spec_color = mix(hvec3(0.04), albedo, hvec3(metallic));
+	// Calculate Fresnel using specular occlusion term from Filament:
+	// https://google.github.io/filament/Filament.html#lighting/occlusion/specularocclusion
+	half f90 = clamp(dot(f0, hvec3(50.0 * 0.33)), metallic, half(1.0));
 
-	spec *= spec_color * max(half(M_brdf_e_mag_fres.y), half(0.0)) + (half(1.0) - spec_color) * max(half(M_brdf_e_mag_fres.z), half(0.0));
+	spec *= f0 * max(half(M_brdf_e_mag_fres.y), half(0.0)) + (f90 - f0) * max(half(M_brdf_e_mag_fres.z), half(0.0));
 	specular_light += spec / half(2.0 * M_PI) * half(area_lights.data[idx].specular_amount) * light_attenuation;
 
 #ifdef LIGHT_SHEEN_USED
@@ -1219,8 +1209,8 @@ void reflection_process(uint ref_index, vec3 vertex, hvec3 ref_vec, hvec3 normal
 			float fresnel = 1.0 - max(dot(normal, -normalize(vertex)), 0.0);
 			fresnel = pow(fresnel, 4.0);
 
-			float reflection_roughness = distance_to_hit_point * (1.0 - fresnel); // Adjust contact hardening strength by viewing angle.
-			reflection_roughness /= MAX_ROUGHNESS_LOD;
+			float reflection_roughness = distance_to_hit_point / MAX_ROUGHNESS_LOD; // Remap distance to be relative to amount of mips.
+			reflection_roughness *= 1.0 - fresnel;
 			reflection_roughness += ((1.0 - fresnel) * sqrt(roughness)); // Increase roughness when viewing angle is perpendicular to avoid overly sharp reflections on rough surfaces.
 
 			float mip_offset = clamp(reflection_roughness, 0.0, 1.0); // Compute new mip level based on the mip offset value (this is mostly arbitrary).

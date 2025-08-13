@@ -88,7 +88,7 @@ Variant Light3DGizmoPlugin::get_handle_value(const EditorNode3DGizmo *p_gizmo, i
 	if (p_id == 0) {
 		if (Object::cast_to<AreaLight3D>(light)) {
 			if (Object::cast_to<AreaLight3D>(light)->get_area_shape() == AreaLight3D::Shape::AREA_SHAPE_QUAD) {
-				return light->get_area_size().x;
+				return light->get_area_size();
 			} else {
 				return light->get_area_length();
 			}
@@ -98,7 +98,7 @@ Variant Light3DGizmoPlugin::get_handle_value(const EditorNode3DGizmo *p_gizmo, i
 	}
 	if (p_id == 1) {
 		if (Object::cast_to<AreaLight3D>(light)) {
-			return light->get_area_size().y;
+			return light->get_area_size();
 		} else {
 			return light->get_param(Light3D::PARAM_SPOT_ANGLE);
 		}

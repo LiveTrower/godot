@@ -331,7 +331,7 @@ public:
 	virtual bool screen_space_roughness_limiter_is_active() const = 0;
 
 	virtual void sub_surface_scattering_set_quality(RS::SubSurfaceScatteringQuality p_quality) = 0;
-	virtual void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) = 0;
+	virtual void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale, float p_jitter_scale, float p_aspect_ratio) = 0;
 
 	virtual TypedArray<Image> bake_render_uv2(RID p_base, const TypedArray<RID> &p_material_overrides, const Size2i &p_image_size) = 0;
 

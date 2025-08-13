@@ -696,6 +696,12 @@ void RenderForwardClustered::_setup_environment(const RenderDataRD *p_render_dat
 	}
 
 	p_render_data->scene_data->update_ubo(scene_state.uniform_buffers[p_index], get_debug_draw_mode(), env, reflection_probe_instance, p_render_data->camera_attributes, p_pancake_shadows, p_screen_size, p_default_bg_color, _render_buffers_get_luminance_multiplier(), p_opaque_render_buffers, p_apply_alpha_multiplier);
+	if (p_index == 0u && p_render_data->environment.is_valid()) {
+		RS::EnvironmentAmbientSource ambient_source = environment_get_ambient_source(p_render_data->environment);
+		if (ambient_source == RS::ENV_AMBIENT_SOURCE_SKY || ambient_source == RS::ENV_AMBIENT_SOURCE_BG) {
+			sky.copy_spherical_harmonics_to_scene_data(p_render_data->environment, scene_state.uniform_buffers[p_index]);
+		}
+	}
 
 	// now do implementation UBO
 
@@ -3972,9 +3978,9 @@ void RenderForwardClustered::sub_surface_scattering_set_quality(RS::SubSurfaceSc
 	ss_effects->sss_set_quality(p_quality);
 }
 
-void RenderForwardClustered::sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) {
+void RenderForwardClustered::sub_surface_scattering_set_scale(float p_scale, float p_depth_scale, float p_jitter_scale, float p_aspect_ratio) {
 	ERR_FAIL_NULL(ss_effects);
-	ss_effects->sss_set_scale(p_scale, p_depth_scale);
+	ss_effects->sss_set_scale(p_scale, p_depth_scale, p_jitter_scale, p_aspect_ratio);
 }
 
 /*void RenderForwardClustered::ss_shadows_set_quality(RS::SSShadowsQuality p_quality) {

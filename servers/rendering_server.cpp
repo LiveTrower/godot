@@ -3071,7 +3071,7 @@ void RenderingServer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("screen_space_roughness_limiter_set_active", "enable", "amount", "limit"), &RenderingServer::screen_space_roughness_limiter_set_active);
 	ClassDB::bind_method(D_METHOD("sub_surface_scattering_set_quality", "quality"), &RenderingServer::sub_surface_scattering_set_quality);
-	ClassDB::bind_method(D_METHOD("sub_surface_scattering_set_scale", "scale", "depth_scale"), &RenderingServer::sub_surface_scattering_set_scale);
+	ClassDB::bind_method(D_METHOD("sub_surface_scattering_set_scale", "scale", "depth_scale", "jitter_scale", "aspect_ratio"), &RenderingServer::sub_surface_scattering_set_scale);
 
 	BIND_ENUM_CONSTANT(ENV_BG_CLEAR_COLOR);
 	BIND_ENUM_CONSTANT(ENV_BG_COLOR);
@@ -3742,6 +3742,8 @@ void RenderingServer::init() {
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/environment/subsurface_scattering/subsurface_scattering_quality", PROPERTY_HINT_ENUM, "Disabled (Fastest),Low (Fast),Medium (Average),High (Slow)"), 1);
 	GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "rendering/environment/subsurface_scattering/subsurface_scattering_scale", PROPERTY_HINT_RANGE, "0.001,1,0.001"), 0.05);
 	GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "rendering/environment/subsurface_scattering/subsurface_scattering_depth_scale", PROPERTY_HINT_RANGE, "0.001,1,0.001"), 0.01);
+	GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "rendering/environment/subsurface_scattering/subsurface_scattering_jitter_scale", PROPERTY_HINT_RANGE, "0.0,10,0.01"), 1.0);
+	GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "rendering/environment/subsurface_scattering/subsurface_scattering_aspect_ratio", PROPERTY_HINT_RANGE, "0.01,10,0.01"), 1.0);
 
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/limits/global_shader_variables/buffer_size", PROPERTY_HINT_RANGE, "16,1048576,1"), 65536);
 
