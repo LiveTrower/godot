@@ -200,48 +200,6 @@ vec3 ltc_evaluate(vec3 vertex, vec3 normal, vec3 eye_vec, mat3 M_inv, vec3 point
 	return vec3(abs(I));
 }
 
-////////////////////////////////// Sheen shading //////////////////////////////////
-float phi(vec3 v) {
-    float p = atan(v.y, v.x);
-    
-    if (p < 0) {
-        p += 2.0 * M_PI;
-    }
-    
-    return p; 
-}
-
-vec3 rotate_vector(vec3 v, vec3 axis, float angle) {
-    float s = sin(angle);
-    float c = cos(angle);
-    
-    return v * c + axis * dot(v, axis) * (1.f - c) + s * cross(axis, v);
-}
-
-vec3 fetch_coeffs(float alpha, float cosThetaO) {
-    float row = max(0.0, min(alpha, 1.0));
-    float col = max(0.0, min(cosThetaO, 1.0));
-
-    return texture(ltc_sheen, vec2(col, row)).rgb;
-}
-
-float ltc_evaluate_sheen(vec3 wi, vec3 ltcCoeffs, vec3 N) {
-    float aInv = ltcCoeffs[0];
-    float bInv = ltcCoeffs[1];
-    
-    vec3 wiOrg = vec3(aInv * wi.x + bInv * wi.z, aInv * wi.y, wi.z);
-    
-    float len = length(wiOrg);
-
-    float det = aInv * aInv;
-    float jacobian = det / (len * len * len);
-    
-    float cosThetaIOrg = clamp(dot(N, wiOrg), 0.0f, 1.0f);
-
-    return cosThetaIOrg / M_PI * jacobian;
-}
-/////////////////////////////////////////////////////////////////////////////////
-
 ////////////////////////////////// Line Shape //////////////////////////////////
 void build_orthonormal_basis(in vec3 n, out vec3 b1, out vec3 b2) {
     if (n.z < -0.9999999) {

@@ -2847,13 +2847,18 @@ String VisualShaderNodeVectorCoordinateTransform::generate_global_per_func(Shade
 	if (p_type == VisualShader::TYPE_VERTEX) {
 		// The TBN matrix must be in world space and of direction type vector.
 		// For all tangent space transformations will be done based on world space.
+		// It is detected whether world_vertex_coordinates is active via a built-in preprocessor.
 		// Note: Binormal is negative so it produces slightly different results than Unity.
-		// TODO: We need to detect the world_vertex_coords rendering mode.
+		code += "#ifdef WORLD_VERTEX_COORDS\n";
+		code += "	TBN = mat3(TANGENT, -BINORMAL, NORMAL);\n"; // If the vector is direction conversion type we must normalize for better performance.
+		code += "	position_ws = VERTEX;\n"; // We need the position in world space to transform our vector to a position conversion type.
+		code += "#else\n";
 		code += "	vec3 t = mat3(MODEL_MATRIX) * TANGENT;\n";
 		code += "	vec3 b = mat3(MODEL_MATRIX) * BINORMAL;\n";
 		code += "	vec3 n = mat3(MODEL_MATRIX) * NORMAL;\n";
-		code += "	TBN = mat3(normalize(t), normalize(-b), normalize(n));\n"; // If the vector is direction conversion type we must normalize for better performance according to: https://docs.unity3d.com/Packages/com.unity.shadergraph@17.0/manual/Transform-Node.html
+		code += "	TBN = mat3(normalize(t), normalize(-b), normalize(n));\n"; // If the vector is direction conversion type we must normalize for better performance.
 		code += "	position_ws = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;\n"; // We need the position in world space to transform our vector to a position conversion type.
+		code += "#endif\n";
 	}
 
 	return code;

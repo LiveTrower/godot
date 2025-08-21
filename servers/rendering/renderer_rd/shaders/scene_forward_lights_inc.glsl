@@ -68,6 +68,7 @@ hvec3 dual_specular(half avg_roughness, half dual_roughness0, half dual_roughnes
 	return energy_compensation * (D * G * F * cNdotL);
 }
 
+#ifdef LIGHT_SHEEN_USED
 hvec3 sheen_lobe(half sheen_roughness, half sheen, hvec3 sheen_color, half cNdotH, half cNdotV, half cNdotL, out half attenuation){
 	half alpha_sheen = sheen_roughness * sheen_roughness;
 	half D = D_Charlie(alpha_sheen, cNdotH);
@@ -77,6 +78,7 @@ hvec3 sheen_lobe(half sheen_roughness, half sheen, hvec3 sheen_color, half cNdot
 	attenuation = half(1.0) - max3(sheen_color) * dfg_sheen * sheen;
 	return D * V * sheen_color * sheen * cNdotL;
 }
+#endif
 
 half clearcoat_lobe(half clearcoat_roughness, half clearcoat, half ccNdotH, half cLdotH, half ccNdotL, hvec3 vertex_normal, hvec3 H, out half attenuation){
 	half D = D_GGX(ccNdotH, half(mix(half(0.001), half(0.1), clearcoat_roughness)), vertex_normal, H);
@@ -1145,23 +1147,6 @@ void light_process_area(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 
 	spec *= f0 * max(half(M_brdf_e_mag_fres.y), half(0.0)) + (f90 - f0) * max(half(M_brdf_e_mag_fres.z), half(0.0));
 	specular_light += spec / half(2.0 * M_PI) * half(area_lights.data[idx].specular_amount) * light_attenuation;
-
-#ifdef LIGHT_SHEEN_USED
-	half NdotV = clamp(dot(normal, eye_vec), half(0.0), half(1.0));
-	//hvec3 light = (closest_point_local_to_light - pos_local_to_light) / light_length;
-	hvec3 light = points[0] + points[1] + points[2] + points[3];
-	light = (vertex - light) / light_length;
-	half phiStd = phi(eye_vec);
-    hvec3 wiStd = rotate_vector(light, hvec3(0.0, 0.0, 1.0), -phiStd);
-
-	hvec3 ltcCoeffs = fetch_coeffs(sheen_roughness, NdotV);
-	half ltc_sheen_specular = ltc_evaluate_sheen(wiStd, ltcCoeffs, normal);
-	half R = ltcCoeffs[2];
-	ltc_sheen_specular *= R * sheen * half(7.0);
-	ltc_sheen_specular = clamp(ltc_sheen_specular, half(0.0), half(1.0));
-
-	specular_light += ltc_sheen_specular * sheen_color * half(area_lights.data[idx].specular_amount) * light_attenuation;
-#endif
 }
 
 void reflection_process(uint ref_index, vec3 vertex, hvec3 ref_vec, hvec3 normal, half roughness, hvec3 ambient_light, hvec3 specular_light,

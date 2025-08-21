@@ -280,8 +280,6 @@ layout(set = 0, binding = 17) uniform texture2D dfg;
 layout(set = 0, binding = 18) uniform sampler2D ltc_lut1;
 
 layout(set = 0, binding = 19) uniform sampler2D ltc_lut2;
-
-layout(set = 0, binding = 20) uniform sampler2D ltc_sheen;
 /* Set 1: Render Pass (changes per render pass) */
 
 layout(set = 1, binding = 0, std140) uniform SceneDataBlock {

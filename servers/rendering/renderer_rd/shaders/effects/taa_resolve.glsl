@@ -197,7 +197,7 @@ vec3 sample_catmull_rom_5(sampler2D stex, vec2 uv, vec2 resolution) {
 
 	// Compute the final UV coordinates we'll use for sampling the texture
 	vec2 texPos0 = texPos1 - 1.0f;
-	vec2 texPos3 = (texPos1 + 2.0f);
+	vec2 texPos3 = texPos1 + 2.0f;
 	vec2 texPos12 = texPos1 + offset12;
 
 	texPos0 /= resolution;
@@ -335,7 +335,7 @@ vec3 temporal_antialiasing(uvec2 pos_group_top_left, uvec2 pos_group, uvec2 pos_
 		// Lerp/blend
 		color_resolved = mix(color_history, color_input, blend_factor);
 
-		// Inverse tonemap;
+		// Inverse tonemap
 		color_resolved = reinhard_inverse(color_resolved);
 	}
 
