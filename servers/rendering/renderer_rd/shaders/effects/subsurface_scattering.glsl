@@ -113,31 +113,21 @@ vec2 hash22(vec2 p) {
 }
 
 void do_filter(inout vec3 color_accum, inout vec3 divisor, vec2 uv, vec2 step, bool p_skin) {
-	vec2 jitter = hash22(uv * params.screen_size);
-	mat2x2 rotation_matrix = mat2x2(jitter.x, jitter.y, -jitter.y, jitter.x);
-	mat2x2 identity_matrix = mat2x2(1.0, 0.0, 0.0, 1.0);
+	//vec2 jitter = hash22(uv * params.screen_size);
+	//mat2x2 rotation_matrix = mat2x2(jitter.x, jitter.y, -jitter.y, jitter.x);
+	//mat2x2 identity_matrix = mat2x2(1.0, 0.0, 0.0, 1.0);
 	// Accumulate the other samples:
 	for (int i = 1; i < kernel_size; i++) {
 		// Fetch color and depth for current sample:
 		vec2 offset;
-		mat2x2 tap_matrix = identity_matrix;
+		//mat2x2 tap_matrix = identity_matrix;
 
-		if (p_skin) {
-			offset = skin_kernel[i].a * step;
+		if (p_skin)
+			offset = uv + skin_kernel[i].a * step;
+		else
+			offset = uv + kernel[i].y * step;
 
-			if (abs(skin_kernel[i].a) < params.jitter_scale) {
-				tap_matrix = rotation_matrix;
-			}
-		} else {
-			offset = kernel[i].y * step;
-
-			if (abs(kernel[i].y) < params.jitter_scale) {
-				tap_matrix = rotation_matrix;
-			}
-		}
-		offset = offset * tap_matrix;
-
-		vec4 color = texture(source_image, uv + vec2(params.aspect_ratio, 1.0) * offset);
+		vec4 color = texture(source_image, offset);
 
 		if (abs(color.a) < 0.001) {
 			break; //mix no more
