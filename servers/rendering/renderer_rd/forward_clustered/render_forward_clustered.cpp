@@ -1680,15 +1680,15 @@ void RenderForwardClustered::_process_sss(Ref<RenderSceneBuffersRD> p_render_buf
 	ERR_FAIL_COND(rb_data.is_null());
 
 	Size2i internal_size = p_render_buffers->get_internal_size();
- 	bool can_use_effects = internal_size.x >= 8 && internal_size.y >= 8;
+	bool can_use_effects = internal_size.x >= 8 && internal_size.y >= 8;
 	RID directional_light_buffer = RendererRD::LightStorage::get_singleton()->get_directional_light_buffer();
 	RID omni_light_buffer = RendererRD::LightStorage::get_singleton()->get_omni_light_buffer();
 	RID spot_light_buffer = RendererRD::LightStorage::get_singleton()->get_spot_light_buffer();
 
 	if (!can_use_effects) {
-  		//just copy
-  		return;
- 	}
+		//just copy
+		return;
+	}
 
 	ss_effects->ss_shadows_allocate_buffer(p_render_buffers);
 
@@ -2598,7 +2598,7 @@ void RenderForwardClustered::_render_buffers_debug_draw(const RenderDataRD *p_re
 	/*if (get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_SSS && rb->has_texture(RB_SCOPE_SSS, RB_FINAL)) {
 		RID final = rb->get_texture_slice(RB_SCOPE_SSS, RB_FINAL, 0, 0);
 		Size2i rtsize = texture_storage->render_target_get_size(render_target);
-  		copy_effects->copy_to_fb_rect(final, texture_storage->render_target_get_rd_framebuffer(render_target), Rect2(Vector2(), rtsize), false, true);
+		copy_effects->copy_to_fb_rect(final, texture_storage->render_target_get_rd_framebuffer(render_target), Rect2(Vector2(), rtsize), false, true);
 	}*/
 }
 

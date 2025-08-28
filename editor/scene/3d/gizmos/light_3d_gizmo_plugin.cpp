@@ -402,7 +402,7 @@ void Light3DGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
 			} else {
 				Vector<Vector3> points;
 				float length = cl->get_area_length();
-				
+
 				points.push_back(Vector3(length, 0, 0));
 				points.push_back(Vector3(-length, 0, 0));
 

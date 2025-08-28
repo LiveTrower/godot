@@ -154,7 +154,7 @@ public:
 
 	/*void ss_shadows_set_quality(RS::SSShadowsQuality p_quality);
 	RS::SSShadowsQuality ss_shadows_get_quality() const;
- 	void ss_shadows_set_thickness(float p_thickness);
+	void ss_shadows_set_thickness(float p_thickness);
 	void ss_shadows_allocate_buffer(Ref<RenderSceneBuffersRD> p_render_buffers);
 	void screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_depth, const Projection &p_projection, RID directional_light_buffer, const Size2i &p_screen_size);*/
 
@@ -538,7 +538,7 @@ private:
 	struct SSShadowsPushConstant {
 		int32_t screen_size[2];
 		float far_depth_value;
-    	float near_depth_value;
+		float near_depth_value;
 		float invsource_depth_size[2];
 	};
 

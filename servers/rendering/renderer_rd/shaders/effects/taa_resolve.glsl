@@ -230,10 +230,11 @@ vec3 clip_aabb(vec3 aabb_min, vec3 aabb_max, vec3 p, vec3 q) {
 	vec3 a_unit = abs(v_unit);
 	float ma_unit = max(a_unit.x, max(a_unit.y, a_unit.z));
 
-	if (ma_unit > 1.0)
+	if (ma_unit > 1.0) {
 		return p_clip + (v_clip / ma_unit);
-	else
-		return q;// point inside aabb
+	} else {
+		return q; // point inside aabb
+	}
 }
 
 // Clip history to the neighbourhood of the current sample

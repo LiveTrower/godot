@@ -108,8 +108,8 @@ layout(set = 2, binding = 0) uniform sampler2D source_depth;
 
 vec2 hash22(vec2 p) {
 	vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
-	p3 += dot(p3, p3.yzx+33.33);
-	return fract((p3.xx+p3.yz)*p3.zy);
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.xx + p3.yz) * p3.zy);
 }
 
 void do_filter(inout vec3 color_accum, inout vec3 divisor, vec2 uv, vec2 step, bool p_skin) {
@@ -122,10 +122,11 @@ void do_filter(inout vec3 color_accum, inout vec3 divisor, vec2 uv, vec2 step, b
 		vec2 offset;
 		//mat2x2 tap_matrix = identity_matrix;
 
-		if (p_skin)
+		if (p_skin) {
 			offset = uv + skin_kernel[i].a * step;
-		else
+		} else {
 			offset = uv + kernel[i].y * step;
+		}
 
 		vec4 color = texture(source_image, offset);
 

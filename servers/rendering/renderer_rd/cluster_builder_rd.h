@@ -345,7 +345,7 @@ public:
 			cluster_count_by_type[ELEMENT_TYPE_SPOT_LIGHT]++;
 		} else { /* LIGHT_TYPE_AREA */
 			Vector3 scale;
-			if(p_area_shape == RS::LIGHT_AREA_SHAPE_QUAD) {
+			if (p_area_shape == RS::LIGHT_AREA_SHAPE_QUAD) {
 				scale = Vector3(p_area_size.x / 2.0 + radius, p_area_size.y / 2.0 + radius, radius / 2.0);
 
 				for (uint32_t i = 0; i < 3; i++) {

@@ -1,5 +1,5 @@
-#include "brdf_inc.glsl"
 #include "area_light_inc.glsl"
+#include "brdf_inc.glsl"
 
 #extension GL_EXT_control_flow_attributes : require
 
@@ -40,7 +40,7 @@ hvec3 anisotropic_lobe(half roughness, half metallic, hvec3 f0, half anisotropy,
 	return energy_compensation * (D * G * F * cNdotL);
 }
 
-hvec3 isotropic_lobe(half roughness, half metallic, hvec3 f0, half cNdotH, half cNdotL, half cNdotV, half cLdotH, hvec3 normal, hvec3 H, hvec3 energy_compensation){
+hvec3 isotropic_lobe(half roughness, half metallic, hvec3 f0, half cNdotH, half cNdotL, half cNdotV, half cLdotH, hvec3 normal, hvec3 H, hvec3 energy_compensation) {
 	half alpha_ggx = roughness * roughness;
 
 	half D = D_GGX(cNdotH, alpha_ggx, normal, H);
@@ -69,7 +69,7 @@ hvec3 dual_specular(half avg_roughness, half dual_roughness0, half dual_roughnes
 }
 
 #ifdef LIGHT_SHEEN_USED
-hvec3 sheen_lobe(half sheen_roughness, half sheen, hvec3 sheen_color, half cNdotH, half cNdotV, half cNdotL, out half attenuation){
+hvec3 sheen_lobe(half sheen_roughness, half sheen, hvec3 sheen_color, half cNdotH, half cNdotV, half cNdotL, out half attenuation) {
 	half alpha_sheen = sheen_roughness * sheen_roughness;
 	half D = D_Charlie(alpha_sheen, cNdotH);
 	half V = V_Neubelt(cNdotV, cNdotL);
@@ -80,7 +80,7 @@ hvec3 sheen_lobe(half sheen_roughness, half sheen, hvec3 sheen_color, half cNdot
 }
 #endif
 
-half clearcoat_lobe(half clearcoat_roughness, half clearcoat, half ccNdotH, half cLdotH, half ccNdotL, hvec3 vertex_normal, hvec3 H, out half attenuation){
+half clearcoat_lobe(half clearcoat_roughness, half clearcoat, half ccNdotH, half cLdotH, half ccNdotL, hvec3 vertex_normal, hvec3 H, out half attenuation) {
 	half D = D_GGX(ccNdotH, half(mix(half(0.001), half(0.1), clearcoat_roughness)), vertex_normal, H);
 	half V = V_Kelemen(cLdotH);
 	half F = clearcoat * SchlickFresnel(half(0.04), half(0.96), cLdotH);
@@ -955,9 +955,9 @@ void light_process_spot(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 // implementation of area lights with Linearly Transformed Cosines (LTC): https://eheitzresearch.wordpress.com/415-2/
 void light_process_area(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3 vertex_ddx, vec3 vertex_ddy, hvec3 f0, half roughness, half metallic, float taa_frame_count, hvec3 albedo, inout half alpha, vec2 screen_uv,
 #ifdef LIGHT_SHEEN_USED
-			half sheen, half sheen_roughness, hvec3 sheen_color,
+		half sheen, half sheen_roughness, hvec3 sheen_color,
 #endif
-			inout hvec3 diffuse_light, inout hvec3 specular_light) {
+		inout hvec3 diffuse_light, inout hvec3 specular_light) {
 	float EPSILON = 1e-4f;
 	vec3 area_width = area_lights.data[idx].area_width;
 	vec3 area_height = area_lights.data[idx].area_height;

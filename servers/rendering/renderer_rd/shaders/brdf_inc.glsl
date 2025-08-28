@@ -38,7 +38,7 @@ hvec3 SchlickFresnel(hvec3 f0, half f90, half u) {
 	return f0 + (f90 - f0) * pow5(1.0 - u);
 }
 
-half SchlickFresnel(half f0, half f90, half u){
+half SchlickFresnel(half f0, half f90, half u) {
 	return f0 + (f90 - f0) * pow5(1.0 - u);
 }
 
@@ -50,21 +50,21 @@ hvec3 F0(half metallic, half specular, hvec3 albedo) {
 }
 
 float D_Charlie(float roughness, float NoH) {
-    // Estevez and Kulla 2017, "Production Friendly Microfacet Sheen BRDF"
-    float invAlpha  = 1.0 / roughness;
-    float cos2h = NoH * NoH;
-    float sin2h = 1.0 - cos2h;
-    return (2.0 + invAlpha) * pow(sin2h, invAlpha * 0.5) / (2.0 * M_PI);
+	// Estevez and Kulla 2017, "Production Friendly Microfacet Sheen BRDF"
+	float invAlpha = 1.0 / roughness;
+	float cos2h = NoH * NoH;
+	float sin2h = 1.0 - cos2h;
+	return (2.0 + invAlpha) * pow(sin2h, invAlpha * 0.5) / (2.0 * M_PI);
 }
 
 float V_Neubelt(float NoV, float NoL) {
-    // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-    return 1.0 / (4.0 * (NoL + NoV - NoL * NoV));
+	// Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
+	return 1.0 / (4.0 * (NoL + NoV - NoL * NoV));
 }
 
 half V_Kelemen(half LoH) {
-    // Kelemen 2001, "A Microfacet Based Coupled Specular-Matte BRDF Model with Importance Sampling"
-    return half(0.25) / (LoH * LoH + half(1e-4));
+	// Kelemen 2001, "A Microfacet Based Coupled Specular-Matte BRDF Model with Importance Sampling"
+	return half(0.25) / (LoH * LoH + half(1e-4));
 }
 
 half Diffuse_Lambert(half NoL) {
@@ -73,12 +73,12 @@ half Diffuse_Lambert(half NoL) {
 
 // Energy conserving lambert wrap shader.
 // https://web.archive.org/web/20210228210901/http://blog.stevemcauley.com/2011/12/03/energy-conserving-wrapped-diffuse/
-half Diffuse_Lambert_Wrap(half NoL, half roughness){
+half Diffuse_Lambert_Wrap(half NoL, half roughness) {
 	half op_roughness = half(1.0) + roughness;
 	return max(half(0.0), (NoL + roughness) / (op_roughness * op_roughness)) * half(1.0 / M_PI);
 }
 
-half Diffuse_Burley(half LoH, half NoV, half NoL, half roughness){
+half Diffuse_Burley(half LoH, half NoV, half NoL, half roughness) {
 	half FD90_minus_1 = half(2.0) * LoH * LoH * roughness - half(0.5);
 	half FdV = half(1.0) + FD90_minus_1 * pow5(NoV);
 	half FdL = half(1.0) + FD90_minus_1 * pow5(NoL);
@@ -87,39 +87,37 @@ half Diffuse_Burley(half LoH, half NoV, half NoL, half roughness){
 
 // Normalized Disney diffuse function taken from Frostbite's PBR course notes (page 10):
 // https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/course-notes-moving-frostbite-to-pbr-v32.pdf
-half Normalized_Diffuse_Burley(half roughness, half NoV, half NoL, half LoH)
-{
-    half energyBias = mix(half(0.0), half(0.5), roughness);
-    half energyFactor = mix(half(1.0), half(1.0/1.51), roughness);
-    half fd90 = energyBias + half(2.0) * LoH * LoH * roughness;
+half Normalized_Diffuse_Burley(half roughness, half NoV, half NoL, half LoH) {
+	half energyBias = mix(half(0.0), half(0.5), roughness);
+	half energyFactor = mix(half(1.0), half(1.0 / 1.51), roughness);
+	half fd90 = energyBias + half(2.0) * LoH * LoH * roughness;
 	half f0 = half(1.0);
-    half lightScatter = SchlickFresnel(f0, fd90, NoL);
-    half viewScatter = SchlickFresnel(f0, fd90, NoV);
+	half lightScatter = SchlickFresnel(f0, fd90, NoL);
+	half viewScatter = SchlickFresnel(f0, fd90, NoV);
 
-    return lightScatter * viewScatter * energyFactor * NoL * half(1.0 / M_PI);
+	return lightScatter * viewScatter * energyFactor * NoL * half(1.0 / M_PI);
 }
 
-half Diffuse_Toon(half NoL, half roughness){
+half Diffuse_Toon(half NoL, half roughness) {
 	return smoothstep(-roughness, max(roughness, half(0.01)), NoL) * half(1.0 / M_PI);
 }
 
 // [ Chan 2018, "Material Advances in Call of Duty: WWII" ]
-half Diffuse_Chan(half roughness, half NoV, half NoL, half LoH, half NoH)
-{
+half Diffuse_Chan(half roughness, half NoV, half NoL, half LoH, half NoH) {
 	half a2 = roughness * roughness;
 
 	// a2 = 2 / ( 1 + exp2( 18 * g )
-	half g = saturate( half(1.0 / 18.0) * log2( half(2) * rcp(a2) - half(1) ) );
+	half g = saturate(half(1.0 / 18.0) * log2(half(2) * rcp(a2) - half(1)));
 
-	half F0 = LoH + pow5( half(1) - LoH );
-	half FdV = half(1 - 0.75) * pow5( half(1) - NoV );
-	half FdL = half(1 - 0.75) * pow5( half(1) - NoL );
+	half F0 = LoH + pow5(half(1) - LoH);
+	half FdV = half(1 - 0.75) * pow5(half(1) - NoV);
+	half FdL = half(1 - 0.75) * pow5(half(1) - NoL);
 
 	// Rough (F0) to smooth (FdV * FdL) response interpolation
-	half Fd = mix( F0, FdV * FdL, saturate( half(2.2) * g - half(0.5) ) );
+	half Fd = mix(F0, FdV * FdL, saturate(half(2.2) * g - half(0.5)));
 
 	// Retro reflectivity contribution.
-	half Fb = ( half(34.5 * g - 59) * g + half(24.5) ) * LoH * exp2( -max( half(73.2) * g - half(21.2), half(8.9) ) * sqrt( NoH ) );
+	half Fb = (half(34.5 * g - 59) * g + half(24.5)) * LoH * exp2(-max(half(73.2) * g - half(21.2), half(8.9)) * sqrt(NoH));
 
 	half Lobe = half(1 / M_PI) * (Fd + Fb) * NoL;
 
@@ -144,7 +142,7 @@ hvec2 BRDF_Aprox(half roughness, half NoV) {
 }
 
 // Dielectric (IOR=1.5) simplification of the full BRDF approximation above, from the same source.
-half BRDF_Aprox_Nonmetal(half roughness, half NoV){
+half BRDF_Aprox_Nonmetal(half roughness, half NoV) {
 	const hvec4 c0 = hvec4(-1.0, -0.0275, -0.572, 0.022);
 	const hvec4 c1 = hvec4(1.0, 0.0425, 1.04, -0.04);
 	hvec2 r = roughness * c0.xy + c1.xy;

@@ -386,11 +386,11 @@ void vertex_shader(vec3 vertex_input,
 
 	vertex = (model_matrix * vec4(vertex, 1.0)).xyz;
 
-#ifdef NORMAL_USED 
+#ifdef NORMAL_USED
 	normal_highp = model_normal_matrix * normal_highp;
 #endif
 
-#ifdef TANGENT_USED 
+#ifdef TANGENT_USED
 
 	tangent = model_normal_matrix * tangent;
 	binormal = model_normal_matrix * binormal;
@@ -2052,12 +2052,12 @@ void fragment_shader(in SceneData scene_data) {
 
 				reflection_process(reflection_index, vertex, ref_vec, normal, roughness, ambient_light, indirect_specular_light,
 #ifdef LIGHT_CLEARCOAT_USED
-				cc_specular_light, cc_ref_vec, cc_roughness, cc_reflection_accum,
+						cc_specular_light, cc_ref_vec, cc_roughness, cc_reflection_accum,
 #endif
 #ifdef LIGHT_SHEEN_USED
-				sh_specular_light, sh_ref_vec, sheen_roughness, sh_reflection_accum,
+						sh_specular_light, sh_ref_vec, sheen_roughness, sh_reflection_accum,
 #endif
-				ambient_accum, reflection_accum);
+						ambient_accum, reflection_accum);
 			}
 		}
 
@@ -2243,10 +2243,10 @@ void fragment_shader(in SceneData scene_data) {
 			// Only process the first light's shadow for vertex lighting.
 			for (uint i = 0; i < 1; i++) {
 #else
-			for (uint i = 0; i < 8; i++) {
-				if (i >= scene_data.directional_light_count) {
-					break;
-				}
+		for (uint i = 0; i < 8; i++) {
+			if (i >= scene_data.directional_light_count) {
+				break;
+			}
 #endif
 
 				if (!bool(directional_lights.data[i].mask & instances.data[instance_index].layer_mask)) {
@@ -2799,9 +2799,9 @@ void fragment_shader(in SceneData scene_data) {
 
 				light_process_area(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv,
 #ifdef LIGHT_SHEEN_USED
-								sheen, sheen_roughness, sheen_color,
+						sheen, sheen_roughness, sheen_color,
 #endif
-								diffuse_light, direct_specular_light);
+						diffuse_light, direct_specular_light);
 			}
 		}
 	}

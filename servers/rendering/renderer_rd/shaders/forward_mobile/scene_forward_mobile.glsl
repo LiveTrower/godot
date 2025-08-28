@@ -1767,12 +1767,12 @@ void main() {
 
 			reflection_process(reflection_index, vertex, ref_vec, normal, roughness, ambient_light, indirect_specular_light,
 #ifdef LIGHT_CLEARCOAT_USED
-			cc_specular_light, cc_ref_vec, cc_roughness, cc_reflection_accum,
+					cc_specular_light, cc_ref_vec, cc_roughness, cc_reflection_accum,
 #endif
 #ifdef LIGHT_SHEEN_USED
-			hvec3(1.0), hvec3(1.0), sheen_roughness, sh_reflection_accum,
+					hvec3(1.0), hvec3(1.0), sheen_roughness, sh_reflection_accum,
 #endif
-			ambient_accum, reflection_accum);
+					ambient_accum, reflection_accum);
 		}
 
 		if (ambient_accum.a < half(1.0)) {

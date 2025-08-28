@@ -132,13 +132,13 @@ void clip_quad_to_horizon(inout vec3 L[5], out int vertex_count) {
 }
 
 vec3 wrapped_normal(vec3 N, vec3 L, float w) {
-    float cosTheta = dot(N, L);
-    float wrappedCosTheta = clamp((cosTheta + w) / (1.0 + w), 0.0, 1.0);
-    float sinMaximumAngleChange = w;
-    float sinMinimumAngleChange = 0.0;
-    float sinPhi = mix(sinMaximumAngleChange, sinMinimumAngleChange, wrappedCosTheta);
-    float cosPhi = sqrt(1.0 - sinPhi * sinPhi);
-    return normalize(cosPhi * N + sinPhi * cross(cross(N, L), N));
+	float cosTheta = dot(N, L);
+	float wrappedCosTheta = clamp((cosTheta + w) / (1.0 + w), 0.0, 1.0);
+	float sinMaximumAngleChange = w;
+	float sinMinimumAngleChange = 0.0;
+	float sinPhi = mix(sinMaximumAngleChange, sinMinimumAngleChange, wrappedCosTheta);
+	float cosPhi = sqrt(1.0 - sinPhi * sinPhi);
+	return normalize(cosPhi * N + sinPhi * cross(cross(N, L), N));
 }
 
 vec3 ltc_evaluate(vec3 vertex, vec3 normal, vec3 eye_vec, mat3 M_inv, vec3 points[4]) {
@@ -202,83 +202,89 @@ vec3 ltc_evaluate(vec3 vertex, vec3 normal, vec3 eye_vec, mat3 M_inv, vec3 point
 
 ////////////////////////////////// Line Shape //////////////////////////////////
 void build_orthonormal_basis(in vec3 n, out vec3 b1, out vec3 b2) {
-    if (n.z < -0.9999999) {
-        b1 = vec3( 0.0, -1.0, 0.0);
-        b2 = vec3(-1.0,  0.0, 0.0);
-        return;
-    }
-    float a = 1.0 / (1.0 + n.z);
-    float b = -n.x*n.y*a;
-    b1 = vec3(1.0 - n.x*n.x*a, b, -n.x);
-    b2 = vec3(b, 1.0 - n.y*n.y*a, -n.y);
+	if (n.z < -0.9999999) {
+		b1 = vec3(0.0, -1.0, 0.0);
+		b2 = vec3(-1.0, 0.0, 0.0);
+		return;
+	}
+	float a = 1.0 / (1.0 + n.z);
+	float b = -n.x * n.y * a;
+	b1 = vec3(1.0 - n.x * n.x * a, b, -n.x);
+	b2 = vec3(b, 1.0 - n.y * n.y * a, -n.y);
 }
 
 mat3 Minv;
 float D(vec3 w) {
-    vec3 wo = Minv * w;
-    float lo = length(wo);
-    float res = 1.0/M_PI * max(0.0, wo.z/lo) * abs(determinant(Minv)) / (lo*lo*lo);
-    return res;
+	vec3 wo = Minv * w;
+	float lo = length(wo);
+	float res = 1.0 / M_PI * max(0.0, wo.z / lo) * abs(determinant(Minv)) / (lo * lo * lo);
+	return res;
 }
 
 float Fpo(float d, float l) {
-    return l/(d*(d*d + l*l)) + atan(l/d)/(d*d);
+	return l / (d * (d * d + l * l)) + atan(l / d) / (d * d);
 }
 
 float Fwt(float d, float l) {
-    return l*l/(d*(d*d + l*l));
+	return l * l / (d * (d * d + l * l));
 }
 
 float I_diffuse_line(vec3 p1, vec3 p2) {
-    // tangent
-    vec3 wt = normalize(p2 - p1);
+	// tangent
+	vec3 wt = normalize(p2 - p1);
 
-    // clamping
-    if (p1.z <= 0.0 && p2.z <= 0.0) return 0.0;
-    if (p1.z < 0.0) p1 = (+p1*p2.z - p2*p1.z) / (+p2.z - p1.z);
-    if (p2.z < 0.0) p2 = (-p1*p2.z + p2*p1.z) / (-p2.z + p1.z);
+	// clamping
+	if (p1.z <= 0.0 && p2.z <= 0.0) {
+		return 0.0;
+	}
+	if (p1.z < 0.0) {
+		p1 = (+p1 * p2.z - p2 * p1.z) / (+p2.z - p1.z);
+	}
+	if (p2.z < 0.0) {
+		p2 = (-p1 * p2.z + p2 * p1.z) / (-p2.z + p1.z);
+	}
 
-    // parameterization
-    float l1 = dot(p1, wt);
-    float l2 = dot(p2, wt);
+	// parameterization
+	float l1 = dot(p1, wt);
+	float l2 = dot(p2, wt);
 
-    // shading point orthonormal projection on the line
-    vec3 po = p1 - l1*wt;
+	// shading point orthonormal projection on the line
+	vec3 po = p1 - l1 * wt;
 
-    // distance to line
-    float d = length(po);
+	// distance to line
+	float d = length(po);
 
-    // integral
-    float I = (Fpo(d, l2) - Fpo(d, l1)) * po.z +
-              (Fwt(d, l2) - Fwt(d, l1)) * wt.z;
-    return I / M_PI;
+	// integral
+	float I = (Fpo(d, l2) - Fpo(d, l1)) * po.z +
+			(Fwt(d, l2) - Fwt(d, l1)) * wt.z;
+	return I / M_PI;
 }
 
 float I_ltc_line(vec3 p1, vec3 p2) {
-    // transform to diffuse configuration
-    vec3 p1o = Minv * p1;
-    vec3 p2o = Minv * p2;
-    float I_diffuse = I_diffuse_line(p1o, p2o);
+	// transform to diffuse configuration
+	vec3 p1o = Minv * p1;
+	vec3 p2o = Minv * p2;
+	float I_diffuse = I_diffuse_line(p1o, p2o);
 
-    // width factor
-    vec3 ortho = normalize(cross(p1, p2));
-    float w =  1.0 / length(inverse(transpose(Minv)) * ortho);
+	// width factor
+	vec3 ortho = normalize(cross(p1, p2));
+	float w = 1.0 / length(inverse(transpose(Minv)) * ortho);
 
-    return w * I_diffuse;
+	return w * I_diffuse;
 }
 
 vec3 ltc_evaluate(vec3 N, vec3 V, vec3 cylinderP1, vec3 cylinderP2, float R) {
-    // construct orthonormal basis around N
-    vec3 T1, T2;
-    T1 = normalize(V - N*dot(V, N));
-    T2 = cross(N, T1);
+	// construct orthonormal basis around N
+	vec3 T1, T2;
+	T1 = normalize(V - N * dot(V, N));
+	T2 = cross(N, T1);
 
-    mat3 B = transpose(mat3(T1, T2, N));
+	mat3 B = transpose(mat3(T1, T2, N));
 
-    vec3 p1 = B * cylinderP1;
-    vec3 p2 = B * cylinderP2;
+	vec3 p1 = B * cylinderP1;
+	vec3 p2 = B * cylinderP2;
 
-    // analytic integration
-    float Iline = R * I_ltc_line(p1, p2);
-    return vec3(min(1.0, Iline + 0.0));
+	// analytic integration
+	float Iline = R * I_ltc_line(p1, p2);
+	return vec3(min(1.0, Iline + 0.0));
 }

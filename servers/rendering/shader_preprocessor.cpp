@@ -1362,11 +1362,11 @@ Error ShaderPreprocessor::preprocess(const String &p_code, const String &p_filen
 			set_error(error, remover.get_error_line());
 			return FAILED;
 		}
-        if (stripped.contains("shader_type spatial") || stripped.contains("shader_type canvas_item")) {
-            if (stripped.contains("world_vertex_coords")) {
-                insert_builtin_define("WORLD_VERTEX_COORDS", _MKSTR(0), pp_state);
-            }
-        }
+		if (stripped.contains("shader_type spatial") || stripped.contains("shader_type canvas_item")) {
+			if (stripped.contains("world_vertex_coords")) {
+				insert_builtin_define("WORLD_VERTEX_COORDS", _MKSTR(0), pp_state);
+			}
+		}
 	}
 
 	Error err = preprocess(&pp_state, p_code, r_result);

@@ -28,8 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef TEST_BIT_SET_H
-#define TEST_BIT_SET_H
+#pragma once
 
 #include "core/templates/bit_set.h"
 
@@ -127,5 +126,3 @@ TEST_CASE("[BitSet] Large set") {
 	CHECK(set.get(1234) == true);
 }
 } // namespace TestBitSet
-
-#endif // TEST_BIT_SET_H

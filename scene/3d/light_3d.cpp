@@ -754,7 +754,7 @@ void AreaLight3D::_validate_property(PropertyInfo &p_property) const {
 	if (Engine::get_singleton()->is_editor_hint()) {
 		if (shape == AREA_SHAPE_QUAD && p_property.name == "area_length") {
 			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
-		} else if(shape == AREA_SHAPE_LINE && p_property.name == "area_size") {
+		} else if (shape == AREA_SHAPE_LINE && p_property.name == "area_size") {
 			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 		}
 	}

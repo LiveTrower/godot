@@ -424,7 +424,7 @@ protected:
 	virtual void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale, float p_jitter_scale, float p_aspect_ratio) override {}
 
 	//virtual void ss_shadows_set_quality(RS::SSShadowsQuality p_quality) override {}
- 	//virtual void ss_shadows_set_thickness(float p_thickness) override {}
+	//virtual void ss_shadows_set_thickness(float p_thickness) override {}
 
 	/* Geometry instance */
 

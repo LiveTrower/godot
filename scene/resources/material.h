@@ -556,7 +556,7 @@ private:
 	float normal_scale = 0.0f;
 	float rim = 0.0f;
 	float rim_tint = 0.0f;
-	float sheen= 0.0f;
+	float sheen = 0.0f;
 	float sheen_roughness = 0.0f;
 	Color sheen_color;
 	float clearcoat = 0.0f;

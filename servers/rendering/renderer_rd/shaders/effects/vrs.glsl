@@ -67,7 +67,7 @@ void main() {
 	vec2 uv = uv_interp;
 #endif
 
-	// Input is standardised. R for X, G for Y, 0.0 (0) = 1, 0.33 (85) = 2, 0.66 (170) = 3, 1.0 (255) = 8
+	// Input is standardized. R for X, G for Y, 0.0 (0) = 1, 0.33 (85) = 2, 0.66 (170) = 3, 1.0 (255) = 8
 	vec4 color = textureLod(source_color, uv, 0.0);
 
 #ifdef SPLIT_RG
