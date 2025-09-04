@@ -200,91 +200,90 @@ vec3 ltc_evaluate(vec3 vertex, vec3 normal, vec3 eye_vec, mat3 M_inv, vec3 point
 	return vec3(abs(I));
 }
 
-////////////////////////////////// Line Shape //////////////////////////////////
-void build_orthonormal_basis(in vec3 n, out vec3 b1, out vec3 b2) {
-	if (n.z < -0.9999999) {
-		b1 = vec3(0.0, -1.0, 0.0);
-		b2 = vec3(-1.0, 0.0, 0.0);
-		return;
-	}
-	float a = 1.0 / (1.0 + n.z);
-	float b = -n.x * n.y * a;
-	b1 = vec3(1.0 - n.x * n.x * a, b, -n.x);
-	b2 = vec3(b, 1.0 - n.y * n.y * a, -n.y);
-}
+/**
+ * Calculates the azimuthal angle.
+ */
+float phi(vec3 v) {
+	float p = atan(v.y, v.x);
 
-mat3 Minv;
-float D(vec3 w) {
-	vec3 wo = Minv * w;
-	float lo = length(wo);
-	float res = 1.0 / M_PI * max(0.0, wo.z / lo) * abs(determinant(Minv)) / (lo * lo * lo);
-	return res;
-}
-
-float Fpo(float d, float l) {
-	return l / (d * (d * d + l * l)) + atan(l / d) / (d * d);
-}
-
-float Fwt(float d, float l) {
-	return l * l / (d * (d * d + l * l));
-}
-
-float I_diffuse_line(vec3 p1, vec3 p2) {
-	// tangent
-	vec3 wt = normalize(p2 - p1);
-
-	// clamping
-	if (p1.z <= 0.0 && p2.z <= 0.0) {
-		return 0.0;
-	}
-	if (p1.z < 0.0) {
-		p1 = (+p1 * p2.z - p2 * p1.z) / (+p2.z - p1.z);
-	}
-	if (p2.z < 0.0) {
-		p2 = (-p1 * p2.z + p2 * p1.z) / (-p2.z + p1.z);
+	if (p < 0) {
+		p += 2 * M_PI;
 	}
 
-	// parameterization
-	float l1 = dot(p1, wt);
-	float l2 = dot(p2, wt);
-
-	// shading point orthonormal projection on the line
-	vec3 po = p1 - l1 * wt;
-
-	// distance to line
-	float d = length(po);
-
-	// integral
-	float I = (Fpo(d, l2) - Fpo(d, l1)) * po.z +
-			(Fwt(d, l2) - Fwt(d, l1)) * wt.z;
-	return I / M_PI;
+	return p;
 }
 
-float I_ltc_line(vec3 p1, vec3 p2) {
-	// transform to diffuse configuration
-	vec3 p1o = Minv * p1;
-	vec3 p2o = Minv * p2;
-	float I_diffuse = I_diffuse_line(p1o, p2o);
+/**
+ * Rotates the vector v around the axis given a certain angle.
+ */
+vec3 rotateVector(vec3 v, vec3 axis, float angle) {
+	float s = sin(angle);
+	float c = cos(angle);
 
-	// width factor
-	vec3 ortho = normalize(cross(p1, p2));
-	float w = 1.0 / length(inverse(transpose(Minv)) * ortho);
-
-	return w * I_diffuse;
+	return v * c + axis * dot(v, axis) * (1.f - c) + s * cross(axis, v);
 }
 
-vec3 ltc_evaluate(vec3 N, vec3 V, vec3 cylinderP1, vec3 cylinderP2, float R) {
-	// construct orthonormal basis around N
-	vec3 T1, T2;
-	T1 = normalize(V - N * dot(V, N));
-	T2 = cross(N, T1);
+/**
+ * Fetch the LTC coefficients in a 32x32 lookup table.
+ */
+vec3 fetchCoeffs(float cosThetaO, float sheen_roughness) {
+	// Compute table indices and interpolation factors.
+	return texture(ltc_sheen_lut, vec2(sqrt(sheen_roughness), cosThetaO)).xyz;
+}
 
-	mat3 B = transpose(mat3(T1, T2, N));
+/**
+ * Evaluate the LTC distribution in its default coordinate system.
+ */
+float ltc_eval_sheen(vec3 wi, vec3 ltcCoeffs, vec3 N) {
+	float aInv = ltcCoeffs[0];
+	float bInv = ltcCoeffs[1];
 
-	vec3 p1 = B * cylinderP1;
-	vec3 p2 = B * cylinderP2;
+	vec3 wiOrg = vec3(aInv * wi.x + bInv * wi.z, aInv * wi.y, wi.z);
 
-	// analytic integration
-	float Iline = R * I_ltc_line(p1, p2);
-	return vec3(min(1.0, Iline + 0.0));
+	float len = length(wiOrg);
+
+	float det = aInv * aInv;
+	float jacobian = det / (len * len * len);
+
+	float cosThetaIOrg = clamp(dot(N, wiOrg), 0.0f, 1.0f);
+
+	return cosThetaIOrg / M_PI * jacobian;
+}
+
+/**
+ * The sheen layer we are going to use.
+ */
+vec3 sheenModel(vec3 vertex, vec3 view, vec3 normal, vec3 points[4], float sheen, float sheen_roughness) {
+	// Get the light position by getting its center.
+	vec3 lightPosition = points[0] +
+			points[1] +
+			points[2] +
+			points[3];
+	lightPosition /= 4.0;
+
+	// Calculate the view direction and the light direction.
+	vec3 wo = normalize(view);
+	vec3 wi = normalize(lightPosition);
+
+	vec3 N = normalize(normal);
+
+	// Calculate its cosTheta values.
+	float cosThetaO = clamp(abs(dot(N, wo)) + 1e-5, 0.0, 1.0);
+
+	// Rotate coordinate frame to align with incident direction wo.
+	float phiStd = phi(wo);
+	vec3 wiStd = rotateVector(wi, vec3(0.0, 0.0, 1.0), -phiStd);
+
+	// Evaluate LTC distribution in aligned coordinates.
+	vec3 ltcCoeffs = fetchCoeffs(cosThetaO, sheen_roughness);
+	float value = ltc_eval_sheen(wiStd, ltcCoeffs, N);
+
+	// Consider the overall reflectance `R` and the artist-specified sheen scale.
+	float R = ltcCoeffs[2];
+	value *= R * sheen;
+
+	float res = value; // cosThetaI;
+	res = clamp(res, 0.0, 1.0);
+
+	return vec3(res);
 }

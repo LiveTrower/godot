@@ -100,16 +100,9 @@ bool RenderingLightCuller::_prepare_light(const RendererSceneCull::Instance &p_i
 			break;
 		case RS::LIGHT_AREA: {
 			lsource.type = LightSource::ST_AREA;
-			lsource.area_shape = RSG::light_storage->light_area_get_shape(p_instance.base);
-			if (RSG::light_storage->light_area_get_shape(p_instance.base) == RS::LIGHT_AREA_SHAPE_QUAD) {
-				lsource.area_size = RSG::light_storage->light_area_get_size(p_instance.base);
-				float half_diagonal = lsource.area_size.length() / 2.0;
-				lsource.range = RSG::light_storage->light_get_param(p_instance.base, RS::LIGHT_PARAM_RANGE) + half_diagonal;
-			} else {
-				lsource.area_length = RSG::light_storage->light_area_get_length(p_instance.base);
-				float half_length = lsource.area_length / 2.0;
-				lsource.range = RSG::light_storage->light_get_param(p_instance.base, RS::LIGHT_PARAM_RANGE) + half_length;
-			}
+			lsource.area_size = RSG::light_storage->light_area_get_size(p_instance.base);
+			float half_diagonal = lsource.area_size.length() / 2.0;
+			lsource.range = RSG::light_storage->light_get_param(p_instance.base, RS::LIGHT_PARAM_RANGE) + half_diagonal;
 		} break;
 		case RS::LIGHT_DIRECTIONAL:
 			lsource.type = LightSource::ST_DIRECTIONAL;
@@ -386,35 +379,18 @@ bool RenderingLightCuller::_add_light_camera_planes(LightCullPlanes &r_cull_plan
 	} else if (p_light_source.type == LightSource::ST_AREA) {
 		for (int n = 0; n < 6; n++) {
 			float dist = data.frustum_planes[n].distance_to(p_light_source.pos);
-			if (p_light_source.area_shape == RS::LIGHT_AREA_SHAPE_QUAD) {
-				float half_diagonal = p_light_source.area_size.length() / 2.0;
-				if (dist < 0.0f) {
-					lookup |= 1 << n;
+			float half_diagonal = p_light_source.area_size.length() / 2.0;
+			if (dist < 0.0f) {
+				lookup |= 1 << n;
 
-					// Add backfacing camera frustum planes.
-					r_cull_planes.add_cull_plane(data.frustum_planes[n]);
-				} else {
-					// Is the light out of range?
-					if (dist >= p_light_source.range + half_diagonal) {
-						// If the light is out of range, no need to do anything else, everything will be culled.
-						data.out_of_range = true;
-						return false;
-					}
-				}
+				// Add backfacing camera frustum planes.
+				r_cull_planes.add_cull_plane(data.frustum_planes[n]);
 			} else {
-				float half_length = p_light_source.area_length / 2.0;
-				if (dist < 0.0f) {
-					lookup |= 1 << n;
-
-					// Add backfacing camera frustum planes.
-					r_cull_planes.add_cull_plane(data.frustum_planes[n]);
-				} else {
-					// Is the light out of range?
-					if (dist >= p_light_source.range + half_length) {
-						// If the light is out of range, no need to do anything else, everything will be culled.
-						data.out_of_range = true;
-						return false;
-					}
+				// Is the light out of range?
+				if (dist >= p_light_source.range + half_diagonal) {
+					// If the light is out of range, no need to do anything else, everything will be culled.
+					data.out_of_range = true;
+					return false;
 				}
 			}
 		}

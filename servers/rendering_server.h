@@ -558,6 +558,7 @@ public:
 		LIGHT_PARAM_SHADOW_BLUR,
 		LIGHT_PARAM_TRANSMITTANCE_BIAS,
 		LIGHT_PARAM_INTENSITY,
+		LIGHT_PARAM_AREA_NORMALIZE_ENERGY,
 		LIGHT_PARAM_MAX
 	};
 
@@ -610,14 +611,7 @@ public:
 	virtual void light_directional_set_blend_splits(RID p_light, bool p_enable) = 0;
 	virtual void light_directional_set_sky_mode(RID p_light, LightDirectionalSkyMode p_mode) = 0;
 
-	enum LightAreaShape {
-		LIGHT_AREA_SHAPE_QUAD,
-		LIGHT_AREA_SHAPE_LINE
-	};
-
-	virtual void light_area_set_shape(RID p_light, LightAreaShape p_shape) = 0;
 	virtual void light_area_set_size(RID p_light, const Vector2 &p_size) = 0;
-	virtual void light_area_set_length(RID p_light, float p_length) = 0;
 
 	// Shadow atlas
 
@@ -1938,7 +1932,6 @@ VARIANT_ENUM_CAST(RenderingServer::LightType);
 VARIANT_ENUM_CAST(RenderingServer::LightParam);
 VARIANT_ENUM_CAST(RenderingServer::LightBakeMode);
 VARIANT_ENUM_CAST(RenderingServer::LightOmniShadowMode);
-VARIANT_ENUM_CAST(RenderingServer::LightAreaShape);
 VARIANT_ENUM_CAST(RenderingServer::LightDirectionalShadowMode);
 VARIANT_ENUM_CAST(RenderingServer::LightDirectionalSkyMode);
 VARIANT_ENUM_CAST(RenderingServer::LightProjectorFilter);

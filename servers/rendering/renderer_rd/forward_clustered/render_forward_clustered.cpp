@@ -954,6 +954,7 @@ void RenderForwardClustered::_fill_render_list(RenderListType p_render_list, con
 		if (p_render_list == RENDER_LIST_OPAQUE) {
 			// Setup GI
 			if (inst->lightmap_instance.is_valid()) {
+				// find index of the lightmap_instance of the instance being rendered
 				int32_t lightmap_cull_index = -1;
 				for (uint32_t j = 0; j < scene_state.lightmaps_used; j++) {
 					if (scene_state.lightmap_ids[j] == inst->lightmap_instance) {
@@ -1330,6 +1331,7 @@ void RenderForwardClustered::_update_volumetric_fog(Ref<RenderSceneBuffersRD> p_
 		settings.voxel_gi_buffer = rbgi->get_voxel_gi_buffer();
 		settings.omni_light_buffer = RendererRD::LightStorage::get_singleton()->get_omni_light_buffer();
 		settings.spot_light_buffer = RendererRD::LightStorage::get_singleton()->get_spot_light_buffer();
+		settings.area_light_buffer = RendererRD::LightStorage::get_singleton()->get_area_light_buffer();
 		settings.directional_shadow_depth = RendererRD::LightStorage::get_singleton()->directional_shadow_get_texture();
 		settings.directional_light_buffer = RendererRD::LightStorage::get_singleton()->get_directional_light_buffer();
 
@@ -1353,7 +1355,7 @@ void RenderForwardClustered::setup_added_reflection_probe(const Transform3D &p_t
 	}
 }
 
-void RenderForwardClustered::setup_added_light(const RS::LightType p_type, const Transform3D &p_transform, float p_radius, float p_spot_aperture, const Vector2 &p_area_size, float p_area_length, RS::LightAreaShape p_area_shape) {
+void RenderForwardClustered::setup_added_light(const RS::LightType p_type, const Transform3D &p_transform, float p_radius, float p_spot_aperture, const Vector2 &p_area_size) {
 	if (current_cluster_builder != nullptr) {
 		ClusterBuilderRD::LightType type;
 		if (p_type == RS::LIGHT_SPOT) {
@@ -1364,7 +1366,7 @@ void RenderForwardClustered::setup_added_light(const RS::LightType p_type, const
 			type = ClusterBuilderRD::LIGHT_TYPE_AREA;
 		}
 
-		current_cluster_builder->add_light(type, p_transform, p_radius, p_spot_aperture, p_area_size, p_area_length, p_area_shape);
+		current_cluster_builder->add_light(type, p_transform, p_radius, p_spot_aperture, p_area_size);
 	}
 }
 
@@ -2753,15 +2755,9 @@ void RenderForwardClustered::_render_shadow_pass(RID p_light, RID p_shadow_atlas
 
 			flip_y = true;
 		} else if (light_storage->light_get_type(base) == RS::LIGHT_AREA) {
-			if (light_storage->light_area_get_shape(base) == RS::LIGHT_AREA_SHAPE_QUAD) {
-				Vector2 area_size = light_storage->light_area_get_size(base);
+			Vector2 area_size = light_storage->light_area_get_size(base);
 
-				zfar = light_storage->light_get_param(base, RS::LIGHT_PARAM_RANGE) + area_size.length() / 2.0;
-			} else {
-				float area_length = light_storage->light_area_get_length(base);
-
-				zfar = light_storage->light_get_param(base, RS::LIGHT_PARAM_RANGE) + area_length / 2.0;
-			}
+			zfar = light_storage->light_get_param(base, RS::LIGHT_PARAM_RANGE) + area_size.length() / 2.0;
 
 			light_transform = light_storage->light_instance_get_shadow_transform(p_light, 0);
 
@@ -3330,7 +3326,7 @@ void RenderForwardClustered::_update_render_base_uniform_set() {
 
 				ltc.lut2_texture = RS::get_singleton()->texture_2d_create(lut2_image);
 
-				int sheen_lut_bytes = 4 * sheen_dimensions * sheen_dimensions;
+				int sheen_lut_bytes = 3 * sheen_dimensions * sheen_dimensions;
 				size_t lut_sheen_size = sheen_lut_bytes * 4; // float
 
 				Ref<Image> lut_sheen_image;
@@ -3338,7 +3334,7 @@ void RenderForwardClustered::_update_render_base_uniform_set() {
 				lut_sheen_data.resize(lut_sheen_size);
 
 				memcpy(lut_sheen_data.ptrw(), LTC_SHEEN_LUT, lut_sheen_size);
-				lut_sheen_image = Image::create_from_data(sheen_dimensions, sheen_dimensions, false, Image::FORMAT_RGBAF, lut_sheen_data);
+				lut_sheen_image = Image::create_from_data(sheen_dimensions, sheen_dimensions, false, Image::FORMAT_RGBF, lut_sheen_data);
 
 				ltc.lut_sheen_texture = RS::get_singleton()->texture_2d_create(lut_sheen_image);
 			}

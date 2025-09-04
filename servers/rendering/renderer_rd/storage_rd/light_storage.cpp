@@ -158,6 +158,7 @@ void LightStorage::_light_initialize(RID p_light, RS::LightType p_type) {
 	light.param[RS::LIGHT_PARAM_SHADOW_BLUR] = 0;
 	light.param[RS::LIGHT_PARAM_SHADOW_PANCAKE_SIZE] = 20.0;
 	light.param[RS::LIGHT_PARAM_TRANSMITTANCE_BIAS] = 0.05;
+	light.param[RS::LIGHT_PARAM_AREA_NORMALIZE_ENERGY] = true;
 	light.param[RS::LIGHT_PARAM_INTENSITY] = p_type == RS::LIGHT_DIRECTIONAL ? 100000.0 : 1000.0;
 
 	light_owner.initialize_rid(p_light, light);
@@ -423,23 +424,6 @@ RS::LightDirectionalShadowMode LightStorage::light_directional_get_shadow_mode(R
 	return light->directional_shadow_mode;
 }
 
-void LightStorage::light_area_set_shape(RID p_light, RS::LightAreaShape p_shape) {
-	Light *light = light_owner.get_or_null(p_light);
-	ERR_FAIL_NULL(light);
-
-	light->area_shape = p_shape;
-
-	light->version++;
-	light->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_LIGHT);
-}
-
-RS::LightAreaShape LightStorage::light_area_get_shape(RID p_light) {
-	const Light *light = light_owner.get_or_null(p_light);
-	ERR_FAIL_NULL_V(light, RS::LIGHT_AREA_SHAPE_QUAD);
-
-	return light->area_shape;
-}
-
 void LightStorage::light_area_set_size(RID p_light, const Vector2 &p_size) {
 	Light *light = light_owner.get_or_null(p_light);
 	light->area_size = Vector2(MAX(p_size.x, 0), MAX(p_size.y, 0));
@@ -447,16 +431,6 @@ void LightStorage::light_area_set_size(RID p_light, const Vector2 &p_size) {
 Vector2 LightStorage::light_area_get_size(RID p_light) const {
 	const Light *light = light_owner.get_or_null(p_light);
 	return light->area_size;
-}
-
-void LightStorage::light_area_set_length(RID p_light, float p_length) {
-	Light *light = light_owner.get_or_null(p_light);
-	light->area_length = p_length;
-}
-
-float LightStorage::light_area_get_length(RID p_light) const {
-	const Light *light = light_owner.get_or_null(p_light);
-	return light->area_length;
 }
 
 uint32_t LightStorage::light_get_max_sdfgi_cascade(RID p_light) {
@@ -503,14 +477,9 @@ AABB LightStorage::light_get_aabb(RID p_light) const {
 		};
 		case RS::LIGHT_AREA: {
 			float len = light->param[RS::LIGHT_PARAM_RANGE];
-			if (light->area_shape == RS::LIGHT_AREA_SHAPE_QUAD) {
-				float width = light->area_size.x / 2.0 + len;
-				float height = light->area_size.y / 2.0 + len;
-				return AABB(-Vector3(width, height, 0), Vector3(width * 2, height * 2, -len));
-			} else {
-				float area_length = light->area_length / 2.0 + len;
-				return AABB(-Vector3(area_length, 0, 0), Vector3(area_length * 2, len, -len));
-			}
+			float width = light->area_size.x / 2.0 + len;
+			float height = light->area_size.y / 2.0 + len;
+			return AABB(-Vector3(width, height, 0), Vector3(width * 2, height * 2, -len));
 		};
 		case RS::LIGHT_DIRECTIONAL: {
 			return AABB();
@@ -1040,15 +1009,9 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 		float radius = MAX(0.001, light->param[RS::LIGHT_PARAM_RANGE]);
 		light_data.inv_radius = 1.0 / radius;
 		Vector2 area_size = light->area_size;
-		float area_length = light->area_length;
-		RS::LightAreaShape area_shape = light->area_shape;
 		Vector3 pos = inverse_transform.xform(light_transform.origin);
 		if (type == RS::LIGHT_AREA) {
-			if (area_shape == RS::LIGHT_AREA_SHAPE_QUAD) {
-				pos = inverse_transform.xform(light_transform.xform(Vector3(-area_size.x / 2.0, -area_size.y / 2.0, 0.0)));
-			} else {
-				pos = inverse_transform.xform(light_transform.xform(Vector3(-area_length / 2.0, 0.0, 0.0)));
-			}
+			pos = inverse_transform.xform(light_transform.xform(Vector3(-area_size.x / 2.0, -area_size.y / 2.0, 0.0)));
 		}
 		light_data.position[0] = pos.x;
 		light_data.position[1] = pos.y;
@@ -1068,21 +1031,24 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 		float spot_angle = light->param[RS::LIGHT_PARAM_SPOT_ANGLE];
 		light_data.cos_spot_angle = Math::cos(Math::deg_to_rad(spot_angle));
 		if (type == RS::LIGHT_AREA) {
-			if (area_shape == RS::LIGHT_AREA_SHAPE_QUAD) {
-				Vector3 area_vec_a = inverse_transform.basis.xform(light_transform.basis.xform(Vector3(1, 0, 0))).normalized() * area_size.x;
-				Vector3 area_vec_b = inverse_transform.basis.xform(light_transform.basis.xform(Vector3(0, 1, 0))).normalized() * area_size.y;
+			Vector3 area_vec_a = inverse_transform.basis.xform(light_transform.basis.xform(Vector3(1, 0, 0))).normalized() * area_size.x;
+			Vector3 area_vec_b = inverse_transform.basis.xform(light_transform.basis.xform(Vector3(0, 1, 0))).normalized() * area_size.y;
 
-				light_data.area_width[0] = area_vec_a.x;
-				light_data.area_width[1] = area_vec_a.y;
-				light_data.area_width[2] = area_vec_a.z;
+			light_data.area_width[0] = area_vec_a.x;
+			light_data.area_width[1] = area_vec_a.y;
+			light_data.area_width[2] = area_vec_a.z;
 
-				light_data.area_height[0] = area_vec_b.x;
-				light_data.area_height[1] = area_vec_b.y;
-				light_data.area_height[2] = area_vec_b.z;
-				light_data.inv_spot_attenuation = 1.0 / (radius + Vector2(area_size.x, area_size.y).length() / 2.0); // center range
-			} else {
-				light_data.area_length = area_length;
-				light_data.inv_spot_attenuation = 1.0 / (radius + area_length); // center range
+			light_data.area_height[0] = area_vec_b.x;
+			light_data.area_height[1] = area_vec_b.y;
+			light_data.area_height[2] = area_vec_b.z;
+			light_data.inv_spot_attenuation = 1.0 / (radius + Vector2(area_size.x, area_size.y).length() / 2.0); // center range
+
+			if (light->param[RS::LIGHT_PARAM_AREA_NORMALIZE_ENERGY]) {
+				// normalization to make larger lights output same amount of light as smaller lights with same energy
+				float surface_area = area_size.x * area_size.y;
+				light_data.color[0] /= surface_area;
+				light_data.color[1] /= surface_area;
+				light_data.color[2] /= surface_area;
 			}
 		}
 		light_data.mask = light->cull_mask;
@@ -1213,7 +1179,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 		light_instance->cull_mask = light->cull_mask;
 
 		// hook for subclass to do further processing.
-		RendererSceneRenderRD::get_singleton()->setup_added_light(type, light_transform, radius, spot_angle, area_size, area_length, area_shape);
+		RendererSceneRenderRD::get_singleton()->setup_added_light(type, light_transform, radius, spot_angle, area_size);
 
 		r_positional_light_count++;
 	}

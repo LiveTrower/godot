@@ -334,23 +334,6 @@ RS::LightDirectionalShadowMode LightStorage::light_directional_get_shadow_mode(R
 	return light->directional_shadow_mode;
 }
 
-void LightStorage::light_area_set_shape(RID p_light, RS::LightAreaShape p_shape) {
-	Light *light = light_owner.get_or_null(p_light);
-	ERR_FAIL_NULL(light);
-
-	light->area_shape = p_shape;
-
-	light->version++;
-	light->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_LIGHT);
-}
-
-RS::LightAreaShape LightStorage::light_area_get_shape(RID p_light) {
-	const Light *light = light_owner.get_or_null(p_light);
-	ERR_FAIL_NULL_V(light, RS::LIGHT_AREA_SHAPE_QUAD);
-
-	return light->area_shape;
-}
-
 void LightStorage::light_area_set_size(RID p_light, const Vector2 &p_size) {
 	Light *light = light_owner.get_or_null(p_light);
 	light->area_size = Vector2(MAX(p_size.x, 0), MAX(p_size.y, 0));
@@ -359,16 +342,6 @@ void LightStorage::light_area_set_size(RID p_light, const Vector2 &p_size) {
 Vector2 LightStorage::light_area_get_size(RID p_light) const {
 	const Light *light = light_owner.get_or_null(p_light);
 	return light->area_size;
-}
-
-void LightStorage::light_area_set_length(RID p_light, float p_length) {
-	Light *light = light_owner.get_or_null(p_light);
-	light->area_length = p_length;
-}
-
-float LightStorage::light_area_get_length(RID p_light) const {
-	const Light *light = light_owner.get_or_null(p_light);
-	return light->area_length;
 }
 
 RS::LightBakeMode LightStorage::light_get_bake_mode(RID p_light) {

@@ -53,13 +53,12 @@ hvec3 isotropic_lobe(half roughness, half metallic, hvec3 f0, half cNdotH, half 
 	return energy_compensation * (D * G * F * cNdotL);
 }
 
-hvec3 dual_specular(half avg_roughness, half dual_roughness0, half dual_roughness1, half dual_lobe_mix, half metallic, hvec3 f0, half cNdotH, half cNdotL, half cNdotV, half cLdotH, hvec3 normal, hvec3 H, hvec3 energy_compensation) {
-	half alpha_ggx = avg_roughness * avg_roughness;
-	half roughness0 = dual_roughness0 * dual_roughness0;
-	half roughness1 = dual_roughness1 * dual_roughness1;
+hvec3 dual_specular(half roughness, half dual_roughness, half dual_lobe_mix, half metallic, hvec3 f0, half cNdotH, half cNdotL, half cNdotV, half cLdotH, hvec3 normal, hvec3 H, hvec3 energy_compensation) {
+	half alpha_ggx = roughness * roughness;
+	half alpha_ggx2 = dual_roughness * dual_roughness;
 
-	half D = mix(D_GGX(cNdotH, roughness0, normal, H), D_GGX(cNdotH, roughness1, normal, H), dual_lobe_mix);
-	half G = mix(V_GGX(cNdotL, cNdotV, roughness0), V_GGX(cNdotL, cNdotV, roughness1), dual_lobe_mix);
+	half D = mix(D_GGX(cNdotH, roughness, normal, H), D_GGX(cNdotH, alpha_ggx2, normal, H), dual_lobe_mix);
+	half G = mix(V_GGX(cNdotL, cNdotV, roughness), V_GGX(cNdotL, cNdotV, alpha_ggx2), dual_lobe_mix);
 
 	// Calculate Fresnel using specular occlusion term from Filament:
 	// https://google.github.io/filament/Filament.html#lighting/occlusion/specularocclusion
@@ -85,7 +84,7 @@ half clearcoat_lobe(half clearcoat_roughness, half clearcoat, half ccNdotH, half
 	half V = V_Kelemen(cLdotH);
 	half F = clearcoat * SchlickFresnel(half(0.04), half(0.96), cLdotH);
 	// The clear coat layer assumes an IOR of 1.5 (4% reflectance)
-	attenuation = half(1.0) - F * clearcoat;
+	attenuation = half(1.0) - F;
 	return clearcoat * D * V * F * ccNdotL;
 }
 
@@ -109,7 +108,7 @@ void light_compute(hvec3 N, hvec3 L, hvec3 V, half A, hvec3 light_color, bool is
 		half clearcoat, half clearcoat_roughness, hvec3 vertex_normal,
 #endif
 #ifdef LIGHT_DUAL_SPECULAR_USED
-		half avg_roughness, half dual_roughness0, half dual_roughness1, half dual_lobe_mix,
+		half dual_roughness, half dual_lobe_mix,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 		hvec3 T, half anisotropy, hvec3 B,
@@ -231,7 +230,7 @@ void light_compute(hvec3 N, hvec3 L, hvec3 V, half A, hvec3 light_color, bool is
 #if !defined(LIGHT_DUAL_SPECULAR_USED)
 			hvec3 specular_brdf_NL = isotropic_lobe(roughness, metallic, f0, cNdotH, cNdotL, cNdotV, cLdotH, N, H, energy_compensation);
 #else
-			hvec3 specular_brdf_NL = dual_specular(avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix, metallic, f0, cNdotH, cNdotL, cNdotV, cLdotH, N, H, energy_compensation);
+			hvec3 specular_brdf_NL = dual_specular(roughness, dual_roughness, dual_lobe_mix, metallic, f0, cNdotH, cNdotL, cNdotV, cLdotH, N, H, energy_compensation);
 #endif // LIGHT_DUAL_SPECULAR_USED
 #endif // LIGHT_ANISOTROPY_USED
 
@@ -455,7 +454,7 @@ void light_process_omni(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 		half clearcoat, half clearcoat_roughness, hvec3 vertex_normal,
 #endif
 #ifdef LIGHT_DUAL_SPECULAR_USED
-		half avg_roughness, half dual_roughness0, half dual_roughness1, half dual_lobe_mix,
+		half dual_roughness, half dual_lobe_mix,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 		hvec3 tangent, half anisotropy, hvec3 binormal,
@@ -727,7 +726,7 @@ void light_process_omni(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 			clearcoat, clearcoat_roughness, vertex_normal,
 #endif
 #ifdef LIGHT_DUAL_SPECULAR_USED
-			avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix,
+			dual_roughness, dual_lobe_mix,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 			tangent, anisotropy, binormal,
@@ -767,7 +766,7 @@ void light_process_spot(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 		half clearcoat, half clearcoat_roughness, hvec3 vertex_normal,
 #endif
 #ifdef LIGHT_DUAL_SPECULAR_USED
-		half avg_roughness, half dual_roughness0, half dual_roughness1, half dual_lobe_mix,
+		half dual_roughness, half dual_lobe_mix,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 		hvec3 tangent, half anisotropy, hvec3 binormal,
@@ -944,7 +943,7 @@ void light_process_spot(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 			clearcoat, clearcoat_roughness, vertex_normal,
 #endif
 #ifdef LIGHT_DUAL_SPECULAR_USED
-			avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix,
+			dual_roughness, dual_lobe_mix,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 			tangent, anisotropy, binormal,
@@ -953,9 +952,15 @@ void light_process_spot(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 }
 
 // implementation of area lights with Linearly Transformed Cosines (LTC): https://eheitzresearch.wordpress.com/415-2/
-void light_process_area(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3 vertex_ddx, vec3 vertex_ddy, hvec3 f0, half roughness, half metallic, float taa_frame_count, hvec3 albedo, inout half alpha, vec2 screen_uv,
+void light_process_area(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3 vertex_ddx, vec3 vertex_ddy, hvec3 f0, half roughness, half metallic, float taa_frame_count, hvec3 albedo, inout half alpha, vec2 screen_uv, hvec3 energy_compensation,
 #ifdef LIGHT_SHEEN_USED
 		half sheen, half sheen_roughness, hvec3 sheen_color,
+#endif
+#ifdef LIGHT_CLEARCOAT_USED
+		half clearcoat, half clearcoat_roughness, hvec3 vertex_normal,
+#endif
+#ifdef LIGHT_DUAL_SPECULAR_USED
+		half dual_roughness, half dual_lobe_mix,
 #endif
 		inout hvec3 diffuse_light, inout hvec3 specular_light) {
 	float EPSILON = 1e-4f;
@@ -997,11 +1002,27 @@ void light_process_area(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 	hvec3 ltc_diffuse = max(hvec3(ltc_evaluate(vertex, normal, eye_vec, mat3(1), points)), hvec3(0));
 	hvec3 ltc_specular = max(hvec3(ltc_evaluate(vertex, normal, eye_vec, M_inv, points)), hvec3(0));
 
+#if defined(LIGHT_DUAL_SPECULAR_USED)
+	lut_uv = vec2(max(dual_roughness, half(0.02)), theta / half(0.5 * M_PI));
+
+	lut_uv = lut_uv * (63.0 / LTC_LUT_SIZE) + vec2(0.5 / LTC_LUT_SIZE); // offset by 1 pixel
+	M_brdf_abcd = texture(ltc_lut1, lut_uv);
+	M_brdf_e_mag_fres = texture(ltc_lut2, lut_uv).xyz;
+
+	scale = 1.0 / (M_brdf_abcd.x * M_brdf_e_mag_fres.x - M_brdf_abcd.y * M_brdf_abcd.w);
+
+	M_inv = mat3(
+			vec3(0, 0, 1.0 / M_brdf_abcd.z),
+			vec3(-M_brdf_abcd.w * scale, M_brdf_abcd.x * scale, 0),
+			vec3(-M_brdf_e_mag_fres.x * scale, M_brdf_abcd.y * scale, 0));
+
+	hvec3 ltc_dual_specular = max(hvec3(ltc_evaluate(vertex, normal, eye_vec, M_inv, points)), hvec3(0));
+#endif
+
 	float a_len = length(area_width);
 	float b_len = length(area_height);
 	float a_half_len = a_len / 2.0;
 	float b_half_len = b_len / 2.0;
-	float inv_center_range = area_lights.data[idx].cone_attenuation;
 
 	mat4 light_mat = mat4(
 			vec4(normalize(area_width), 0),
@@ -1014,7 +1035,7 @@ void light_process_area(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 	float dist = length(closest_point_local_to_light - pos_local_to_light);
 
 	float light_length = max(0, dist);
-	half light_attenuation = get_omni_attenuation(light_length, area_lights.data[idx].inv_radius, area_lights.data[idx].attenuation);
+	half light_attenuation = get_omni_attenuation(light_length, area_lights.data[idx].inv_radius, area_lights.data[idx].attenuation - 2.0); // solid angle already decreases by inverse square, so attenuation power is 2.0 by default -> subtract 2.0
 	half shadow = half(1.0);
 
 #ifndef SHADOWS_DISABLED
@@ -1033,6 +1054,8 @@ void light_process_area(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 
 		vec3 local_normal = normalize(mat3(area_lights.data[idx].shadow_matrix) * vec3(normal));
 		vec3 normal_bias = local_normal * area_lights.data[idx].shadow_normal_bias * (1.0 - abs(dot(local_normal, shadow_dir)));
+
+		float inv_center_range = area_lights.data[idx].cone_attenuation;
 
 		if (sc_use_light_soft_shadows() && area_lights.data[idx].soft_shadow_size > 0.0) {
 			//soft shadow
@@ -1135,18 +1158,70 @@ void light_process_area(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 
 	hvec3 color = hvec3(area_lights.data[idx].color);
 
-	light_attenuation = clamp(light_attenuation * shadow, half(0.0), half(1.0));
+	half cc_attenuation = half(1.0);
+
+#if defined(LIGHT_SHEEN_USED)
+	/*float SatNoV = clamp(abs(dot(normal, eye_vec)) + 1e-5, 0, 1);
+	vec2 sheen_lut_uv = vec2(sqrt(sheen_roughness), SatNoV);
+	float SHEEN_LTC_LUT_SIZE = 32.0;
+	sheen_lut_uv = sheen_lut_uv * (31.0 / SHEEN_LTC_LUT_SIZE) + vec2(0.5 / SHEEN_LTC_LUT_SIZE);
+	vec3 sheen_brdf = texture(ltc_sheen_lut, sheen_lut_uv).xyz;
+
+	float aInv = sheen_brdf.x;
+	float bInv = sheen_brdf.y;
+
+	mat3 sheen_M_inv = mat3(
+		vec3(1/aInv * aInv, 0, (-bInv/aInv) * bInv),
+		vec3(0, 1/aInv * aInv, 0),
+		vec3(0, 0, 1));
+
+	hvec3 spec_sheen = max(hvec3(ltc_evaluate(vertex, normal, eye_vec, sheen_M_inv, points)), hvec3(0));
+	spec_sheen *= sheen_brdf.z * sheen * sheen_color * color;*/
+
+	vec3 spec_sheen = sheenModel(vertex, eye_vec, normal, points, sheen, sheen_roughness) * sheen_color * color;
+
+	specular_light += spec_sheen / half(2.0 * M_PI) * half(area_lights.data[idx].specular_amount) * light_attenuation;
+#endif
+
+#if defined(LIGHT_CLEARCOAT_USED)
+	half c_theta = acos(dot(vertex_normal, eye_vec));
+	vec2 c_lut_uv = vec2(half(mix(half(0.001), half(0.1), clearcoat_roughness)), c_theta / half(0.5 * M_PI));
+	c_lut_uv = c_lut_uv * (63.0 / LTC_LUT_SIZE) + vec2(0.5 / LTC_LUT_SIZE); // offset by 1 pixel
+	vec4 c_M_brdf_abcd = texture(ltc_lut1, c_lut_uv);
+	vec3 c_M_brdf_e_mag_fres = texture(ltc_lut2, c_lut_uv).xyz;
+
+	half c_scale = 1.0 / (c_M_brdf_abcd.x * c_M_brdf_e_mag_fres.x - c_M_brdf_abcd.y * c_M_brdf_abcd.w);
+
+	mat3 c_M_inv = mat3(
+			vec3(0, 0, 1.0 / c_M_brdf_abcd.z),
+			vec3(-c_M_brdf_abcd.w * c_scale, c_M_brdf_abcd.x * c_scale, 0),
+			vec3(-c_M_brdf_e_mag_fres.x * c_scale, c_M_brdf_abcd.y * c_scale, 0));
+
+	hvec3 ltc_cc_specular = max(hvec3(ltc_evaluate(vertex, vertex_normal, eye_vec, c_M_inv, points)), hvec3(0));
+	hvec3 spec_clearcoat = ltc_cc_specular * color;
+
+	half F = clearcoat * 0.04 * max(half(M_brdf_e_mag_fres.y), half(0.0)) + (0.96 - 0.04) * max(half(M_brdf_e_mag_fres.z), half(0.0));
+	cc_attenuation = half(1.0) - F;
+
+	spec_clearcoat *= F;
+	specular_light += spec_clearcoat / half(2.0 * M_PI) * half(area_lights.data[idx].specular_amount) * light_attenuation;
+#endif
 
 	if (metallic < 1.0) {
-		diffuse_light += ltc_diffuse * color / half(2.0 * M_PI) * light_attenuation;
+		diffuse_light += ltc_diffuse * color / half(2.0 * M_PI) * cc_attenuation * light_attenuation;
 	}
-	hvec3 spec = ltc_specular * color;
-	// Calculate Fresnel using specular occlusion term from Filament:
-	// https://google.github.io/filament/Filament.html#lighting/occlusion/specularocclusion
-	half f90 = clamp(dot(f0, hvec3(50.0 * 0.33)), metallic, half(1.0));
 
-	spec *= f0 * max(half(M_brdf_e_mag_fres.y), half(0.0)) + (f90 - f0) * max(half(M_brdf_e_mag_fres.z), half(0.0));
-	specular_light += spec / half(2.0 * M_PI) * half(area_lights.data[idx].specular_amount) * light_attenuation;
+#if !defined(LIGHT_DUAL_SPECULAR_USED)
+	hvec3 spec = ltc_specular * color;
+#else
+	hvec3 spec = mix(ltc_specular, ltc_dual_specular, dual_lobe_mix) * color;
+#endif
+
+	half f90 = clamp(dot(f0, hvec3(50.0 * 0.33)), metallic, half(1.0));
+	hvec3 spec_color = f0;
+
+	spec *= energy_compensation * (spec_color * max(half(M_brdf_e_mag_fres.y), half(0.0)) + (f90 - spec_color) * max(half(M_brdf_e_mag_fres.z), half(0.0)));
+	specular_light += spec / half(2.0 * M_PI) * half(area_lights.data[idx].specular_amount) * cc_attenuation * light_attenuation;
 }
 
 void reflection_process(uint ref_index, vec3 vertex, hvec3 ref_vec, hvec3 normal, half roughness, hvec3 ambient_light, hvec3 specular_light,

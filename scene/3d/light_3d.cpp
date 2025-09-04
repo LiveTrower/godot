@@ -63,17 +63,6 @@ Vector2 Light3D::get_area_size() const {
 	return area_size;
 }
 
-void Light3D::set_area_length(float p_length) {
-	area_length = p_length;
-	RS::get_singleton()->light_area_set_length(light, area_length);
-
-	update_gizmos();
-}
-
-float Light3D::get_area_length() const {
-	return area_length;
-}
-
 void Light3D::set_shadow(bool p_enable) {
 	shadow = p_enable;
 	RS::get_singleton()->light_set_shadow(light, p_enable);
@@ -195,21 +184,12 @@ AABB Light3D::get_aabb() const {
 		real_t size = Math::sin(cone_angle_rad) * cone_slant_height;
 		return AABB(Vector3(-size, -size, -cone_slant_height), Vector3(2 * size, 2 * size, cone_slant_height));
 	} else if (type == RenderingServer::LIGHT_AREA) {
-		const AreaLight3D *area_light = dynamic_cast<const AreaLight3D *>(this);
-		if (area_light && area_light->get_area_shape() == AreaLight3D::AREA_SHAPE_QUAD) {
-			float len = param[PARAM_RANGE];
+		float len = param[PARAM_RANGE];
 
-			float width = area_size.x / 2.0 + len;
-			float height = area_size.y / 2.0 + len;
+		float width = area_size.x / 2.0 + len;
+		float height = area_size.y / 2.0 + len;
 
-			return AABB(-Vector3(width, height, 0), Vector3(width * 2, height * 2, -len));
-		} else {
-			float len = param[PARAM_RANGE];
-
-			float area_length = area_length / 2.0 + len;
-
-			return AABB(-Vector3(area_length, 0, 0), Vector3(area_length * 2, len, -len));
-		}
+		return AABB(-Vector3(width, height, 0), Vector3(width * 2, height * 2, -len));
 	}
 
 	return AABB();
@@ -421,8 +401,6 @@ void Light3D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_area_size", "area_size"), &AreaLight3D::set_area_size);
 	ClassDB::bind_method(D_METHOD("get_area_size"), &AreaLight3D::get_area_size);
-	ClassDB::bind_method(D_METHOD("set_area_length", "area_length"), &AreaLight3D::set_area_length);
-	ClassDB::bind_method(D_METHOD("get_area_length"), &AreaLight3D::get_area_length);
 
 	ADD_GROUP("Light", "light_");
 	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "light_intensity_lumens", PROPERTY_HINT_RANGE, "0,100000.0,0.01,or_greater,suffix:lm"), "set_param", "get_param", PARAM_INTENSITY);
@@ -483,6 +461,7 @@ void Light3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(PARAM_SHADOW_BLUR);
 	BIND_ENUM_CONSTANT(PARAM_TRANSMITTANCE_BIAS);
 	BIND_ENUM_CONSTANT(PARAM_INTENSITY);
+	BIND_ENUM_CONSTANT(PARAM_AREA_NORMALIZE_ENERGY);
 	BIND_ENUM_CONSTANT(PARAM_MAX);
 
 	BIND_ENUM_CONSTANT(BAKE_DISABLED);
@@ -526,7 +505,6 @@ Light3D::Light3D(RenderingServer::LightType p_type) {
 	set_param(PARAM_SPOT_ANGLE, 45);
 	set_param(PARAM_SPOT_ATTENUATION, 1);
 	set_area_size(Vector2(1, 1));
-	set_area_length(10.0);
 	set_param(PARAM_SHADOW_MAX_DISTANCE, 0);
 	set_param(PARAM_SHADOW_SPLIT_1_OFFSET, 0.1);
 	set_param(PARAM_SHADOW_SPLIT_2_OFFSET, 0.2);
@@ -539,6 +517,7 @@ Light3D::Light3D(RenderingServer::LightType p_type) {
 	set_param(PARAM_SHADOW_NORMAL_BIAS, 1.0);
 	set_param(PARAM_TRANSMITTANCE_BIAS, 0.05);
 	set_param(PARAM_SHADOW_FADE_START, 1);
+	set_param(PARAM_AREA_NORMALIZE_ENERGY, true);
 	// For OmniLight3D and SpotLight3D, specified in Lumens.
 	set_param(PARAM_INTENSITY, 1000.0);
 	set_temperature(6500.0); // Nearly white.
@@ -730,49 +709,20 @@ SpotLight3D::SpotLight3D() :
 	set_param(PARAM_SHADOW_BIAS, 0.03);
 }
 
-void AreaLight3D::set_area_shape(Shape p_shape) {
-	shape = p_shape;
-	RS::get_singleton()->light_area_set_shape(light, RS::LightAreaShape(p_shape));
-	update_gizmos();
-	notify_property_list_changed();
-}
-
-AreaLight3D::Shape AreaLight3D::get_area_shape() const {
-	return shape;
-}
-
 AreaLight3D::AreaLight3D() :
 		Light3D(RenderingServer::LIGHT_AREA) {
 	// Decrease the default shadow bias to better suit most scenes.
-	set_area_shape(AREA_SHAPE_QUAD);
 	set_param(PARAM_SHADOW_BIAS, 0.03);
 	set_param(PARAM_SIZE, 0.5);
 	set_param(PARAM_SPECULAR, 1.0);
 }
 
-void AreaLight3D::_validate_property(PropertyInfo &p_property) const {
-	if (Engine::get_singleton()->is_editor_hint()) {
-		if (shape == AREA_SHAPE_QUAD && p_property.name == "area_length") {
-			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
-		} else if (shape == AREA_SHAPE_LINE && p_property.name == "area_size") {
-			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
-		}
-	}
-}
-
 void AreaLight3D::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("set_area_shape", "shape"), &AreaLight3D::set_area_shape);
-	ClassDB::bind_method(D_METHOD("get_area_shape"), &AreaLight3D::get_area_shape);
-
 	ADD_GROUP("Area", "area_");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "area_shape", PROPERTY_HINT_ENUM, "Quad,Line"), "set_area_shape", "get_area_shape");
 	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "area_range", PROPERTY_HINT_RANGE, "0,4096,0.001,or_greater,exp,suffix:m"), "set_param", "get_param", PARAM_RANGE);
 	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "area_attenuation", PROPERTY_HINT_RANGE, "-10,10,0.001,or_greater,or_less"), "set_param", "get_param", PARAM_ATTENUATION);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "area_normalize_energy"), "set_param", "get_param", PARAM_AREA_NORMALIZE_ENERGY);
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "area_size", PROPERTY_HINT_LINK, "suffix:m"), "set_area_size", "get_area_size");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "area_length", PROPERTY_HINT_RANGE, "0.1,15,0.01"), "set_area_length", "get_area_length");
-
-	BIND_ENUM_CONSTANT(AREA_SHAPE_QUAD);
-	BIND_ENUM_CONSTANT(AREA_SHAPE_LINE);
 }
 
 PackedStringArray AreaLight3D::get_configuration_warnings() const {

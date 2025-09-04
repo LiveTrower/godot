@@ -1982,6 +1982,8 @@ void GI::SDFGI::pre_process_gi(const Transform3D &p_transform, RenderDataRD *p_r
 					// Spot Lights are not physically accurate, Luminous Intensity should change in relation to the cone angle.
 					// We make this assumption to keep them easy to control.
 					lights[idx].energy *= 1.0 / Math::PI;
+				} else if (lights[idx].type == RS::LIGHT_AREA) {
+					lights[idx].energy *= 1.0 / (Math::PI * 2.0);
 				}
 			}
 

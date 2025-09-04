@@ -66,11 +66,7 @@ int Light3DGizmoPlugin::get_priority() const {
 String Light3DGizmoPlugin::get_handle_name(const EditorNode3DGizmo *p_gizmo, int p_id, bool p_secondary) const {
 	if (p_id == 0) {
 		if (Object::cast_to<AreaLight3D>(p_gizmo->get_node_3d())) {
-			if (Object::cast_to<AreaLight3D>(p_gizmo->get_node_3d())->get_area_shape() == AreaLight3D::Shape::AREA_SHAPE_QUAD) {
-				return "Area width";
-			} else {
-				return "Area length";
-			}
+			return "Area width";
 		} else {
 			return "Radius";
 		}
@@ -87,11 +83,7 @@ Variant Light3DGizmoPlugin::get_handle_value(const EditorNode3DGizmo *p_gizmo, i
 	Light3D *light = Object::cast_to<Light3D>(p_gizmo->get_node_3d());
 	if (p_id == 0) {
 		if (Object::cast_to<AreaLight3D>(light)) {
-			if (Object::cast_to<AreaLight3D>(light)->get_area_shape() == AreaLight3D::Shape::AREA_SHAPE_QUAD) {
-				return light->get_area_size();
-			} else {
-				return light->get_area_length();
-			}
+			return light->get_area_size();
 		} else {
 			return light->get_param(Light3D::PARAM_RANGE);
 		}
@@ -148,17 +140,13 @@ void Light3DGizmoPlugin::set_handle(const EditorNode3DGizmo *p_gizmo, int p_id, 
 
 			Vector3 inters;
 			if (lp.intersects_ray(ray_from, ray_dir, &inters)) {
-				if (Object::cast_to<AreaLight3D>(light)->get_area_shape() == AreaLight3D::Shape::AREA_SHAPE_QUAD) {
-					Vector3 inv = gi.xform(inters);
+				Vector3 inv = gi.xform(inters);
 
-					float a = inv.x;
-					if (a >= 0) {
-						Vector2 area_size = light->get_area_size();
-						area_size.x = MAX(a * 2, 0.001);
-						light->set_area_size(area_size);
-					}
-				} else {
-					light->set_area_length(inters.distance_to(gt.origin));
+				float a = inv.x;
+				if (a >= 0) {
+					Vector2 area_size = light->get_area_size();
+					area_size.x = MAX(a * 2, 0.001);
+					light->set_area_size(area_size);
 				}
 			}
 		}
@@ -189,24 +177,16 @@ void Light3DGizmoPlugin::commit_handle(const EditorNode3DGizmo *p_gizmo, int p_i
 	if (p_cancel) {
 		if (Object::cast_to<AreaLight3D>(light)) {
 			light->set_area_size(p_restore);
-			light->set_area_length(p_restore);
 		} else {
 			light->set_param(p_id == 0 ? Light3D::PARAM_RANGE : Light3D::PARAM_SPOT_ANGLE, p_restore);
 		}
 	} else if (p_id == 0) {
 		EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
 		if (Object::cast_to<AreaLight3D>(light)) {
-			if (Object::cast_to<AreaLight3D>(light)->get_area_shape() == AreaLight3D::Shape::AREA_SHAPE_QUAD) {
-				ur->create_action(TTR("Change Area Light Width"));
-				ur->add_do_method(light, "set_area_size", light->get_area_size());
-				ur->add_undo_method(light, "set_area_size", p_restore);
-				ur->commit_action();
-			} else {
-				ur->create_action(TTR("Change Area Light Length"));
-				ur->add_do_method(light, "set_area_length", light->get_area_length());
-				ur->add_undo_method(light, "set_area_length", p_restore);
-				ur->commit_action();
-			}
+			ur->create_action(TTR("Change Area Light Width"));
+			ur->add_do_method(light, "set_area_size", light->get_area_size());
+			ur->add_undo_method(light, "set_area_size", p_restore);
+			ur->commit_action();
 		} else {
 			ur->create_action(TTR("Change Light Radius"));
 			ur->add_do_method(light, "set_param", Light3D::PARAM_RANGE, light->get_param(Light3D::PARAM_RANGE));
@@ -375,44 +355,29 @@ void Light3DGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
 			const Ref<Material> material = get_material("lines_primary", p_gizmo);
 
 			AreaLight3D *cl = Object::cast_to<AreaLight3D>(light);
-			if (cl->get_area_shape() == AreaLight3D::Shape::AREA_SHAPE_QUAD) {
-				Vector<Vector3> points;
-				Vector2 area_size = cl->get_area_size();
-				float a = area_size.x;
-				float b = area_size.y;
+			Vector<Vector3> points;
+			Vector2 area_size = cl->get_area_size();
+			float a = area_size.x;
+			float b = area_size.y;
 
-				// Draw rectangle
-				points.push_back(Vector3(-a / 2, b / 2, 0));
-				points.push_back(Vector3(a / 2, b / 2, 0));
-				points.push_back(Vector3(a / 2, b / 2, 0));
-				points.push_back(Vector3(a / 2, -b / 2, 0));
-				points.push_back(Vector3(a / 2, -b / 2, 0));
-				points.push_back(Vector3(-a / 2, -b / 2, 0));
-				points.push_back(Vector3(-a / 2, -b / 2, 0));
-				points.push_back(Vector3(-a / 2, b / 2, 0));
+			// Draw rectangle
+			points.push_back(Vector3(-a / 2, b / 2, 0));
+			points.push_back(Vector3(a / 2, b / 2, 0));
+			points.push_back(Vector3(a / 2, b / 2, 0));
+			points.push_back(Vector3(a / 2, -b / 2, 0));
+			points.push_back(Vector3(a / 2, -b / 2, 0));
+			points.push_back(Vector3(-a / 2, -b / 2, 0));
+			points.push_back(Vector3(-a / 2, -b / 2, 0));
+			points.push_back(Vector3(-a / 2, b / 2, 0));
 
-				p_gizmo->add_lines(points, material, false, color);
+			p_gizmo->add_lines(points, material, false, color);
 
-				Vector<Vector3> handles = {
-					Vector3(a / 2, 0, 0),
-					Vector3(0, b / 2, 0)
-				};
+			Vector<Vector3> handles = {
+				Vector3(a / 2, 0, 0),
+				Vector3(0, b / 2, 0)
+			};
 
-				p_gizmo->add_handles(handles, get_material("handles"));
-			} else {
-				Vector<Vector3> points;
-				float length = cl->get_area_length();
-
-				points.push_back(Vector3(length, 0, 0));
-				points.push_back(Vector3(-length, 0, 0));
-
-				p_gizmo->add_lines(points, material, false, color);
-
-				Vector<Vector3> handles;
-				handles.push_back(Vector3(length, 0, 0));
-
-				p_gizmo->add_handles(handles, get_material("handles"));
-			}
+			p_gizmo->add_handles(handles, get_material("handles"));
 		}
 
 		const Ref<Material> icon = get_material("light_area_icon", p_gizmo);

@@ -96,8 +96,6 @@ private:
 		float range;
 
 		Vector2 area_size; // For area light.
-		float area_length;
-		RS::LightAreaShape area_shape;
 	};
 
 	// Same order as godot.
