@@ -141,10 +141,10 @@ vec3 wrapped_normal(vec3 N, vec3 L, float w) {
 	return normalize(cosPhi * N + sinPhi * cross(cross(N, L), N));
 }
 
-vec3 ltc_evaluate(vec3 vertex, vec3 normal, vec3 eye_vec, mat3 M_inv, vec3 points[4]) {
+vec3 ltc_evaluate(vec3 normal, vec3 eye_vec, mat3 M_inv, vec3 points[4]) {
 	// construct the orthonormal basis around the normal vector
 	vec3 x, z;
-	z = -normalize(eye_vec - normal * dot(eye_vec, normal)); // expanding the angle between view and normal vector to 90 degrees, this gives a normal vector, unless view=normal. TODO: in that case, we have a problem.
+	z = -normalize(eye_vec - normal * dot(eye_vec, normal)); // expanding the angle between view and normal vector to 90 degrees, this gives a normal vector
 	x = cross(normal, z);
 
 	// rotate area light in (T1, normal, T2) basis
@@ -228,7 +228,8 @@ vec3 rotateVector(vec3 v, vec3 axis, float angle) {
  */
 vec3 fetchCoeffs(float cosThetaO, float sheen_roughness) {
 	// Compute table indices and interpolation factors.
-	return texture(ltc_sheen_lut, vec2(sqrt(sheen_roughness), cosThetaO)).xyz;
+	//return texture(ltc_sheen_lut, vec2(sqrt(sheen_roughness), cosThetaO)).xyz;
+	return vec3(0.0);
 }
 
 /**

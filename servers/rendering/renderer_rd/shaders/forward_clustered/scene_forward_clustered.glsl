@@ -1174,7 +1174,8 @@ void fragment_shader(in SceneData scene_data) {
 	vec3 sheen_color = vec3(0.0);
 	float clearcoat = 0.0;
 	float clearcoat_roughness = 0.0;
-	float dual_roughness = 0.0;
+	float dual_roughness0 = 0.0;
+	float dual_roughness1 = 0.0;
 	float dual_lobe_mix = 0.0;
 	float anisotropy = 0.0;
 	vec2 anisotropy_flow = vec2(1.0, 0.0);
@@ -1607,6 +1608,7 @@ void fragment_shader(in SceneData scene_data) {
 
 #ifdef LIGHT_SHEEN_USED
 	vec3 sh_specular_light = vec3(0.0);
+	sheen_roughness = max(sheen_roughness, 0.045); // to avoid artifacts
 #ifdef NORMAL_USED
 	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
 		float sheen_roughness2 = sheen_roughness * sheen_roughness;
@@ -1620,13 +1622,18 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef LIGHT_DUAL_SPECULAR_USED
 #ifdef NORMAL_USED
 	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
-		float dual_roughness2 = dual_roughness * dual_roughness;
+		float dual_roughness2 = dual_roughness0 * dual_roughness0;
 		float filteredDualRoughness2 = min(1.0, dual_roughness2 + kernelRoughness2);
-		dual_roughness = sqrt(filteredDualRoughness2);
+		dual_roughness0 = sqrt(filteredDualRoughness2);
+		dual_roughness2 = dual_roughness1 * dual_roughness1;
+		filteredDualRoughness2 = min(1.0, dual_roughness2 + kernelRoughness2);
+		dual_roughness1 = sqrt(filteredDualRoughness2);
 	}
 #endif
-	dual_roughness = clamp(dual_roughness, 0, 1);
-	roughness = mix(roughness, dual_roughness, dual_lobe_mix);
+	dual_roughness0 = max(clamp(roughness * dual_roughness0, 0, 1), 0.02);
+	dual_roughness1 = clamp(roughness * dual_roughness1, 0, 1);
+	float avg_roughness = mix(dual_roughness0, dual_roughness1, dual_lobe_mix);
+	roughness = clamp(roughness * avg_roughness, 0, 1);
 #endif // LIGHT_DUAL_SPECULAR_USED
 	//apply energy conservation
 
@@ -2608,7 +2615,7 @@ void fragment_shader(in SceneData scene_data) {
 					clearcoat, cc_roughness, geo_normal,
 #endif
 #ifdef LIGHT_DUAL_SPECULAR_USED
-					dual_roughness, dual_lobe_mix,
+					dual_roughness0, dual_roughness1, dual_lobe_mix,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 					tangent, anisotropy, binormal,
@@ -2677,7 +2684,7 @@ void fragment_shader(in SceneData scene_data) {
 						clearcoat, cc_roughness, geo_normal,
 #endif
 #ifdef LIGHT_DUAL_SPECULAR_USED
-						dual_roughness, dual_lobe_mix,
+						dual_roughness0, dual_roughness1, dual_lobe_mix,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 						tangent, anisotropy, binormal,
@@ -2744,7 +2751,7 @@ void fragment_shader(in SceneData scene_data) {
 						clearcoat, cc_roughness, geo_normal,
 #endif
 #ifdef LIGHT_DUAL_SPECULAR_USED
-						dual_roughness, dual_lobe_mix,
+						dual_roughness0, dual_roughness1, dual_lobe_mix,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 						tangent, anisotropy, binormal,
@@ -2799,7 +2806,7 @@ void fragment_shader(in SceneData scene_data) {
 						clearcoat, clearcoat_roughness, geo_normal,
 #endif
 #ifdef LIGHT_DUAL_SPECULAR_USED
-						dual_roughness, dual_lobe_mix,
+						dual_roughness0, dual_roughness1, dual_lobe_mix,
 #endif
 						diffuse_light, direct_specular_light);
 			}

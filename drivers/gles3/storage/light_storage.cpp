@@ -344,6 +344,16 @@ Vector2 LightStorage::light_area_get_size(RID p_light) const {
 	return light->area_size;
 }
 
+void LightStorage::light_area_set_normalize_energy(RID p_light, bool p_enabled) {
+	Light *light = light_owner.get_or_null(p_light);
+	light->area_normalize_energy = p_enabled;
+}
+
+bool LightStorage::light_area_get_normalize_energy(RID p_light) const {
+	const Light *light = light_owner.get_or_null(p_light);
+	return light->area_normalize_energy;
+}
+
 RS::LightBakeMode LightStorage::light_get_bake_mode(RID p_light) {
 	const Light *light = light_owner.get_or_null(p_light);
 	ERR_FAIL_NULL_V(light, RS::LIGHT_BAKE_DISABLED);
