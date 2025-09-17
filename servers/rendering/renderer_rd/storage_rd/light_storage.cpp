@@ -1724,6 +1724,7 @@ bool LightStorage::reflection_probe_instance_begin_render(RID p_instance, RID p_
 		fb.push_back(atlas->depth_buffer);
 		atlas->depth_fb = RD::get_singleton()->framebuffer_create(fb);
 
+		atlas->render_buffers->configure_for_reflections(Size2i(atlas->size, atlas->size));
 		atlas->update_always = update_always;
 	}
 
