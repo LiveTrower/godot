@@ -781,6 +781,7 @@ void EditorProperty::_update_property_bg() {
 			add_theme_style_override("bg_selected", get_theme_stylebox("sub_inspector_property_bg" + itos(count_subinspectors), EditorStringName(EditorStyles)));
 			add_theme_style_override("bg", get_theme_stylebox("sub_inspector_property_bg" + itos(count_subinspectors), EditorStringName(EditorStyles)));
 			add_theme_color_override("property_color", get_theme_color(SNAME("sub_inspector_property_color"), EditorStringName(EditorStyles)));
+			add_theme_color_override("readonly_color", get_theme_color(SNAME("sub_inspector_property_color"), EditorStringName(EditorStyles)));
 			bottom_editor->add_theme_style_override(SceneStringName(panel), get_theme_stylebox("sub_inspector_bg" + itos(count_subinspectors), EditorStringName(EditorStyles)));
 		} else {
 			bottom_editor->add_theme_style_override(SceneStringName(panel), get_theme_stylebox("sub_inspector_bg_no_border", EditorStringName(EditorStyles)));
@@ -789,6 +790,7 @@ void EditorProperty::_update_property_bg() {
 		remove_theme_style_override("bg_selected");
 		remove_theme_style_override("bg");
 		remove_theme_color_override("property_color");
+		remove_theme_color_override("readonly_color");
 	}
 	end_bulk_theme_override();
 	queue_redraw();
@@ -3783,10 +3785,9 @@ void EditorInspector::update_tree() {
 			subgroup = p.name;
 			subgroup_togglable_property = nullptr;
 
-			Vector<String> hint_parts = p.hint_string.split(",");
-			subgroup_base = hint_parts[0];
-			if (hint_parts.size() > 1) {
-				section_depth = hint_parts[1].to_int();
+			subgroup_base = p.hint_string.get_slicec(',', 0);
+			if (p.hint_string.get_slice_count(",") > 1) {
+				section_depth = p.hint_string.get_slicec(',', 1).to_int();
 			} else {
 				section_depth = 0;
 			}
@@ -3798,10 +3799,9 @@ void EditorInspector::update_tree() {
 			group = p.name;
 			group_togglable_property = nullptr;
 
-			Vector<String> hint_parts = p.hint_string.split(",");
-			group_base = hint_parts[0];
-			if (hint_parts.size() > 1) {
-				section_depth = hint_parts[1].to_int();
+			group_base = p.hint_string.get_slicec(',', 0);
+			if (p.hint_string.get_slice_count(",") > 1) {
+				section_depth = p.hint_string.get_slicec(',', 1).to_int();
 			} else {
 				section_depth = 0;
 			}
