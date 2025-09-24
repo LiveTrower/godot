@@ -1373,7 +1373,7 @@ public:
 
 	PASS3(screen_space_roughness_limiter_set_active, bool, float, float)
 	PASS1(sub_surface_scattering_set_quality, RS::SubSurfaceScatteringQuality)
-	PASS4(sub_surface_scattering_set_scale, float, float, float, float)
+	PASS2(sub_surface_scattering_set_scale, float, float)
 
 	PASS1(positional_soft_shadow_filter_set_quality, RS::ShadowQuality)
 	PASS1(directional_soft_shadow_filter_set_quality, RS::ShadowQuality)

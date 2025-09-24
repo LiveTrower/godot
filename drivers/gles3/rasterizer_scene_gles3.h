@@ -928,7 +928,7 @@ public:
 	bool screen_space_roughness_limiter_is_active() const override;
 
 	void sub_surface_scattering_set_quality(RS::SubSurfaceScatteringQuality p_quality) override;
-	void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale, float p_jitter_scale, float p_aspect_ratio) override;
+	void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) override;
 
 	TypedArray<Image> bake_render_uv2(RID p_base, const TypedArray<RID> &p_material_overrides, const Size2i &p_image_size) override;
 	void _render_uv2(const PagedArray<RenderGeometryInstance *> &p_instances, GLuint p_framebuffer, const Rect2i &p_region);

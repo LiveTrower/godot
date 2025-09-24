@@ -776,7 +776,7 @@ protected:
 	virtual void environment_set_ssr_roughness_quality(RS::EnvironmentSSRRoughnessQuality p_quality) override;
 
 	virtual void sub_surface_scattering_set_quality(RS::SubSurfaceScatteringQuality p_quality) override;
-	virtual void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale, float p_jitter_scale, float p_aspect_ratio) override;
+	virtual void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) override;
 
 	//virtual void ss_shadows_set_quality(RS::SSShadowsQuality p_quality) override;
 	//virtual void ss_shadows_set_thickness(float p_thickness) override;

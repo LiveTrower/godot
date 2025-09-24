@@ -341,8 +341,6 @@ SSEffects::SSEffects() {
 	sss_quality = RS::SubSurfaceScatteringQuality(int(GLOBAL_GET("rendering/environment/subsurface_scattering/subsurface_scattering_quality")));
 	sss_scale = GLOBAL_GET("rendering/environment/subsurface_scattering/subsurface_scattering_scale");
 	sss_depth_scale = GLOBAL_GET("rendering/environment/subsurface_scattering/subsurface_scattering_depth_scale");
-	sss_jitter_scale = GLOBAL_GET("rendering/environment/subsurface_scattering/subsurface_scattering_jitter_scale");
-	sss_aspect_ration = GLOBAL_GET("rendering/environment/subsurface_scattering/subsurface_scattering_aspect_ratio");
 
 	{
 		Vector<String> sss_modes;
@@ -1646,11 +1644,9 @@ RS::SubSurfaceScatteringQuality SSEffects::sss_get_quality() const {
 	return sss_quality;
 }
 
-void SSEffects::sss_set_scale(float p_scale, float p_depth_scale, float p_jitter_scale, float p_aspect_ratio) {
+void SSEffects::sss_set_scale(float p_scale, float p_depth_scale) {
 	sss_scale = p_scale;
 	sss_depth_scale = p_depth_scale;
-	sss_jitter_scale = p_jitter_scale;
-	sss_aspect_ration = p_aspect_ratio;
 }
 
 void SSEffects::sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_diffuse, RID p_depth, const Projection &p_camera, const Size2i &p_screen_size, float p_taa_frame_count) {
@@ -1689,8 +1685,6 @@ void SSEffects::sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffer
 		sss.push_constant.vertical = false;
 		sss.push_constant.scale = sss_scale;
 		sss.push_constant.depth_scale = sss_depth_scale;
-		sss.push_constant.jitter_scale = sss_jitter_scale;
-		sss.push_constant.aspect_ratio = sss_aspect_ration;
 
 		RID shader = sss.shader.version_get_shader(sss.shader_version, sss_quality - 1);
 		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, sss.pipelines[sss_quality - 1]);

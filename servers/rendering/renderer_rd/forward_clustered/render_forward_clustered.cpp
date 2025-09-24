@@ -3978,9 +3978,9 @@ void RenderForwardClustered::sub_surface_scattering_set_quality(RS::SubSurfaceSc
 	ss_effects->sss_set_quality(p_quality);
 }
 
-void RenderForwardClustered::sub_surface_scattering_set_scale(float p_scale, float p_depth_scale, float p_jitter_scale, float p_aspect_ratio) {
+void RenderForwardClustered::sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) {
 	ERR_FAIL_NULL(ss_effects);
-	ss_effects->sss_set_scale(p_scale, p_depth_scale, p_jitter_scale, p_aspect_ratio);
+	ss_effects->sss_set_scale(p_scale, p_depth_scale);
 }
 
 /*void RenderForwardClustered::ss_shadows_set_quality(RS::SSShadowsQuality p_quality) {

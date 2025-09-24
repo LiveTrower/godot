@@ -96,9 +96,7 @@ layout(push_constant, std430) uniform Params {
 
 	float scale;
 	float depth_scale;
-	float jitter_scale;
-	float aspect_ratio;
-	//uint pad[1];
+	uint pad[2];
 }
 params;
 
@@ -113,14 +111,10 @@ vec2 hash22(vec2 p) {
 }
 
 void do_filter(inout vec3 color_accum, inout vec3 divisor, vec2 uv, vec2 step, bool p_skin) {
-	//vec2 jitter = hash22(uv * params.screen_size);
-	//mat2x2 rotation_matrix = mat2x2(jitter.x, jitter.y, -jitter.y, jitter.x);
-	//mat2x2 identity_matrix = mat2x2(1.0, 0.0, 0.0, 1.0);
 	// Accumulate the other samples:
 	for (int i = 1; i < kernel_size; i++) {
 		// Fetch color and depth for current sample:
 		vec2 offset;
-		//mat2x2 tap_matrix = identity_matrix;
 
 		if (p_skin) {
 			offset = uv + skin_kernel[i].a * step;

@@ -850,7 +850,7 @@ public:
 
 	FUNC3(screen_space_roughness_limiter_set_active, bool, float, float)
 	FUNC1(sub_surface_scattering_set_quality, SubSurfaceScatteringQuality)
-	FUNC4(sub_surface_scattering_set_scale, float, float, float, float)
+	FUNC2(sub_surface_scattering_set_scale, float, float)
 
 	FUNC1(positional_soft_shadow_filter_set_quality, ShadowQuality);
 	FUNC1(directional_soft_shadow_filter_set_quality, ShadowQuality);
