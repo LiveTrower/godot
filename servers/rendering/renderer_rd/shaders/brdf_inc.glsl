@@ -128,6 +128,42 @@ half Diffuse_Chan(half roughness, half NoV, half NoL, half LoH, half NoH) {
 	return min(half(1.0), Lobe);
 }
 
+// https://dl.acm.org/doi/pdf/10.1145/192161.192213
+float Diffuse_OrenNayar(float roughness, float NoV, float NoL, float LoV, vec3 light, vec3 view, vec3 normal) {
+	const float INV_PI = 0.318309;
+
+	float a = roughness * roughness; // Variance.
+
+	vec3 r = 2.0 * NoL * normal - light; // Radiance.
+
+	float NdotR = dot(normal, r);
+
+	float theta_i = min(acos(NoL), 1e-4);
+	float theta_r = min(acos(NdotR), 1e-4);
+
+	vec3 l_proj = normalize(light - NoL * normal);
+	vec3 v_proj = normalize(view - NoV * normal + 1.0);
+
+	float cos_phi = dot(l_proj, v_proj);
+
+	float alpha = max(theta_i, theta_r);
+	float beta = min(theta_i, theta_r);
+
+	float C1 = 1.0 - 0.5 * (a / (a + 0.33));
+
+	float C2 = mix(
+			0.45 * (a / (a + 0.09)) * sin(alpha),
+			0.45 * (a / (a + 0.09)) * (sin(alpha) - pow((2.0 * beta) / M_PI, 3.0)),
+			step(0.0, cos_phi));
+
+	float C3 = 0.125 * (a / (a + 0.09)) * pow((4.0 * alpha * beta) / (M_PI * M_PI), 2.0);
+
+	float L1 = cos(theta_i) * (C1 + C2 * cos_phi * tan(beta) + C3 * (1.0 - abs(cos_phi)) * tan((alpha + beta) / 2.0));
+	float L2 = 0.17 * cos(theta_i) * ((a) / (a + 0.13)) * ((1.0 - cos_phi) * pow((2.0 * beta) / M_PI, 2.0));
+
+	return max(min(L1 + L2, 1.0), 0.0) * NoL;
+}
+
 // scales the specular reflections, needs to be be computed before lighting happens,
 // but after environment, GI, and reflection probes are added
 // Environment brdf approximation (Lazarov 2013)
