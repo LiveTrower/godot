@@ -192,6 +192,12 @@ void light_compute(hvec3 N, hvec3 L, hvec3 V, half A, hvec3 light_color, bool is
 	}
 #endif //LIGHT_TRANSMITTANCE_USED
 
+#if defined(LIGHT_RIM_USED)
+	// Epsilon min to prevent pow(0, 0) singularity which results in undefined behavior.
+	half rim_light = pow(max(half(1e-4), half(1.0) - cNdotV), max(half(0.0), (half(1.0) - roughness) * half(16.0)));
+	diffuse_light += rim_light * rim * mix(hvec3(1.0), albedo, rim_tint) * light_color;
+#endif
+
 	// We skip checking on attenuation on directional lights to avoid a branch that is not as beneficial for directional lights as the other ones.
 	if (is_directional || attenuation > HALF_FLT_MIN) {
 		half cNdotL = max(NdotL, half(0.0));
@@ -266,14 +272,9 @@ void light_compute(hvec3 N, hvec3 L, hvec3 V, half A, hvec3 light_color, bool is
 			diffuse_brdf_NL = Diffuse_Lambert(cNdotL);
 #endif
 			//apply diffuse
-			diffuse_light += light_color * diffuse_brdf_NL * attenuation;
+			diffuse_light += light_color * diffuse_brdf_NL * attenuation * cc_attenuation * sh_attenuation;
 #if defined(LIGHT_BACKLIGHT_USED)
 			diffuse_light += light_color * ((1.0 - diffuse_brdf_NL) * backlight * attenuation * cc_attenuation * sh_attenuation * (1.0 / M_PI));
-#endif
-#if defined(LIGHT_RIM_USED)
-			// Epsilon min to prevent pow(0, 0) singularity which results in undefined behavior.
-			half rim_light = pow(max(half(1e-4), half(1.0) - cNdotV), max(half(0.0), (half(1.0) - roughness) * half(16.0)));
-			diffuse_light += rim_light * rim * attenuation * cc_attenuation * sh_attenuation * mix(hvec3(1.0), albedo, rim_tint) * light_color;
 #endif
 		}
 #ifdef USE_SHADOW_TO_OPACITY

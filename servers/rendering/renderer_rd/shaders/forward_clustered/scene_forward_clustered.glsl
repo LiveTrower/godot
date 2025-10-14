@@ -1769,7 +1769,7 @@ void fragment_shader(in SceneData scene_data) {
 #else
 		vec3 sheen_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), sh_radiance_ref_vec, sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD).rgb;
 #endif //USE_RADIANCE_CUBEMAP_ARRAY
-		sh_specular_light += sheen_light * (scene_data.IBL_exposure_normalization * scene_data.ambient_light_color_energy.a);
+		sh_specular_light += sheen_light * scene_data.IBL_exposure_normalization * scene_data.ambient_light_color_energy.a;
 	}
 #endif // LIGHT_SHEEN_USED
 #endif // !AMBIENT_LIGHT_DISABLED
@@ -2194,9 +2194,9 @@ void fragment_shader(in SceneData scene_data) {
 		indirect_specular_light *= energy_compensation * ((f90 - f0) * envBRDF.x + f0 * envBRDF.y);
 
 #ifdef LIGHT_CLEARCOAT_USED
+		float geo_ndotv = max(dot(geo_normal, view), 0.0001); // We want to use geometric normal, not normal_map
 		// The clearcoat layer assumes an IOR of 1.5 (4% reflectance).
 		// Attenuate underlying diffuse/specular by clearcoat fresnel (ONLY fresnel, hence we don't just invert the BRDF below).
-		float geo_ndotv = max(dot(geo_normal, view), 0.0001);
 		float cc_attenuation = 1.0 - clearcoat * SchlickFresnel(0.04, 0.96, geo_ndotv);
 		ambient_light *= cc_attenuation;
 		indirect_specular_light *= cc_attenuation;
@@ -2827,7 +2827,7 @@ void fragment_shader(in SceneData scene_data) {
 						sheen, sheen_roughness, sheen_color,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-						clearcoat, clearcoat_roughness, geo_normal,
+						clearcoat, cc_roughness, geo_normal,
 #endif
 #ifdef LIGHT_DUAL_SPECULAR_USED
 						dual_roughness0, dual_roughness1, dual_lobe_mix,
