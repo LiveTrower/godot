@@ -274,7 +274,7 @@ void light_compute(hvec3 N, hvec3 L, hvec3 V, half A, hvec3 light_color, bool is
 			//apply diffuse
 			diffuse_light += light_color * diffuse_brdf_NL * attenuation * cc_attenuation * sh_attenuation;
 #if defined(LIGHT_BACKLIGHT_USED)
-			diffuse_light += light_color * ((1.0 - diffuse_brdf_NL) * backlight * attenuation * cc_attenuation * sh_attenuation * (1.0 / M_PI));
+			diffuse_light += light_color * ((1.0 - diffuse_brdf_NL) * backlight * attenuation * (1.0 / M_PI));
 #endif
 		}
 #ifdef USE_SHADOW_TO_OPACITY

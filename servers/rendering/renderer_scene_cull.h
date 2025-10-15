@@ -1391,6 +1391,7 @@ public:
 	PASS1(decals_set_filter, RS::DecalFilter)
 	PASS1(light_projectors_set_filter, RS::LightProjectorFilter)
 	PASS1(lightmaps_set_bicubic_filter, bool)
+	PASS1(material_set_use_debanding, bool)
 
 	virtual void update();
 

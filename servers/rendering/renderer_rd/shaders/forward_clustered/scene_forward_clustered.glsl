@@ -1615,36 +1615,27 @@ void fragment_shader(in SceneData scene_data) {
 		float filteredRoughness2 = min(1.0, roughness2 + kernelRoughness2);
 		roughness = sqrt(filteredRoughness2);
 	}
-#endif
-
-#ifdef LIGHT_CLEARCOAT_USED
-	vec3 cc_specular_light = vec3(0.0);
-	float cc_roughness = clearcoat_roughness * 0.1;
-#ifdef NORMAL_USED
-	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
-		float cc_roughness2 = cc_roughness * cc_roughness;
-		float filteredCCRoughness2 = min(1.0, cc_roughness2 + kernelRoughness2);
-		cc_roughness = sqrt(filteredCCRoughness2);
-	}
-#endif // NORMAL_USED
-
-#endif // LIGHT_CLEARCOAT_USED
 
 #ifdef LIGHT_SHEEN_USED
-	vec3 sh_specular_light = vec3(0.0);
 	sheen_roughness = max(sheen_roughness, 0.045); // to avoid artifacts
-#ifdef NORMAL_USED
 	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
 		float sheen_roughness2 = sheen_roughness * sheen_roughness;
 		float filteredSheenRoughness2 = min(1.0, sheen_roughness2 + kernelRoughness2);
 		sheen_roughness = sqrt(filteredSheenRoughness2);
 	}
-#endif
-
 #endif // LIGHT_SHEEN_USED
 
+#ifdef LIGHT_CLEARCOAT_USED
+	vec3 cc_specular_light = vec3(0.0);
+	float cc_roughness = clearcoat_roughness * 0.1;
+	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
+		float cc_roughness2 = cc_roughness * cc_roughness;
+		float filteredCCRoughness2 = min(1.0, cc_roughness2 + kernelRoughness2);
+		cc_roughness = sqrt(filteredCCRoughness2);
+	}
+#endif // LIGHT_CLEARCOAT_USED
+
 #ifdef LIGHT_DUAL_SPECULAR_USED
-#ifdef NORMAL_USED
 	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
 		float dual_roughness2 = dual_roughness0 * dual_roughness0;
 		float filteredDualRoughness2 = min(1.0, dual_roughness2 + kernelRoughness2);
@@ -1653,12 +1644,13 @@ void fragment_shader(in SceneData scene_data) {
 		filteredDualRoughness2 = min(1.0, dual_roughness2 + kernelRoughness2);
 		dual_roughness1 = sqrt(filteredDualRoughness2);
 	}
-#endif
 	dual_roughness0 = max(clamp(roughness * dual_roughness0, 0, 1), 0.02);
 	dual_roughness1 = clamp(roughness * dual_roughness1, 0, 1);
 	float avg_roughness = mix(dual_roughness0, dual_roughness1, dual_lobe_mix);
 	roughness = clamp(roughness * avg_roughness, 0, 1);
 #endif // LIGHT_DUAL_SPECULAR_USED
+
+#endif // NORMAL_USED
 	//apply energy conservation
 
 	vec3 direct_specular_light = vec3(0.0, 0.0, 0.0);
@@ -1755,12 +1747,14 @@ void fragment_shader(in SceneData scene_data) {
 #endif // LIGHT_CLEARCOAT_USED
 
 #if defined(LIGHT_SHEEN_USED)
-	vec3 sh_ref_vec = reflect(-view, normal);
-	sh_ref_vec = mix(sh_ref_vec, normal, sheen_roughness * sheen_roughness);
+	vec3 sh_specular_light = vec3(0.0);
+	vec3 sh_ref_vec = vec3(0.0);
 
 	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_REFLECTION_CUBEMAP)) {
-		vec3 sh_radiance_ref_vec = scene_data.radiance_inverse_xform * sh_ref_vec;
+		sh_ref_vec = reflect(-view, normal);
+		sh_ref_vec = mix(sh_ref_vec, normal, sheen_roughness * sheen_roughness);
 
+		vec3 sh_radiance_ref_vec = scene_data.radiance_inverse_xform * sh_ref_vec;
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
 		float lod, blend;
 		blend = modf(sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD, lod);
@@ -2209,9 +2203,11 @@ void fragment_shader(in SceneData scene_data) {
 		float dfg_sheen = prefiltered_dfg(sheen_roughness, NdotV).z;
 		// Albedo scaling of the base layer before we layer sheen on top
 		float sh_attenuation = 1.0 - sheen * max3(sheen_color) * dfg_sheen;
+
 		ambient_light *= sh_attenuation;
 		indirect_specular_light *= sh_attenuation;
 
+		// Sheen Layer
 		vec3 reflectance = dfg_sheen * sheen_color;
 		indirect_specular_light += sh_specular_light * (reflectance * sheen);
 #endif
