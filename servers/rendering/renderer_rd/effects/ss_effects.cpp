@@ -355,23 +355,6 @@ SSEffects::SSEffects() {
 			sss.pipelines[i].create_compute_pipeline(sss.shader.version_get_shader(sss.shader_version, i));
 		}
 	}
-
-	// Screen space shadows
-	/*ss_shadows_quality = RS::SSShadowsQuality(int(GLOBAL_GET("rendering/lights_and_shadows/contact_shadows/ss_shadows_quality")));
-	ss_shadows_thickness = GLOBAL_GET("rendering/lights_and_shadows/contact_shadows/thickness");
-
-	{
-		Vector<String> ss_shadows_modes;
-		ss_shadows_modes.push_back("\n");
-		uint32_t max_directional_lights = RendererSceneRender::MAX_DIRECTIONAL_LIGHTS;
-		String defines = "\n#define MAX_DIRECTIONAL_LIGHT_DATA_STRUCTS " + itos(max_directional_lights);
-
-		ss_shadows.shader.initialize(ss_shadows_modes, defines);
-
-		ss_shadows.shader_version = ss_shadows.shader.version_create();
-
-		ss_shadows.pipeline = RD::get_singleton()->compute_pipeline_create(ss_shadows.shader.version_get_shader(ss_shadows.shader_version, 0));
-	}*/
 }
 
 SSEffects::~SSEffects() {
@@ -444,19 +427,6 @@ SSEffects::~SSEffects() {
 
 		sss.shader.version_free(sss.shader_version);
 	}
-
-	/*{
-		// Cleanup Screen Space Shadows
-		ss_shadows.shader.version_free(ss_shadows.shader_version);
-
-		if (ss_shadows.ubo.is_valid()) {
-			RD::get_singleton()->free(ss_shadows.ubo);
-		}
-
-		if (ss_shadows.uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(ss_shadows.uniform_set)) {
-			RD::get_singleton()->free(ss_shadows.uniform_set);
-		}
-	}*/
 
 	singleton = nullptr;
 }
@@ -541,10 +511,19 @@ void SSEffects::downsample_depth(Ref<RenderSceneBuffersRD> p_render_buffers, uin
 	correction.set_depth_correction(false);
 	Projection temp = correction * p_projection;
 
-	ss_effects.downsample_push_constant.proj_zw[0][0] = temp[2][2];
-	ss_effects.downsample_push_constant.proj_zw[0][1] = temp[2][3];
-	ss_effects.downsample_push_constant.proj_zw[1][0] = temp[3][2];
-	ss_effects.downsample_push_constant.proj_zw[1][1] = temp[3][3];
+	float depth_linearize_mul = -temp.columns[3][2];
+	float depth_linearize_add = temp.columns[2][2];
+	if (depth_linearize_mul * depth_linearize_add < 0) {
+		depth_linearize_add = -depth_linearize_add;
+	}
+
+	ss_effects.downsample_push_constant.orthogonal = p_projection.is_orthogonal();
+	ss_effects.downsample_push_constant.z_near = depth_linearize_mul;
+	ss_effects.downsample_push_constant.z_far = depth_linearize_add;
+	if (ss_effects.downsample_push_constant.orthogonal) {
+		ss_effects.downsample_push_constant.z_near = p_projection.get_z_near();
+		ss_effects.downsample_push_constant.z_far = p_projection.get_z_far();
+	}
 	ss_effects.downsample_push_constant.pixel_size[0] = 1.0 / full_screen_size.x;
 	ss_effects.downsample_push_constant.pixel_size[1] = 1.0 / full_screen_size.y;
 	ss_effects.downsample_push_constant.radius_sq = 1.0;
@@ -737,10 +716,8 @@ void SSEffects::screen_space_indirect_lighting(Ref<RenderSceneBuffersRD> p_rende
 		ssil.gather_push_constant.NDC_to_view_mul[1] = tan_half_fov_y * -2.0;
 		ssil.gather_push_constant.NDC_to_view_add[0] = tan_half_fov_x * -1.0;
 		ssil.gather_push_constant.NDC_to_view_add[1] = tan_half_fov_y;
-		ssil.gather_push_constant.proj_zw[0][0] = p_projection[2][2];
-		ssil.gather_push_constant.proj_zw[0][1] = p_projection[2][3];
-		ssil.gather_push_constant.proj_zw[1][0] = p_projection[3][2];
-		ssil.gather_push_constant.proj_zw[1][1] = p_projection[3][3];
+		ssil.gather_push_constant.z_near = p_projection.get_z_near();
+		ssil.gather_push_constant.z_far = p_projection.get_z_far();
 		ssil.gather_push_constant.is_orthogonal = p_projection.is_orthogonal();
 
 		ssil.gather_push_constant.radius = p_settings.radius;
@@ -1475,13 +1452,10 @@ void SSEffects::screen_space_reflection(Ref<RenderSceneBuffersRD> p_render_buffe
 		{ //scale color and depth to half
 			RD::get_singleton()->draw_command_begin_label("SSR Scale");
 
-			Projection correction = Projection::create_depth_correction(false);
-			Projection corrected = correction * p_projections[v];
 			ScreenSpaceReflectionScalePushConstant push_constant;
-			push_constant.proj_zw[0][0] = corrected[2][2];
-			push_constant.proj_zw[0][1] = corrected[2][3];
-			push_constant.proj_zw[1][0] = corrected[3][2];
-			push_constant.proj_zw[1][1] = corrected[3][3];
+			push_constant.view_index = v;
+			push_constant.camera_z_far = p_projections[v].get_z_far();
+			push_constant.camera_z_near = p_projections[v].get_z_near();
 			push_constant.orthogonal = p_projections[v].is_orthogonal();
 			push_constant.filter = false; // Enabling causes artifacts.
 			push_constant.screen_size[0] = p_ssr_buffers.size.x;
@@ -1673,7 +1647,7 @@ void SSEffects::sss_set_scale(float p_scale, float p_depth_scale) {
 	sss_depth_scale = p_depth_scale;
 }
 
-void SSEffects::sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_diffuse, RID p_depth, const Projection &p_camera, const Size2i &p_screen_size, float p_taa_frame_count) {
+void SSEffects::sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_diffuse, RID p_depth, const Projection &p_camera, const Size2i &p_screen_size) {
 	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
 	ERR_FAIL_NULL(uniform_set_cache);
 	MaterialStorage *material_storage = MaterialStorage::get_singleton();
@@ -1692,17 +1666,12 @@ void SSEffects::sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffer
 	p.normal /= p.d;
 	float unit_size = p.normal.x;
 
-	Projection correction;
-	correction.set_depth_correction(false);
-	Projection temp = correction * p_camera;
-
 	{ //scale color and depth to half
 		RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
 
-		sss.push_constant.proj_zw[0][0] = temp[2][2];
-		sss.push_constant.proj_zw[0][1] = temp[2][3];
-		sss.push_constant.proj_zw[1][0] = temp[3][2];
-		sss.push_constant.proj_zw[1][1] = temp[3][3];
+		sss.push_constant.camera_z_far = p_camera.get_z_far();
+		sss.push_constant.camera_z_near = p_camera.get_z_near();
+		sss.push_constant.orthogonal = p_camera.is_orthogonal();
 		sss.push_constant.unit_size = unit_size;
 		sss.push_constant.screen_size[0] = p_screen_size.x;
 		sss.push_constant.screen_size[1] = p_screen_size.y;
@@ -1745,104 +1714,3 @@ void SSEffects::sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffer
 		RD::get_singleton()->compute_list_end();
 	}
 }
-
-/*void SSEffects::ss_shadows_set_quality(RS::SSShadowsQuality p_quality) {
-	ss_shadows_quality = p_quality;
-}
-
-RS::SSShadowsQuality SSEffects::ss_shadows_get_quality() const {
-	return ss_shadows_quality;
-}
-
-void SSEffects::ss_shadows_set_thickness(float p_thickness) {
-	 ss_shadows_thickness = p_thickness;
-}
-
-void SSEffects::ss_shadows_allocate_buffer(Ref<RenderSceneBuffersRD> p_render_buffers) {
-	Size2i internal_size = p_render_buffers->get_internal_size();
-	RD::DataFormat format = RD::DATA_FORMAT_R16_SFLOAT;
-
-	RID ss_shadows_texture = p_render_buffers->create_texture(RB_SCOPE_SSS, RB_FINAL, format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, internal_size, 1);
-}
-
-void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_depth, const Projection &p_projection, RID p_directional_light_buffer, const Size2i &p_screen_size) {
-	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
-	ERR_FAIL_NULL(uniform_set_cache);
-	MaterialStorage *material_storage = MaterialStorage::get_singleton();
-	ERR_FAIL_NULL(material_storage);
-
-	Projection correction;
-	correction.set_depth_correction(false);
-	Projection temp = correction * p_projection;
-
-	RID default_sampler = material_storage->sampler_rd_get_default(RS::CANVAS_ITEM_TEXTURE_FILTER_LINEAR, RS::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
-
-	{
-		// Store some scene data in a UBO, in the near future we will use a UBO shared with other shaders
-		SSShadowsSceneData scene_data;
-
-		if (ss_shadows.ubo.is_null()) {
-			ss_shadows.ubo = RD::get_singleton()->uniform_buffer_create(sizeof(SSShadowsSceneData));
-		}
-
-		store_camera(temp, scene_data.projection);
-
-		RD::get_singleton()->buffer_update(ss_shadows.ubo, 0, sizeof(SSShadowsSceneData), &scene_data);
-	}
-
-	{
-		RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
-
-		ss_shadows.push_constant.screen_size[0] = p_screen_size.x;
-		ss_shadows.push_constant.screen_size[1] = p_screen_size.y;
-		ss_shadows.push_constant.far_depth_value = 0.0;
-		ss_shadows.push_constant.near_depth_value = 1.0;
-		ss_shadows.push_constant.invsource_depth_size[0] = 1.0 / float(p_screen_size.x);
-		ss_shadows.push_constant.invsource_depth_size[1] = 1.0 / float(p_screen_size.y);
-
-		RID shader = ss_shadows.shader.version_get_shader(ss_shadows.shader_version, 0);
-		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, ss_shadows.pipeline);
-
-		RID output = p_render_buffers->get_texture(RB_SCOPE_SSS, RB_FINAL);
-
-		if (ss_shadows.uniform_set.is_null() || !RD::get_singleton()->uniform_set_is_valid(ss_shadows.uniform_set)) {
-			Vector<RD::Uniform> uniforms;
-			{
-				RD::Uniform u;
-				u.uniform_type = RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE;
-				u.binding = 0;
-				u.append_id(default_sampler);
-				u.append_id(p_depth);
-				uniforms.push_back(u);
-			}
-			{
-				RD::Uniform u;
-				u.uniform_type = RD::UNIFORM_TYPE_IMAGE;
-				u.binding = 1;
-				u.append_id(output);
-				uniforms.push_back(u);
-			}
-			{
-				RD::Uniform u;
-				u.uniform_type = RD::UNIFORM_TYPE_UNIFORM_BUFFER;
-				u.binding = 2;
-				u.append_id(ss_shadows.ubo);
-				uniforms.push_back(u);
-			}
-			{
-				RD::Uniform u;
-				u.uniform_type = RD::UNIFORM_TYPE_UNIFORM_BUFFER;
-				u.binding = 3;
-				u.append_id(p_directional_light_buffer);
-				uniforms.push_back(u);
-			}
-			ss_shadows.uniform_set = RD::get_singleton()->uniform_set_create(uniforms, ss_shadows.shader.version_get_shader(ss_shadows.shader_version, 0), 0);
-		}
-
-		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, ss_shadows.uniform_set, 0);
-		RD::get_singleton()->compute_list_set_push_constant(compute_list, &ss_shadows.push_constant, sizeof(SSShadowsPushConstant));
-		RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_screen_size.width, p_screen_size.height, 1);
-
-		RD::get_singleton()->compute_list_end();
-	}
-}*/

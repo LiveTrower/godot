@@ -89,14 +89,16 @@ const vec4 skin_kernel[kernel_size] = vec4[](
 
 layout(push_constant, std430) uniform Params {
 	ivec2 screen_size;
+	float camera_z_far;
+	float camera_z_near;
+
 	bool vertical;
+	bool orthogonal;
 	float unit_size;
-
-	float proj_zw[2][2]; // Bottom-right 2x2 corner of the projection matrix with reverse-z and z-remap applied
-
 	float scale;
+
 	float depth_scale;
-	uint pad[2];
+	uint pad[3];
 }
 params;
 
@@ -104,24 +106,11 @@ layout(set = 0, binding = 0) uniform sampler2D source_image;
 layout(rgba16f, set = 1, binding = 0) uniform restrict writeonly image2D dest_image;
 layout(set = 2, binding = 0) uniform sampler2D source_depth;
 
-vec2 hash22(vec2 p) {
-	vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
-	p3 += dot(p3, p3.yzx + 33.33);
-	return fract((p3.xx + p3.yz) * p3.zy);
-}
-
 void do_filter(inout vec3 color_accum, inout vec3 divisor, vec2 uv, vec2 step, bool p_skin) {
 	// Accumulate the other samples:
 	for (int i = 1; i < kernel_size; i++) {
 		// Fetch color and depth for current sample:
-		vec2 offset;
-
-		if (p_skin) {
-			offset = uv + skin_kernel[i].a * step;
-		} else {
-			offset = uv + kernel[i].y * step;
-		}
-
+		vec2 offset = uv + kernel[i].y * step;
 		vec4 color = texture(source_image, offset);
 
 		if (abs(color.a) < 0.001) {
@@ -159,9 +148,16 @@ void main() {
 		vec2 dir = params.vertical ? vec2(0.0, 1.0) : vec2(1.0, 0.0);
 
 		// Fetch linear depth of current pixel:
-		float depth = texture(source_depth, uv).r;
-		depth = (params.proj_zw[1][0] - params.proj_zw[1][1] * depth) / (params.proj_zw[0][1] * depth - params.proj_zw[0][0]);
-		float depth_scale = params.unit_size / (params.proj_zw[0][1] * depth + params.proj_zw[1][1]);
+		float depth = texture(source_depth, uv).r * 2.0 - 1.0;
+		float depth_scale;
+
+		if (params.orthogonal) {
+			depth = -(depth * (params.camera_z_far - params.camera_z_near) - (params.camera_z_far + params.camera_z_near)) / 2.0;
+			depth_scale = params.unit_size; //remember depth is negative by default in OpenGL
+		} else {
+			depth = 2.0 * params.camera_z_near * params.camera_z_far / (params.camera_z_far + params.camera_z_near + depth * (params.camera_z_far - params.camera_z_near));
+			depth_scale = params.unit_size / depth; //remember depth is negative by default in OpenGL
+		}
 
 		float scale = mix(params.scale, depth_scale, params.depth_scale);
 

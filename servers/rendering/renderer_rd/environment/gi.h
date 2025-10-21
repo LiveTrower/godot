@@ -175,9 +175,6 @@ private:
 
 		float direction[3];
 		uint32_t has_shadow;
-
-		float area_width[4];
-		float area_height[4];
 	};
 
 	struct VoxelGIPushConstant {
@@ -361,9 +358,6 @@ private:
 			float cos_spot_angle;
 			float inv_spot_attenuation;
 			float radius;
-
-			float area_width[3];
-			float area_height[3];
 		};
 
 		struct DirectLightPushConstant {
@@ -788,7 +782,10 @@ public:
 
 		float proj_info[4];
 
-		float proj_zw[2][2]; // Bottom-right 2x2 corner of the projection matrix with reverse-z and z-remap applied
+		float z_near;
+		float z_far;
+		float pad2;
+		float pad3;
 	};
 
 	RID sdfgi_ubo;

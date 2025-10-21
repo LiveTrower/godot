@@ -50,7 +50,6 @@
 #define RB_SCOPE_SSIL SNAME("rb_ssil")
 #define RB_SCOPE_SSAO SNAME("rb_ssao")
 #define RB_SCOPE_SSR SNAME("rb_ssr")
-#define RB_SCOPE_SSS SNAME("rb_sss")
 
 #define RB_LINEAR_DEPTH SNAME("linear_depth")
 #define RB_FINAL SNAME("final")
@@ -149,13 +148,7 @@ public:
 	RS::SubSurfaceScatteringQuality sss_get_quality() const;
 	void sss_set_scale(float p_scale, float p_depth_scale);
 
-	void sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_diffuse, RID p_depth, const Projection &p_camera, const Size2i &p_screen_size, float p_taa_frame_count);
-
-	/*void ss_shadows_set_quality(RS::SSShadowsQuality p_quality);
-	RS::SSShadowsQuality ss_shadows_get_quality() const;
-	void ss_shadows_set_thickness(float p_thickness);
-	void ss_shadows_allocate_buffer(Ref<RenderSceneBuffersRD> p_render_buffers);
-	void screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_depth, const Projection &p_projection, RID directional_light_buffer, const Size2i &p_screen_size);*/
+	void sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_diffuse, RID p_depth, const Projection &p_camera, const Size2i &p_screen_size);
 
 private:
 	/* Settings */
@@ -180,16 +173,15 @@ private:
 	float sss_scale = 0.05;
 	float sss_depth_scale = 0.01;
 
-	//RS::SSShadowsQuality ss_shadows_quality = RS::SS_SHADOWS_QUALITY_MEDIUM;
-	//float ss_shadows_thickness = 0.05;
-
 	/* SS Downsampler */
 
 	struct SSEffectsDownsamplePushConstant {
 		float pixel_size[2];
+		float z_far;
+		float z_near;
+		uint32_t orthogonal;
 		float radius_sq;
-		uint32_t pad[1];
-		float proj_zw[2][2]; // Bottom-right 2x2 corner of the projection matrix with reverse-z and z-remap applied
+		uint32_t pad[2];
 	};
 
 	enum SSEffectsMode {
@@ -251,7 +243,9 @@ private:
 		float NDC_to_view_mul[2];
 		float NDC_to_view_add[2];
 
-		float proj_zw[2][2]; // Bottom-right 2x2 corner of the projection matrix in OpenGL standard form (no reverse-z, no z-remap)
+		float pad2[2];
+		float z_near;
+		float z_far;
 
 		float radius;
 		float intensity;
@@ -430,10 +424,13 @@ private:
 
 	struct ScreenSpaceReflectionScalePushConstant {
 		int32_t screen_size[2];
+		float camera_z_near;
+		float camera_z_far;
+
 		uint32_t orthogonal;
 		uint32_t filter;
-
-		float proj_zw[2][2]; // Bottom-right 2x2 corner of the projection matrix with reverse-z and z-remap applied
+		uint32_t view_index;
+		uint32_t pad1;
 	};
 
 	struct ScreenSpaceReflectionScale {
@@ -516,14 +513,16 @@ private:
 
 	struct SubSurfaceScatteringPushConstant {
 		int32_t screen_size[2];
+		float camera_z_far;
+		float camera_z_near;
+
 		uint32_t vertical;
+		uint32_t orthogonal;
 		float unit_size;
-
-		float proj_zw[2][2]; // Bottom-right 2x2 corner of the projection matrix with reverse-z and z-remap applied
-
 		float scale;
+
 		float depth_scale;
-		uint32_t pad[2];
+		uint32_t pad[3];
 	};
 
 	struct SubSurfaceScattering {
@@ -532,26 +531,6 @@ private:
 		RID shader_version;
 		PipelineDeferredRD pipelines[SUBSURFACE_SCATTERING_MODE_MAX];
 	} sss;
-
-	/*struct SSShadowsSceneData {
-		float projection[16];
-	};
-
-	struct SSShadowsPushConstant {
-		int32_t screen_size[2];
-		float far_depth_value;
-		float near_depth_value;
-		float invsource_depth_size[2];
-	};
-
-	struct SSShadows {
-		SSShadowsPushConstant push_constant;
-		BendSssGpuShaderRD shader;
-		RID shader_version;
-		RID pipeline;
-		RID uniform_set;
-		RID ubo;
-	} ss_shadows;*/
 };
 
 } // namespace RendererRD

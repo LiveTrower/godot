@@ -49,6 +49,13 @@ hvec3 F0(half metallic, half specular, hvec3 albedo) {
 	return mix(hvec3(dielectric), albedo, hvec3(metallic));
 }
 
+hvec3 f0_Clear_Coat_To_Surface(hvec3 f0) {
+	// Approximation of iorTof0(f0ToIor(f0), 1.5)
+	// This assumes that the clear coat layer has an IOR of 1.5
+	// see https://github.com/google/filament/blob/837b2715a05f4656d4f524bce50d1b23ff8f84c9/shaders/src/surface_material.fs#L54-L62
+	return clamp(f0 * (f0 * (0.941892 - 0.263008 * f0) + 0.346479) - 0.0285998, hvec3(0.0), hvec3(1.0));
+}
+
 float D_Charlie(float roughness, float NoH) {
 	// Estevez and Kulla 2017, "Production Friendly Microfacet Sheen BRDF"
 	float invAlpha = 1.0 / roughness;
@@ -64,7 +71,7 @@ float V_Neubelt(float NoV, float NoL) {
 
 half V_Kelemen(half LoH) {
 	// Kelemen 2001, "A Microfacet Based Coupled Specular-Matte BRDF Model with Importance Sampling"
-	return half(0.25) / (LoH * LoH + half(1e-4));
+	return saturateHalf(half(0.25) / (LoH * LoH + 1e-4));
 }
 
 half Diffuse_Lambert(half NoL) {

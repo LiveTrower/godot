@@ -1625,16 +1625,6 @@ void fragment_shader(in SceneData scene_data) {
 	}
 #endif // LIGHT_SHEEN_USED
 
-#ifdef LIGHT_CLEARCOAT_USED
-	vec3 cc_specular_light = vec3(0.0);
-	float cc_roughness = clearcoat_roughness * 0.1;
-	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
-		float cc_roughness2 = cc_roughness * cc_roughness;
-		float filteredCCRoughness2 = min(1.0, cc_roughness2 + kernelRoughness2);
-		cc_roughness = sqrt(filteredCCRoughness2);
-	}
-#endif // LIGHT_CLEARCOAT_USED
-
 #ifdef LIGHT_DUAL_SPECULAR_USED
 	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
 		float dual_roughness2 = dual_roughness0 * dual_roughness0;
@@ -1726,23 +1716,26 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 
 #ifdef LIGHT_CLEARCOAT_USED
-	// Note: We want to use geometric normal for clearcoat reflections/BRDF, ie. we ignore the normal map.
-	vec3 cc_ref_vec = reflect(-view, geo_normal);
-	cc_ref_vec = mix(cc_ref_vec, geo_normal, cc_roughness * cc_roughness);
+	vec3 cc_specular_light = vec3(0.0);
+	vec3 cc_ref_vec = vec3(0.0);
 
 	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_REFLECTION_CUBEMAP)) {
-		vec3 cc_radiance_ref_vec = scene_data.radiance_inverse_xform * cc_ref_vec;
+		// We want to use geometric normal, not normal_map
+		cc_ref_vec = reflect(-view, geo_normal);
+		cc_ref_vec = mix(cc_ref_vec, geo_normal, mix(0.001, 0.1, clearcoat_roughness));
 
+		vec3 cc_radiance_ref_vec = scene_data.radiance_inverse_xform * cc_ref_vec;
+		float roughness_lod = sqrt(mix(0.001, 0.1, clearcoat_roughness)) * MAX_ROUGHNESS_LOD;
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
 		float lod, blend;
-		blend = modf(sqrt(cc_roughness) * MAX_ROUGHNESS_LOD, lod);
+		blend = modf(roughness_lod, lod);
 		vec3 clearcoat_light = texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(cc_radiance_ref_vec, lod)).rgb;
 		clearcoat_light = mix(clearcoat_light, texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(cc_radiance_ref_vec, lod + 1)).rgb, blend);
 #else // USE_RADIANCE_CUBEMAP_ARRAY
-		vec3 clearcoat_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), cc_radiance_ref_vec, sqrt(cc_roughness) * MAX_ROUGHNESS_LOD).rgb;
+		vec3 clearcoat_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), cc_radiance_ref_vec, roughness_lod).rgb;
 #endif // USE_RADIANCE_CUBEMAP_ARRAY
 
-		cc_specular_light += clearcoat_light * (scene_data.IBL_exposure_normalization * scene_data.ambient_light_color_energy.a);
+		cc_specular_light += clearcoat_light * scene_data.IBL_exposure_normalization * scene_data.ambient_light_color_energy.a;
 	}
 #endif // LIGHT_CLEARCOAT_USED
 
@@ -2171,6 +2164,15 @@ void fragment_shader(in SceneData scene_data) {
 
 	//this saves some VGPRs
 	vec3 f0 = F0(metallic, specular, albedo);
+
+#ifdef LIGHT_CLEARCOAT_USED
+	// The base layer's f0 is computed assuming an interface from air to an IOR
+	// of 1.5, but the clear coat layer forms an interface from IOR 1.5 to IOR
+	// 1.5. We recompute f0 by first computing its IOR, then reconverting to f0
+	// by using the correct interface
+	//f0 = mix(f0, f0_Clear_Coat_To_Surface(f0), clearcoat);
+#endif
+
 #ifndef AMBIENT_LIGHT_DISABLED
 	{
 #if defined(DIFFUSE_TOON)
@@ -2192,9 +2194,11 @@ void fragment_shader(in SceneData scene_data) {
 		// The clearcoat layer assumes an IOR of 1.5 (4% reflectance).
 		// Attenuate underlying diffuse/specular by clearcoat fresnel (ONLY fresnel, hence we don't just invert the BRDF below).
 		float cc_attenuation = 1.0 - clearcoat * SchlickFresnel(0.04, 0.96, geo_ndotv);
+
 		ambient_light *= cc_attenuation;
 		indirect_specular_light *= cc_attenuation;
 
+		// Clearcoat Layer
 		float cc_env = BRDF_Aprox_Nonmetal(cc_roughness, geo_ndotv);
 		indirect_specular_light += cc_specular_light * (cc_env * clearcoat);
 #endif

@@ -1,30 +1,31 @@
 layout(push_constant, std430) uniform Params {
 	ivec2 size;
+	float z_far;
+	float z_near;
 
+	bool orthogonal;
 	float blur_size;
 	float blur_scale;
-
-	mat2 proj_zw; // Bottom-right 2x2 corner of the projection matrix with reverse-z and z-remap applied
-
 	int blur_steps;
+
 	bool blur_near_active;
 	float blur_near_begin;
 	float blur_near_end;
-
 	bool blur_far_active;
+
 	float blur_far_begin;
 	float blur_far_end;
 	bool second_pass;
-
 	bool half_size;
+
 	bool use_jitter;
 	float jitter_seed;
 	bool use_physical_near;
-
 	bool use_physical_far;
+
 	float blur_size_near;
 	float blur_size_far;
-	uint pad[1];
+	uint pad[2];
 }
 params;
 
