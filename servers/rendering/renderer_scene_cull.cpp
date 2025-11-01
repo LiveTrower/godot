@@ -1783,7 +1783,7 @@ void RendererSceneCull::_update_instance(Instance *p_instance) const {
 				InstanceLightData *light_data = static_cast<InstanceLightData *>(p_instance->base_data);
 				idata.instance_data_rid = light_data->instance.get_id();
 				light_data->uses_projector = RSG::light_storage->light_has_projector(p_instance->base);
-				light_data->uses_softshadow = RSG::light_storage->light_get_type(p_instance->base) == RS::LIGHT_AREA || RSG::light_storage->light_get_param(p_instance->base, RS::LIGHT_PARAM_SIZE) > CMP_EPSILON;
+				light_data->uses_softshadow = RSG::light_storage->light_get_param(p_instance->base, RS::LIGHT_PARAM_SIZE) > CMP_EPSILON;
 
 			} break;
 			case RS::INSTANCE_REFLECTION_PROBE: {
@@ -3375,30 +3375,6 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 						coverage = screen_diameter / (vp_half_extents.x + vp_half_extents.y);
 
 					} break;
-					case RS::LIGHT_AREA: {
-						float diagonal = RSG::light_storage->light_area_get_size(ins->base).length();
-						float radius = RSG::light_storage->light_get_param(ins->base, RS::LIGHT_PARAM_RANGE) + diagonal;
-
-						//get two points parallel to near plane
-						Vector3 points[2] = {
-							ins->transform.origin,
-							ins->transform.origin + cam_xf.basis.get_column(0) * radius
-						};
-
-						if (!p_camera_data->is_orthogonal) {
-							//if using perspetive, map them to near plane
-							for (int j = 0; j < 2; j++) {
-								if (p.distance_to(points[j]) < 0) {
-									points[j].z = -zn; //small hack to keep size constant when hitting the screen
-								}
-
-								p.intersects_segment(cam_xf.origin, points[j], &points[j]); //map to plane
-							}
-						}
-
-						float screen_diameter = points[0].distance_to(points[1]) * 2;
-						coverage = screen_diameter / (vp_half_extents.x + vp_half_extents.y);
-					} break;
 					default: {
 						ERR_PRINT("Invalid Light Type");
 					}
@@ -3765,8 +3741,7 @@ void RendererSceneCull::render_probes() {
 							cache->radius != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_RANGE) ||
 							cache->attenuation != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_ATTENUATION) ||
 							cache->spot_angle != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_SPOT_ANGLE) ||
-							cache->spot_attenuation != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_SPOT_ATTENUATION) ||
-							cache->area_size != RSG::light_storage->light_area_get_size(instance->base)) {
+							cache->spot_attenuation != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_SPOT_ATTENUATION)) {
 						cache_dirty = true;
 					}
 				}
@@ -3846,7 +3821,7 @@ void RendererSceneCull::render_probes() {
 					cache->attenuation = RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_ATTENUATION);
 					cache->spot_angle = RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_SPOT_ANGLE);
 					cache->spot_attenuation = RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_SPOT_ATTENUATION);
-					cache->area_size = RSG::light_storage->light_area_get_size(instance->base);
+
 					idx++;
 				}
 				for (const Instance *instance : probe->owner->scenario->directional_lights) {

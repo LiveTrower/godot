@@ -82,8 +82,6 @@ class LightmapperRD : public Lightmapper {
 		float shadow_blur = 0.0;
 		uint32_t static_bake = 0;
 		uint32_t pad = 0;
-		float area_width[4] = {};
-		float area_height[4] = {};
 
 		bool operator<(const Light &p_light) const {
 			return type < p_light.type;

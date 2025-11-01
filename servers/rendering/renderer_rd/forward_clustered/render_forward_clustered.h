@@ -44,8 +44,6 @@
 #include "servers/rendering/renderer_rd/renderer_scene_render_rd.h"
 #include "servers/rendering/renderer_rd/shaders/forward_clustered/best_fit_normal.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/forward_clustered/integrate_dfg.glsl.gen.h"
-#include "servers/rendering/storage/ltc_lut.gen.h"
-#include "servers/rendering/storage/ltc_sheen_lut.gen.h"
 
 #define RB_SCOPE_FORWARD_CLUSTERED SNAME("forward_clustered")
 
@@ -192,12 +190,6 @@ private:
 		RID pipeline;
 		RID texture;
 	} dfg_lut;
-
-	struct LTC {
-		RID lut1_texture;
-		RID lut2_texture;
-		RID lut_sheen_texture;
-	} ltc;
 
 	enum PassMode {
 		PASS_MODE_COLOR,
@@ -809,7 +801,7 @@ public:
 
 	/* callback from updating our lighting UBOs, used to populate cluster builder */
 	virtual void setup_added_reflection_probe(const Transform3D &p_transform, const Vector3 &p_half_size) override;
-	virtual void setup_added_light(const RS::LightType p_type, const Transform3D &p_transform, float p_radius, float p_spot_aperture, const Vector2 &p_area_size) override;
+	virtual void setup_added_light(const RS::LightType p_type, const Transform3D &p_transform, float p_radius, float p_spot_aperture) override;
 	virtual void setup_added_decal(const Transform3D &p_transform, const Vector3 &p_half_size) override;
 
 	virtual void base_uniforms_changed() override;

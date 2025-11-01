@@ -78,7 +78,6 @@ private:
 			ST_DIRECTIONAL,
 			ST_SPOTLIGHT,
 			ST_OMNI,
-			ST_AREA,
 		};
 
 		LightSource() {
@@ -94,8 +93,6 @@ private:
 
 		float angle; // For spotlight.
 		float range;
-
-		Vector2 area_size; // For area light.
 	};
 
 	// Same order as godot.

@@ -1295,9 +1295,6 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["ROUGHNESS"] = "roughness";
 		actions.renames["RIM"] = "rim";
 		actions.renames["RIM_TINT"] = "rim_tint";
-		actions.renames["SHEEN"] = "sheen";
-		actions.renames["SHEEN_ROUGHNESS"] = "sheen_roughness";
-		actions.renames["SHEEN_COLOR"] = "sheen_color";
 		actions.renames["CLEARCOAT"] = "clearcoat";
 		actions.renames["CLEARCOAT_ROUGHNESS"] = "clearcoat_roughness";
 		actions.renames["ANISOTROPY"] = "anisotropy";
@@ -1306,13 +1303,9 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["SSS_TRANSMITTANCE_COLOR"] = "transmittance_color";
 		actions.renames["SSS_TRANSMITTANCE_DEPTH"] = "transmittance_depth";
 		actions.renames["SSS_TRANSMITTANCE_BOOST"] = "transmittance_boost";
-		actions.renames["DUAL_ROUGHNESS0"] = "dual_roughness0";
-		actions.renames["DUAL_ROUGHNESS1"] = "dual_roughness1";
-		actions.renames["DUAL_LOBE_MIX"] = "dual_lobe_mix";
 		actions.renames["BACKLIGHT"] = "backlight";
 		actions.renames["AO"] = "ao";
 		actions.renames["AO_LIGHT_AFFECT"] = "ao_light_affect";
-		actions.renames["MICRO_SHADOWS"] = "micro_shadows";
 		actions.renames["EMISSION"] = "emission";
 		actions.renames["POINT_COORD"] = "gl_PointCoord";
 		actions.renames["INSTANCE_CUSTOM"] = "instance_custom";
@@ -1355,16 +1348,12 @@ MaterialStorage::MaterialStorage() {
 		actions.usage_defines["BINORMAL"] = "@TANGENT";
 		actions.usage_defines["RIM"] = "#define LIGHT_RIM_USED\n";
 		actions.usage_defines["RIM_TINT"] = "@RIM";
-		actions.usage_defines["SHEEN"] = "#define LIGHT_SHEEN_USED\n";
-		actions.usage_defines["SHEEN_ROUGHNESS"] = "@SHEEN";
-		actions.usage_defines["SHEEN_COLOR"] = "@SHEEN";
 		actions.usage_defines["CLEARCOAT"] = "#define LIGHT_CLEARCOAT_USED\n";
 		actions.usage_defines["CLEARCOAT_ROUGHNESS"] = "@CLEARCOAT";
 		actions.usage_defines["ANISOTROPY"] = "#define LIGHT_ANISOTROPY_USED\n";
 		actions.usage_defines["ANISOTROPY_FLOW"] = "@ANISOTROPY";
 		actions.usage_defines["AO"] = "#define AO_USED\n";
 		actions.usage_defines["AO_LIGHT_AFFECT"] = "#define AO_USED\n";
-		actions.usage_defines["MICRO_SHADOWS"] = "#define MICRO_SHADOWS_USED\n";
 		actions.usage_defines["UV"] = "#define UV_USED\n";
 		actions.usage_defines["UV2"] = "#define UV2_USED\n";
 		actions.usage_defines["BONE_INDICES"] = "#define BONES_USED\n";
@@ -1413,7 +1402,6 @@ MaterialStorage::MaterialStorage() {
 
 		actions.render_mode_defines["diffuse_lambert_wrap"] = "#define DIFFUSE_LAMBERT_WRAP\n";
 		actions.render_mode_defines["diffuse_toon"] = "#define DIFFUSE_TOON\n";
-		actions.render_mode_defines["diffuse_chan"] = "#define DIFFUSE_CHAN\n";
 
 		actions.render_mode_defines["sss_mode_skin"] = "#define SSS_MODE_SKIN\n";
 

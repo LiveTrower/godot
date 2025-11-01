@@ -2018,7 +2018,7 @@ void fragment_shader(in SceneData scene_data) {
 		vec3 sh_reflection_accum = vec3(0.0);
 #endif
 
-		uint cluster_reflection_offset = cluster_offset + implementation_data.cluster_type_size * 4;
+		uint cluster_reflection_offset = cluster_offset + implementation_data.cluster_type_size * 3;
 
 		uint item_min;
 		uint item_max;
@@ -2811,58 +2811,6 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 						tangent, anisotropy, binormal,
-#endif
-						diffuse_light, direct_specular_light);
-			}
-		}
-	}
-
-	{ // area lights
-
-		uint cluster_area_offset = cluster_offset + implementation_data.cluster_type_size * 2;
-
-		uint item_min;
-		uint item_max;
-		uint item_from;
-		uint item_to;
-
-		cluster_get_item_range(cluster_area_offset + implementation_data.max_cluster_element_count_div_32 + cluster_z, item_min, item_max, item_from, item_to);
-
-		item_from = subgroupBroadcastFirst(subgroupMin(item_from));
-		item_to = subgroupBroadcastFirst(subgroupMax(item_to));
-
-		for (uint i = item_from; i < item_to; i++) {
-			uint mask = cluster_buffer.data[cluster_area_offset + i];
-			mask &= cluster_get_range_clip_mask(i, item_min, item_max);
-
-			uint merged_mask = subgroupBroadcastFirst(subgroupOr(mask));
-			while (merged_mask != 0) {
-				uint bit = findMSB(merged_mask);
-				merged_mask &= ~(1u << bit);
-
-				if (((1u << bit) & mask) == 0) { //do not process if not originally here
-					continue;
-				}
-
-				uint light_index = 32 * i + bit;
-
-				if (!bool(area_lights.data[light_index].mask & instances.data[instance_index].layer_mask)) {
-					continue; //not masked
-				}
-
-				if (area_lights.data[light_index].bake_mode == LIGHT_BAKE_STATIC && bool(instances.data[instance_index].flags & INSTANCE_FLAGS_USE_LIGHTMAP)) {
-					continue; // Statically baked light and object uses lightmap, skip
-				}
-
-				light_process_area(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation,
-#ifdef LIGHT_SHEEN_USED
-						sheen, sheen_roughness, sheen_color,
-#endif
-#ifdef LIGHT_CLEARCOAT_USED
-						clearcoat, clearcoat_roughness, geo_normal,
-#endif
-#ifdef LIGHT_DUAL_SPECULAR_USED
-						dual_roughness0, dual_roughness1, dual_lobe_mix,
 #endif
 						diffuse_light, direct_specular_light);
 			}

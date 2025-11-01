@@ -67,7 +67,6 @@ triangle_indices;
 #define LIGHT_TYPE_DIRECTIONAL 0
 #define LIGHT_TYPE_OMNI 1
 #define LIGHT_TYPE_SPOT 2
-#define LIGHT_TYPE_AREA 3
 
 struct Light {
 	vec3 position;
@@ -88,9 +87,6 @@ struct Light {
 	float shadow_blur;
 	bool static_bake;
 	uint pad;
-
-	vec4 area_width;
-	vec4 area_height;
 };
 
 layout(set = 0, binding = 4, std430) restrict readonly buffer Lights {
