@@ -1003,10 +1003,6 @@ layout(location = 0) out vec4 frag_color;
 
 #ifndef MODE_RENDER_DEPTH
 
-#ifndef USE_LIGHTMAP
-#include "../spherical_harmonics_inc.glsl"
-#endif
-
 /*
 	Only supporting normal fog here.
 */
@@ -1614,7 +1610,7 @@ void main() {
 		indirect_specular_light = hvec3(textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(ref_vec), lod).rgb);
 
 #endif //USE_RADIANCE_CUBEMAP_ARRAY
-		indirect_specular_light *= sc_luminance_multiplier();
+		indirect_specular_light *= REFLECTION_MULTIPLIER;
 		indirect_specular_light *= half(scene_data.IBL_exposure_normalization);
 		indirect_specular_light *= horizon * horizon;
 		indirect_specular_light *= half(scene_data.ambient_light_color_energy.a);
@@ -1632,11 +1628,11 @@ void main() {
 		if (sc_scene_use_ambient_cubemap()) {
 			vec3 ambient_dir = scene_data.radiance_inverse_xform * indirect_normal;
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
-			hvec3 cubemap_ambient = evaluate_sh_l2(hvec3(ambient_dir), scene_data.ambient_sh_coeffs);
+			hvec3 cubemap_ambient = hvec3(texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ambient_dir, MAX_ROUGHNESS_LOD)).rgb);
 #else
-			hvec3 cubemap_ambient = evaluate_sh_l1_geomerics(hvec3(ambient_dir), scene_data.ambient_sh_coeffs);
+			hvec3 cubemap_ambient = hvec3(textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ambient_dir, MAX_ROUGHNESS_LOD).rgb);
 #endif //USE_RADIANCE_CUBEMAP_ARRAY
-			cubemap_ambient *= sc_luminance_multiplier();
+			cubemap_ambient *= REFLECTION_MULTIPLIER;
 			cubemap_ambient *= half(scene_data.IBL_exposure_normalization);
 			ambient_light = mix(ambient_light, cubemap_ambient * half(scene_data.ambient_light_color_energy.a), half(scene_data.ambient_color_sky_mix));
 		}

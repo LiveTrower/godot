@@ -408,12 +408,6 @@ void Light3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_temperature"), &Light3D::get_temperature);
 	ClassDB::bind_method(D_METHOD("get_correlated_color"), &Light3D::get_correlated_color);
 
-	ClassDB::bind_method(D_METHOD("set_area_size", "area_size"), &AreaLight3D::set_area_size);
-	ClassDB::bind_method(D_METHOD("get_area_size"), &AreaLight3D::get_area_size);
-
-	ClassDB::bind_method(D_METHOD("set_area_normalize_energy", "enable"), &AreaLight3D::set_area_normalize_energy);
-	ClassDB::bind_method(D_METHOD("get_area_normalize_energy"), &AreaLight3D::get_area_normalize_energy);
-
 	ADD_GROUP("Light", "light_");
 	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "light_intensity_lumens", PROPERTY_HINT_RANGE, "0,100000.0,0.01,or_greater,suffix:lm"), "set_param", "get_param", PARAM_INTENSITY);
 	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "light_intensity_lux", PROPERTY_HINT_RANGE, "0,150000.0,0.01,or_greater,suffix:lx"), "set_param", "get_param", PARAM_INTENSITY);
@@ -718,38 +712,4 @@ SpotLight3D::SpotLight3D() :
 		Light3D(RenderingServer::LIGHT_SPOT) {
 	// Decrease the default shadow bias to better suit most scenes.
 	set_param(PARAM_SHADOW_BIAS, 0.03);
-}
-
-AreaLight3D::AreaLight3D() :
-		Light3D(RenderingServer::LIGHT_AREA) {
-	// Decrease the default shadow bias to better suit most scenes.
-	set_param(PARAM_SHADOW_BIAS, 0.03);
-	set_param(PARAM_SIZE, 0.5);
-	set_param(PARAM_SPECULAR, 1.0);
-}
-
-void AreaLight3D::_bind_methods() {
-	ADD_GROUP("Area", "area_");
-	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "area_range", PROPERTY_HINT_RANGE, "0,4096,0.001,or_greater,exp,suffix:m"), "set_param", "get_param", PARAM_RANGE);
-	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "area_attenuation", PROPERTY_HINT_RANGE, "-10,10,0.001,or_greater,or_less"), "set_param", "get_param", PARAM_ATTENUATION);
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "area_normalize_energy"), "set_area_normalize_energy", "get_area_normalize_energy");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "area_size", PROPERTY_HINT_LINK, "suffix:m"), "set_area_size", "get_area_size");
-}
-
-PackedStringArray AreaLight3D::get_configuration_warnings() const {
-	PackedStringArray warnings = Light3D::get_configuration_warnings();
-
-	if (!has_shadow() && get_projector().is_valid()) {
-		warnings.push_back(RTR("Projector texture is not yet implemented."));
-	}
-
-	if (get_projector().is_valid() && OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
-		warnings.push_back(RTR("Projector textures are not supported when using the GL Compatibility backend yet. Support will be added in a future release."));
-	}
-
-	if (has_shadow() && OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
-		warnings.push_back(RTR("Rendering area light shadows does not work in compatibility rendering mode."));
-	}
-
-	return warnings;
 }

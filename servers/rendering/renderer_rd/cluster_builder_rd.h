@@ -143,8 +143,7 @@ public:
 
 	enum LightType {
 		LIGHT_TYPE_OMNI,
-		LIGHT_TYPE_SPOT,
-		LIGHT_TYPE_AREA
+		LIGHT_TYPE_SPOT
 	};
 
 	enum BoxType {
@@ -155,7 +154,6 @@ public:
 	enum ElementType {
 		ELEMENT_TYPE_OMNI_LIGHT,
 		ELEMENT_TYPE_SPOT_LIGHT,
-		ELEMENT_TYPE_AREA_LIGHT,
 		ELEMENT_TYPE_DECAL,
 		ELEMENT_TYPE_REFLECTION_PROBE,
 		ELEMENT_TYPE_MAX,
@@ -244,14 +242,11 @@ public:
 
 	void begin(const Transform3D &p_view_transform, const Projection &p_cam_projection, bool p_flip_y);
 
-	_FORCE_INLINE_ void add_light(LightType p_type, const Transform3D &p_transform, float p_radius, float p_spot_aperture, const Vector2 &p_area_size) {
+	_FORCE_INLINE_ void add_light(LightType p_type, const Transform3D &p_transform, float p_radius, float p_spot_aperture) {
 		if (p_type == LIGHT_TYPE_OMNI && cluster_count_by_type[ELEMENT_TYPE_OMNI_LIGHT] == max_elements_by_type) {
 			return; // Max number elements reached.
 		}
 		if (p_type == LIGHT_TYPE_SPOT && cluster_count_by_type[ELEMENT_TYPE_SPOT_LIGHT] == max_elements_by_type) {
-			return; // Max number elements reached.
-		}
-		if (p_type == LIGHT_TYPE_AREA && cluster_count_by_type[ELEMENT_TYPE_AREA_LIGHT] == max_elements_by_type) {
 			return; // Max number elements reached.
 		}
 

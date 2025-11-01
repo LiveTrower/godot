@@ -43,6 +43,7 @@
 #include "core/variant/typed_array.h"
 #include "core/variant/variant_parser.h"
 #include "core/version.h"
+#include "servers/rendering/rendering_server.h"
 
 #ifdef TOOLS_ENABLED
 #include "modules/modules_enabled.gen.h" // For mono.
@@ -600,6 +601,12 @@ void ProjectSettings::_convert_to_last_version(int p_from_version) {
 				E.value.variant = action;
 			}
 		}
+	} else if (p_from_version <= 6) {
+		// Check if we still have legacy boot splash (removed in 4.6), map it to new project setting, then remove legacy setting.
+		if (has_setting("application/boot_splash/fullsize")) {
+			set_setting("application/boot_splash/stretch_mode", RenderingServer::map_scaling_option_to_stretch_mode(get_setting("application/boot_splash/fullsize")));
+			set_setting("application/boot_splash/fullsize", Variant());
+		}
 	}
 #endif // DISABLE_DEPRECATED
 }
@@ -783,12 +790,14 @@ Error ProjectSettings::_setup(const String &p_path, const String &p_main_pack, b
 		resource_path = current_dir;
 		resource_path = resource_path.replace_char('\\', '/'); // Windows path to Unix path just in case.
 		err = _load_settings_text_or_binary(current_dir.path_join("project.godot"), current_dir.path_join("project.binary"));
-		if (err == OK && !p_ignore_override) {
-			// Optional, we don't mind if it fails.
+		if (err == OK) {
 #ifdef OVERRIDE_ENABLED
-			bool disable_override = GLOBAL_GET("application/config/disable_project_settings_override");
-			if (!disable_override) {
-				_load_settings_text(current_dir.path_join("override.cfg"));
+			if (!p_ignore_override) {
+				// Optional, we don't mind if it fails.
+				bool disable_override = GLOBAL_GET("application/config/disable_project_settings_override");
+				if (!disable_override) {
+					_load_settings_text(current_dir.path_join("override.cfg"));
+				}
 			}
 #endif // OVERRIDE_ENABLED
 			found = true;
@@ -1705,8 +1714,9 @@ ProjectSettings::ProjectSettings() {
 	GLOBAL_DEF("gui/timers/tooltip_delay_sec.editor_hint", 0.5);
 #endif
 
+	GLOBAL_DEF("gui/common/drag_threshold", 10);
 	GLOBAL_DEF_BASIC("gui/common/snap_controls_to_pixels", true);
-	GLOBAL_DEF("gui/common/always_show_focus_state", false);
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "gui/common/show_focus_state_on_pointer_event", PROPERTY_HINT_ENUM, "Never,Control Supports Keyboard Input,Always"), 1);
 	GLOBAL_DEF_BASIC("gui/fonts/dynamic_fonts/use_oversampling", true);
 
 	GLOBAL_DEF_RST(PropertyInfo(Variant::INT, "rendering/rendering_device/vsync/frame_queue_size", PROPERTY_HINT_RANGE, "2,3,1"), 2);

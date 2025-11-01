@@ -573,7 +573,7 @@ void vertex_shader(vec3 vertex_input,
 					continue; // Statically baked light and object uses lightmap, skip
 				}
 
-				light_process_omni_vertex(light_index, vertex, view, normal_interp, roughness,
+				light_process_omni_vertex(light_index, vertex, view, normal, roughness,
 						diffuse_light_interp.rgb, specular_light_interp.rgb);
 			}
 		}
@@ -608,7 +608,7 @@ void vertex_shader(vec3 vertex_input,
 					continue; // Statically baked light and object uses lightmap, skip
 				}
 
-				light_process_spot_vertex(light_index, vertex, view, normal_interp, roughness,
+				light_process_spot_vertex(light_index, vertex, view, normal, roughness,
 						diffuse_light_interp.rgb, specular_light_interp.rgb);
 			}
 		}
@@ -630,13 +630,13 @@ void vertex_shader(vec3 vertex_input,
 			}
 
 			if (i == 0) {
-				light_compute_vertex(normal_interp, directional_lights.data[0].direction, view,
+				light_compute_vertex(normal, directional_lights.data[0].direction, view,
 						directional_lights.data[0].color * directional_lights.data[0].energy,
 						true, roughness,
 						directional_diffuse,
 						directional_specular);
 			} else {
-				light_compute_vertex(normal_interp, directional_lights.data[i].direction, view,
+				light_compute_vertex(normal, directional_lights.data[i].direction, view,
 						directional_lights.data[i].color * directional_lights.data[i].energy,
 						true, roughness,
 						diffuse_light_interp.rgb,
@@ -1060,10 +1060,6 @@ vec4 volumetric_fog_process(vec2 screen_uv, float z) {
 	return texture(sampler3D(volumetric_fog_texture, SAMPLER_LINEAR_CLAMP), fog_pos);
 }
 
-#ifndef USE_LIGHTMAP
-#include "../spherical_harmonics_inc.glsl"
-#endif
-
 vec4 fog_process(vec3 vertex) {
 	vec3 fog_color = scene_data_block.data.fog_light_color;
 
@@ -1459,20 +1455,21 @@ void fragment_shader(in SceneData scene_data) {
 #else
 		vec4 volumetric_fog = volumetric_fog_process(screen_uv, -vertex.z);
 #endif
+		vec4 res = vec4(0.0);
 		if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_FOG)) {
 			//must use the full blending equation here to blend fogs
-			vec4 res;
 			float sa = 1.0 - volumetric_fog.a;
 			res.a = fog.a * sa + volumetric_fog.a;
-			if (res.a == 0.0) {
-				res.rgb = vec3(0.0);
-			} else {
-				res.rgb = (fog.rgb * fog.a * sa + volumetric_fog.rgb * volumetric_fog.a) / res.a;
+			if (res.a > 0.0) {
+				res.rgb = (fog.rgb * fog.a * sa + volumetric_fog.rgb) / res.a;
 			}
-			fog = res;
 		} else {
-			fog = volumetric_fog;
+			res.a = volumetric_fog.a;
+			if (res.a > 0.0) {
+				res.rgb = volumetric_fog.rgb / res.a;
+			}
 		}
+		fog = res;
 	}
 #endif //!CUSTOM_FOG_USED
 
@@ -1609,7 +1606,7 @@ void fragment_shader(in SceneData scene_data) {
 	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
 		//https://www.jp.square-enix.com/tech/library/pdf/ImprovedGeometricSpecularAA.pdf
 		float roughness2 = roughness * roughness;
-		vec3 dndu = dFdx(geo_normal), dndv = dFdy(geo_normal);
+		vec3 dndu = dFdx(normal), dndv = dFdy(normal);
 		float variance = scene_data.roughness_limiter_amount * (dot(dndu, dndu) + dot(dndv, dndv));
 		kernelRoughness2 = min(2.0 * variance, scene_data.roughness_limiter_limit); //limit effect
 		float filteredRoughness2 = min(1.0, roughness2 + kernelRoughness2);
@@ -1708,9 +1705,9 @@ void fragment_shader(in SceneData scene_data) {
 		if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_AMBIENT_CUBEMAP)) {
 			vec3 ambient_dir = scene_data.radiance_inverse_xform * indirect_normal;
 #ifdef USE_RADIANCE_CUBEMAP_ARRAY
-			vec3 cubemap_ambient = evaluate_sh_l2(ambient_dir, scene_data.ambient_sh_coeffs);
+			vec3 cubemap_ambient = texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(ambient_dir, MAX_ROUGHNESS_LOD)).rgb;
 #else
-			vec3 cubemap_ambient = evaluate_sh_l1_geomerics(ambient_dir, scene_data.ambient_sh_coeffs);
+			vec3 cubemap_ambient = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ambient_dir, MAX_ROUGHNESS_LOD).rgb;
 #endif //USE_RADIANCE_CUBEMAP_ARRAY
 			cubemap_ambient *= scene_data.IBL_exposure_normalization;
 			ambient_light = mix(ambient_light, cubemap_ambient * scene_data.ambient_light_color_energy.a, scene_data.ambient_color_sky_mix);
@@ -1954,9 +1951,9 @@ void fragment_shader(in SceneData scene_data) {
 		ambient_light = amb_accum.rgb;
 	}
 
-	if (!sc_use_forward_gi() && bool(instances.data[instance_index].flags & INSTANCE_FLAGS_USE_GI_BUFFERS)) { // Get deferred GI buffers.
+	if (!sc_use_forward_gi() && bool(instances.data[instance_index].flags & INSTANCE_FLAGS_USE_GI_BUFFERS)) { //use GI buffers
 
-		vec2 coord = screen_uv;
+		vec2 coord;
 
 		if (implementation_data.gi_upscale_for_msaa) {
 			vec2 base_coord = screen_uv;
@@ -2070,7 +2067,7 @@ void fragment_shader(in SceneData scene_data) {
 
 				reflection_process(reflection_index, vertex, ref_vec, normal, roughness, ambient_light, indirect_specular_light,
 #ifdef LIGHT_CLEARCOAT_USED
-						cc_specular_light, cc_ref_vec, cc_roughness, cc_reflection_accum,
+						cc_specular_light, cc_ref_vec, clearcoat_roughness, cc_reflection_accum,
 #endif
 #ifdef LIGHT_SHEEN_USED
 						sh_specular_light, sh_ref_vec, sheen_roughness, sh_reflection_accum,
@@ -2238,7 +2235,7 @@ void fragment_shader(in SceneData scene_data) {
 		indirect_specular_light *= cc_attenuation;
 
 		// Clearcoat Layer
-		float cc_env = BRDF_Aprox_Nonmetal(cc_roughness, geo_ndotv);
+		float cc_env = BRDF_Aprox_Nonmetal(clearcoat_roughness, geo_ndotv);
 		indirect_specular_light += cc_specular_light * (cc_env * clearcoat);
 #endif
 
@@ -2268,8 +2265,6 @@ void fragment_shader(in SceneData scene_data) {
 	diffuse_light += diffuse_light_interp.rgb;
 	direct_specular_light += specular_light_interp.rgb * f0;
 #endif
-
-	//float contact_shadows = textureLod(sampler2D(ss_shadows_buffer, SAMPLER_LINEAR_CLAMP), screen_uv, 0.0).r;
 
 	{ // Directional light.
 
@@ -2642,8 +2637,6 @@ void fragment_shader(in SceneData scene_data) {
 			shadow = 1.0;
 #endif // DEBUG_DRAW_PSSM_SPLITS
 
-			// Apply screen space shadows.
-			//shadow = min(shadow, contact_shadows);
 #ifdef MICRO_SHADOWS_USED
 			float NdotL = dot(normal, directional_lights.data[i].direction);
 			// Disable microshadowing when facing away from light.
@@ -2675,7 +2668,7 @@ void fragment_shader(in SceneData scene_data) {
 					sheen, sheen_roughness, sheen_color,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-					clearcoat, cc_roughness, geo_normal,
+					clearcoat, clearcoat_roughness, geo_normal,
 #endif
 #ifdef LIGHT_DUAL_SPECULAR_USED
 					dual_roughness0, dual_roughness1, dual_lobe_mix,
@@ -2744,7 +2737,7 @@ void fragment_shader(in SceneData scene_data) {
 						sheen, sheen_roughness, sheen_color,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-						clearcoat, cc_roughness, geo_normal,
+						clearcoat, clearcoat_roughness, geo_normal,
 #endif
 #ifdef LIGHT_DUAL_SPECULAR_USED
 						dual_roughness0, dual_roughness1, dual_lobe_mix,
@@ -2811,7 +2804,7 @@ void fragment_shader(in SceneData scene_data) {
 						sheen, sheen_roughness, sheen_color,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-						clearcoat, cc_roughness, geo_normal,
+						clearcoat, clearcoat_roughness, geo_normal,
 #endif
 #ifdef LIGHT_DUAL_SPECULAR_USED
 						dual_roughness0, dual_roughness1, dual_lobe_mix,
@@ -2866,7 +2859,7 @@ void fragment_shader(in SceneData scene_data) {
 						sheen, sheen_roughness, sheen_color,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-						clearcoat, cc_roughness, geo_normal,
+						clearcoat, clearcoat_roughness, geo_normal,
 #endif
 #ifdef LIGHT_DUAL_SPECULAR_USED
 						dual_roughness0, dual_roughness1, dual_lobe_mix,

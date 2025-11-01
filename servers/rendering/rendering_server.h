@@ -514,6 +514,7 @@ public:
 	virtual void multimesh_set_physics_interpolated(RID p_multimesh, bool p_interpolated) = 0;
 	virtual void multimesh_set_physics_interpolation_quality(RID p_multimesh, MultimeshPhysicsInterpolationQuality p_quality) = 0;
 	virtual void multimesh_instance_reset_physics_interpolation(RID p_multimesh, int p_index) = 0;
+	virtual void multimesh_instances_reset_physics_interpolation(RID p_multimesh) = 0;
 
 	virtual void multimesh_set_visible_instances(RID p_multimesh, int p_visible) = 0;
 	virtual int multimesh_get_visible_instances(RID p_multimesh) const = 0;
@@ -566,7 +567,6 @@ public:
 	virtual RID directional_light_create() = 0;
 	virtual RID omni_light_create() = 0;
 	virtual RID spot_light_create() = 0;
-	virtual RID area_light_create() = 0;
 
 	virtual void light_set_color(RID p_light, const Color &p_color) = 0;
 	virtual void light_set_param(RID p_light, LightParam p_param, float p_value) = 0;
@@ -1156,7 +1156,6 @@ public:
 		VIEWPORT_DEBUG_DRAW_OCCLUDERS,
 		VIEWPORT_DEBUG_DRAW_MOTION_VECTORS,
 		VIEWPORT_DEBUG_DRAW_INTERNAL_BUFFER,
-		VIEWPORT_DEBUG_DRAW_CLUSTER_AREA_LIGHTS,
 	};
 
 	virtual void viewport_set_debug_draw(RID p_viewport, ViewportDebugDraw p_draw) = 0;
@@ -1855,7 +1854,23 @@ public:
 	virtual void mesh_add_surface_from_mesh_data(RID p_mesh, const Geometry3D::MeshData &p_mesh_data);
 	virtual void mesh_add_surface_from_planes(RID p_mesh, const Vector<Plane> &p_planes);
 
-	virtual void set_boot_image(const Ref<Image> &p_image, const Color &p_color, bool p_scale, bool p_use_filter = true) = 0;
+	enum SplashStretchMode {
+		SPLASH_STRETCH_MODE_DISABLED,
+		SPLASH_STRETCH_MODE_KEEP,
+		SPLASH_STRETCH_MODE_KEEP_WIDTH,
+		SPLASH_STRETCH_MODE_KEEP_HEIGHT,
+		SPLASH_STRETCH_MODE_COVER,
+		SPLASH_STRETCH_MODE_IGNORE,
+	};
+
+	virtual void set_boot_image_with_stretch(const Ref<Image> &p_image, const Color &p_color, SplashStretchMode p_stretch_mode, bool p_use_filter = true) = 0;
+	static Rect2 get_splash_stretched_screen_rect(const Size2 &p_image_size, const Size2 &p_window_size, SplashStretchMode p_stretch_mode); // Helper for splash screen
+#ifndef DISABLE_DEPRECATED
+	void set_boot_image(const Ref<Image> &p_image, const Color &p_color, bool p_scale, bool p_use_filter = true); // Superseded, but left to preserve compat.
+#endif
+	_ALWAYS_INLINE_ static SplashStretchMode map_scaling_option_to_stretch_mode(bool p_scale) {
+		return p_scale ? SplashStretchMode::SPLASH_STRETCH_MODE_KEEP : SplashStretchMode::SPLASH_STRETCH_MODE_DISABLED;
+	}
 	virtual Color get_default_clear_color() = 0;
 	virtual void set_default_clear_color(const Color &p_color) = 0;
 
@@ -2009,6 +2024,7 @@ VARIANT_ENUM_CAST(RenderingServer::CanvasLightShadowFilter);
 VARIANT_ENUM_CAST(RenderingServer::CanvasOccluderPolygonCullMode);
 VARIANT_ENUM_CAST(RenderingServer::GlobalShaderParameterType);
 VARIANT_ENUM_CAST(RenderingServer::RenderingInfo);
+VARIANT_ENUM_CAST(RenderingServer::SplashStretchMode);
 VARIANT_ENUM_CAST(RenderingServer::CanvasTextureChannel);
 VARIANT_ENUM_CAST(RenderingServer::BakeChannels);
 

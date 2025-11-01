@@ -6,6 +6,7 @@
 	<description>
 		Object that holds the project-independent editor settings. These settings are generally visible in the [b]Editor &gt; Editor Settings[/b] menu.
 		Property names use slash delimiters to distinguish sections. Setting values can be of any [Variant] type. It's recommended to use [code]snake_case[/code] for editor settings to be consistent with the Godot editor itself.
+		Editor settings are saved automatically when changed.
 		Accessing the settings can be done using the following methods, such as:
 		[codeblocks]
 		[gdscript]
@@ -933,6 +934,7 @@
 		<member name="interface/editor/main_font_custom_opentype_features" type="String" setter="" getter="">
 			List of custom OpenType features to use, if supported by the currently configured main font. Check what OpenType features are supported by your font first.
 			The string should follow the OpenType specification, e.g. [code]ss01,tnum,calt=false[/code]. Microsoft's documentation contains a list of [url=https://learn.microsoft.com/en-us/typography/opentype/spec/featurelist]all registered features[/url].
+			[b]Note:[/b] The default editor main font ([url=https://rsms.me/inter]Inter[/url]) has custom OpenType features in its font file, with [code]ss04[/code] and [code]tnum[/code] enabled and [code]calt[/code] disabled by default. Supported features can be found at its website.
 		</member>
 		<member name="interface/editor/main_font_size" type="int" setter="" getter="">
 			The size of the font in the editor interface.
@@ -1105,6 +1107,9 @@
 		<member name="interface/theme/border_size" type="int" setter="" getter="">
 			The border size to use for interface elements (in pixels).
 		</member>
+		<member name="interface/theme/color_preset" type="String" setter="" getter="">
+			The editor color preset to use.
+		</member>
 		<member name="interface/theme/contrast" type="float" setter="" getter="">
 			The contrast factor to use when deriving the editor theme's base color (see [member interface/theme/base_color]). When using a positive values, the derived colors will be [i]darker[/i] than the base color. This contrast factor can be set to a negative value, which will make the derived colors [i]brighter[/i] than the base color. Negative contrast rates often look better for light themes.
 		</member>
@@ -1116,6 +1121,12 @@
 		</member>
 		<member name="interface/theme/draw_extra_borders" type="bool" setter="" getter="">
 			If [code]true[/code], draws additional borders around interactive UI elements in the editor. This is automatically enabled when using the [b]Black (OLED)[/b] theme preset, as this theme preset uses a fully black background.
+		</member>
+		<member name="interface/theme/draw_relationship_lines" type="int" setter="" getter="">
+			What relationship lines to draw in the editor's [Tree]-based GUIs (such as the Scene tree dock).
+			- [b]None[/b] will make it so that no relationship lines are drawn.
+			- [b]Selected Only[/b] will only draw them for selected items.
+			- [b]All[/b] will always draw them for all items.
 		</member>
 		<member name="interface/theme/follow_system_theme" type="bool" setter="" getter="">
 			If [code]true[/code], the editor theme preset will attempt to automatically match the system theme.
@@ -1130,14 +1141,14 @@
 			The saturation to use for editor icons. Higher values result in more vibrant colors.
 			[b]Note:[/b] The default editor icon saturation was increased by 30% in Godot 4.0 and later. To get Godot 3.x's icon saturation back, set [member interface/theme/icon_saturation] to [code]0.77[/code].
 		</member>
-		<member name="interface/theme/preset" type="String" setter="" getter="">
-			The editor theme preset to use.
-		</member>
 		<member name="interface/theme/relationship_line_opacity" type="float" setter="" getter="">
 			The opacity to use when drawing relationship lines in the editor's [Tree]-based GUIs (such as the Scene tree dock).
 		</member>
 		<member name="interface/theme/spacing_preset" type="String" setter="" getter="">
 			The editor theme spacing preset to use. See also [member interface/theme/base_spacing] and [member interface/theme/additional_spacing].
+		</member>
+		<member name="interface/theme/style" type="String" setter="" getter="">
+			The editor theme style to use.
 		</member>
 		<member name="interface/theme/use_system_accent_color" type="bool" setter="" getter="">
 			If [code]true[/code], set accent color based on system settings.

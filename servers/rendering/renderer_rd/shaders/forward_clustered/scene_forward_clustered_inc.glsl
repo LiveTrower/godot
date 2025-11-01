@@ -142,6 +142,8 @@ float sc_luminance_multiplier() {
 	return 1.0;
 }
 
+#define REFLECTION_MULTIPLIER 1.0
+
 #define SDFGI_MAX_CASCADES 8
 
 /* Set 0: Base Pass (never changes) */
@@ -178,11 +180,6 @@ layout(set = 0, binding = 4, std430) restrict readonly buffer SpotLights {
 	LightData data[];
 }
 spot_lights;
-
-layout(set = 0, binding = 5, std430) restrict readonly buffer AreaLights {
-	LightData data[];
-}
-area_lights;
 
 layout(set = 0, binding = 6, std430) restrict readonly buffer ReflectionProbeData {
 	ReflectionData data[];

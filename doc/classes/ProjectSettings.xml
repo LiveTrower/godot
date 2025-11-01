@@ -278,9 +278,6 @@
 		<member name="application/boot_splash/bg_color" type="Color" setter="" getter="" default="Color(0.14, 0.14, 0.14, 1)">
 			Background color for the boot splash.
 		</member>
-		<member name="application/boot_splash/fullsize" type="bool" setter="" getter="" default="true">
-			If [code]true[/code], scale the boot splash image to the full window size (preserving the aspect ratio) when the engine starts. If [code]false[/code], the engine will leave it at the default pixel size.
-		</member>
 		<member name="application/boot_splash/image" type="String" setter="" getter="" default="&quot;&quot;">
 			Path to an image used as the boot splash. If left empty, the default Godot Engine splash will be displayed instead.
 			[b]Note:[/b] Only effective if [member application/boot_splash/show_image] is [code]true[/code].
@@ -292,6 +289,9 @@
 		</member>
 		<member name="application/boot_splash/show_image" type="bool" setter="" getter="" default="true">
 			If [code]true[/code], displays the image specified in [member application/boot_splash/image] when the engine starts. If [code]false[/code], only displays the plain color specified in [member application/boot_splash/bg_color].
+		</member>
+		<member name="application/boot_splash/stretch_mode" type="int" setter="" getter="" default="1">
+			Specifies how the splash image will be stretched. For the original size without stretching, set to disabled. See [enum RenderingServer.SplashStretchMode] constants for more information.
 		</member>
 		<member name="application/boot_splash/use_filter" type="bool" setter="" getter="" default="true">
 			If [code]true[/code], applies linear filtering when scaling the image (recommended for high-resolution artwork). If [code]false[/code], uses nearest-neighbor interpolation (recommended for pixel art).
@@ -1091,6 +1091,9 @@
 		<member name="editor/import/use_multiple_threads" type="bool" setter="" getter="" default="true">
 			If [code]true[/code] importing of resources is run on multiple threads.
 		</member>
+		<member name="editor/movie_writer/audio_bit_depth" type="int" setter="" getter="" default="16">
+			Number of bits per audio sample written to the [code].avi[/code] file. Only 16 and 32-bit are supported.
+		</member>
 		<member name="editor/movie_writer/disable_vsync" type="bool" setter="" getter="" default="false">
 			If [code]true[/code], requests V-Sync to be disabled when writing a movie (similar to setting [member display/window/vsync/vsync_mode] to [b]Disabled[/b]). This can speed up video writing if the hardware is fast enough to render, encode and save the video at a framerate higher than the monitor's refresh rate.
 			[b]Note:[/b] [member editor/movie_writer/disable_vsync] has no effect if the operating system or graphics driver forces V-Sync with no way for applications to disable it.
@@ -1183,11 +1186,17 @@
 		<member name="filesystem/import/fbx2gltf/enabled.web" type="bool" setter="" getter="" default="false">
 			Override for [member filesystem/import/fbx2gltf/enabled] on the Web where FBX2glTF can't easily be accessed from Godot.
 		</member>
-		<member name="gui/common/always_show_focus_state" type="bool" setter="" getter="" default="false">
-			If [code]true[/code], [Control]s will always show if they're focused, even if said focus was gained via mouse/touch input.
-		</member>
 		<member name="gui/common/default_scroll_deadzone" type="int" setter="" getter="" default="0">
 			Default value for [member ScrollContainer.scroll_deadzone], which will be used for all [ScrollContainer]s unless overridden.
+		</member>
+		<member name="gui/common/drag_threshold" type="int" setter="" getter="" default="10">
+			The minimum distance the mouse cursor must move while pressed before a drag operation begins in the default viewport. For custom viewports see [member Viewport.gui_drag_threshold].
+		</member>
+		<member name="gui/common/show_focus_state_on_pointer_event" type="int" setter="" getter="" default="1">
+			Determines whether a [Control] should visually indicate focus when said focus is gained using a mouse or touch input.
+			- [b]Never[/b] ([code]0[/code]) show the focused state for mouse/touch input.
+			- [b]Control Supports Keyboard Input[/b] ([code]1[/code]) shows the focused state even when gained via mouse/touch input (similar to how browsers handle focus).
+			- [b]Always[/b] ([code]2[/code]) show the focused state, even if said focus was gained via mouse/touch input.
 		</member>
 		<member name="gui/common/snap_controls_to_pixels" type="bool" setter="" getter="" default="true">
 			If [code]true[/code], snaps [Control] node vertices to the nearest pixel to ensure they remain crisp even when the camera moves or zooms.
@@ -1266,6 +1275,13 @@
 		<member name="input/ui_cancel" type="Dictionary" setter="" getter="">
 			Default [InputEventAction] to discard a modal or pending input.
 			[b]Note:[/b] Default [code]ui_*[/code] actions cannot be removed as they are necessary for the internal logic of several [Control]s. The events assigned to the action can however be modified.
+		</member>
+		<member name="input/ui_close_dialog" type="Dictionary" setter="" getter="">
+			Default [InputEventAction] to close a dialog window.
+			[b]Note:[/b] Default [code]ui_*[/code] actions cannot be removed as they are necessary for the internal logic of several [Control]s. The events assigned to the action can however be modified.
+		</member>
+		<member name="input/ui_close_dialog.macos" type="Dictionary" setter="" getter="">
+			macOS specific override for the shortcut to close a dialog window.
 		</member>
 		<member name="input/ui_colorpicker_delete_preset" type="Dictionary" setter="" getter="">
 			Default [InputEventAction] to delete a color preset in a [ColorPicker].
@@ -2332,6 +2348,13 @@
 		<member name="navigation/2d/merge_rasterizer_cell_scale" type="float" setter="" getter="" default="1.0">
 			Default merge rasterizer cell scale for 2D navigation maps. See [method NavigationServer2D.map_set_merge_rasterizer_cell_scale].
 		</member>
+		<member name="navigation/2d/navigation_engine" type="String" setter="" getter="" default="&quot;DEFAULT&quot;">
+			Sets which navigation engine to use for 2D navigation.
+			[b]DEFAULT[/b] is equivalent to [b]GodotNavigation2D[/b], but may change in future releases. Select an explicit implementation if you want to ensure that your project stays on the same engine.
+			[b]GodotNavigation2D[/b] is Godot's internal 2D navigation engine.
+			[b]Dummy[/b] is a 2D navigation server that does nothing and returns only dummy values, effectively disabling all 2D navigation functionality.
+			Third-party modules can add other navigation engines to select with this setting.
+		</member>
 		<member name="navigation/2d/use_edge_connections" type="bool" setter="" getter="" default="true">
 			If enabled 2D navigation regions will use edge connections to connect with other navigation regions within proximity of the navigation map edge connection margin. This setting only affects World2D default navigation maps.
 		</member>
@@ -2358,6 +2381,13 @@
 		</member>
 		<member name="navigation/3d/merge_rasterizer_cell_scale" type="float" setter="" getter="" default="1.0">
 			Default merge rasterizer cell scale for 3D navigation maps. See [method NavigationServer3D.map_set_merge_rasterizer_cell_scale].
+		</member>
+		<member name="navigation/3d/navigation_engine" type="String" setter="" getter="" default="&quot;DEFAULT&quot;">
+			Sets which navigation engine to use for 3D navigation.
+			[b]DEFAULT[/b] is equivalent to [b]GodotNavigation3D[/b], but may change in future releases. Select an explicit implementation if you want to ensure that your project stays on the same engine.
+			[b]GodotNavigation3D[/b] is Godot's internal 3D navigation engine.
+			[b]Dummy[/b] is a 3D navigation server that does nothing and returns only dummy values, effectively disabling all 3D navigation functionality.
+			Third-party modules can add other navigation engines to select with this setting.
 		</member>
 		<member name="navigation/3d/use_edge_connections" type="bool" setter="" getter="" default="true">
 			If enabled 3D navigation regions will use edge connections to connect with other navigation regions within proximity of the navigation map edge connection margin. This setting only affects World3D default navigation maps.

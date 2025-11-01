@@ -950,7 +950,7 @@ void TextEdit::_notification(int p_what) {
 			if (!editable) {
 				draw_caret = is_drawing_caret_when_editable_disabled();
 			}
-			if (has_focus(true)) {
+			if (has_focus(Engine::get_singleton()->is_editor_hint() || GLOBAL_GET_CACHED(int, "gui/common/show_focus_state_on_pointer_event") != 1)) {
 				theme_cache.style_focus->draw(ci, Rect2(Point2(), size));
 			}
 
@@ -3891,7 +3891,6 @@ void TextEdit::show_emoji_and_symbol_picker() {
 void TextEdit::set_emoji_menu_enabled(bool p_enabled) {
 	if (emoji_menu_enabled != p_enabled) {
 		emoji_menu_enabled = p_enabled;
-		_update_context_menu();
 	}
 }
 

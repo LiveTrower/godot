@@ -246,15 +246,3 @@ public:
 
 	SpotLight3D();
 };
-
-class AreaLight3D : public Light3D {
-	GDCLASS(AreaLight3D, Light3D);
-
-protected:
-	static void _bind_methods();
-
-public:
-	PackedStringArray get_configuration_warnings() const override;
-
-	AreaLight3D();
-};

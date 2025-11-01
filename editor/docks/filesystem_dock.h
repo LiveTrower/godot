@@ -211,7 +211,7 @@ private:
 	bool always_show_folders = false;
 	int thumbnail_size_setting = 0;
 
-	bool editor_is_dark_theme = false;
+	bool editor_is_dark_icon_and_font = false;
 
 	class FileOrFolder {
 	public:
@@ -255,6 +255,10 @@ private:
 	LocalVector<Ref<EditorResourceTooltipPlugin>> tooltip_plugins;
 
 	HashSet<String> cached_valid_conversion_targets;
+
+	Vector<String> prev_selection;
+
+	void _update_selection_changed();
 
 	void _tree_mouse_exited();
 	void _reselect_items_selected_on_drag_begin(bool reset = false);
