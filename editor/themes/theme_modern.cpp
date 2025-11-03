@@ -709,9 +709,6 @@ void ThemeModern::populate_standard_styles(const Ref<EditorTheme> &p_theme, Edit
 		Ref<StyleBoxFlat> style_tab_selected = p_config.base_style->duplicate();
 		style_tab_selected->set_content_margin_individual(p_config.base_margin * 4 * EDSCALE, p_config.base_margin * 2.1 * EDSCALE, p_config.base_margin * 4 * EDSCALE, p_config.base_margin * 2.1 * EDSCALE);
 		style_tab_selected->set_corner_radius_individual(p_config.corner_radius * EDSCALE, p_config.corner_radius * EDSCALE, 0, 0);
-		style_tab_selected->set_border_width(SIDE_TOP, Math::ceil(EDSCALE));
-		Color tab_highlight = p_config.dark_color_2.lerp(p_config.accent_color, 0.75);
-		style_tab_selected->set_border_color(tab_highlight);
 
 		Ref<StyleBoxFlat> style_tab_focus = style_tab_selected->duplicate();
 		style_tab_focus->set_bg_color(p_config.base_color);
@@ -1202,8 +1199,7 @@ void ThemeModern::populate_standard_styles(const Ref<EditorTheme> &p_theme, Edit
 	}
 
 	Ref<StyleBoxFlat> progress_fill_style = progress_bar_style->duplicate();
-	//progress_fill_style->set_bg_color(p_config.button_normal_color);
-	progress_fill_style->set_bg_color(p_config.accent_color * Color(1, 1, 1, 0.5));
+	progress_fill_style->set_bg_color(p_config.button_normal_color);
 	if (p_config.draw_extra_borders) {
 		progress_fill_style->set_border_color(p_config.extra_border_color_1);
 	}
@@ -1926,6 +1922,14 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 		p_theme->set_stylebox("indent_box", "EditorInspectorSection", inspector_indent_style);
 		p_theme->set_constant("indent_size", "EditorInspectorSection", 6.0 * EDSCALE);
 		p_theme->set_constant("h_separation", "EditorInspectorSection", p_config.base_margin * EDSCALE);
+
+		Color prop_subsection_stylebox_color = p_config.dark_color_1.lerp(p_config.mono_color_font, p_config.dark_icon_and_font ? 0.09 : 0.16);
+		p_theme->set_color("prop_subsection_stylebox", EditorStringName(Editor), prop_subsection_stylebox_color);
+
+		Ref<StyleBoxFlat> style_highlight_subsection = p_config.base_style->duplicate();
+		style_highlight_subsection->set_bg_color(prop_subsection_stylebox_color);
+		style_highlight_subsection->set_corner_radius_all(p_config.corner_radius * EDSCALE);
+		p_theme->set_stylebox("style_highlight_subsection", EditorStringName(Editor), style_highlight_subsection);
 
 		p_theme->set_color("prop_subsection", EditorStringName(Editor), Color(1, 1, 1, 0));
 #ifndef DISABLE_DEPRECATED // Used before 4.3.
