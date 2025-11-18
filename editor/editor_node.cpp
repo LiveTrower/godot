@@ -2640,7 +2640,7 @@ void EditorNode::_dialog_action(String p_file) {
 
 		case SAVE_AND_SET_MAIN_SCENE: {
 			_save_scene(p_file);
-			_menu_option_confirm(SCENE_SET_MAIN_SCENE, true);
+			_menu_option_confirm(SCENE_TAB_SET_AS_MAIN_SCENE, true);
 		} break;
 
 		case FILE_EXPORT_MESH_LIBRARY: {
@@ -3375,7 +3375,7 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 
 		} break;
 
-		case SCENE_SET_MAIN_SCENE: {
+		case SCENE_TAB_SET_AS_MAIN_SCENE: {
 			const String scene_path = editor_data.get_scene_path(editor_data.get_edited_scene());
 			if (scene_path.is_empty()) {
 				current_menu_option = SAVE_AND_SET_MAIN_SCENE;
@@ -8459,7 +8459,7 @@ EditorNode::EditorNode() {
 
 	file_menu->add_separator();
 	export_as_menu = memnew(PopupMenu);
-	file_menu->add_submenu_node_item(TTRC("Export As..."), export_as_menu);
+	file_menu->add_submenu_node_item(TTRC("Export As..."), export_as_menu, SCENE_EXPORT_AS);
 	export_as_menu->add_shortcut(ED_SHORTCUT("editor/export_as_mesh_library", TTRC("MeshLibrary...")), FILE_EXPORT_MESH_LIBRARY);
 	export_as_menu->connect("index_pressed", callable_mp(this, &EditorNode::_export_as_menu_option));
 
