@@ -888,6 +888,8 @@ Exclude:
   `*.{def,expsym,in,json,map,pom,rc,txt}`
 - All dotfiles
 
+Additional:
+- Update `openxrLoaderVersion` in `platform/android/java/app/config.gradle`
 
 ## pcre2
 
@@ -1191,6 +1193,10 @@ Files extracted from upstream source:
 - `unstable/xdg-foreign/README`
 - `unstable/xdg-foreign/xdg-foreign-unstable-v1.xml`
 - `COPYING`
+
+The following files are extracted from thirdparty sources:
+
+- `mesa/wayland-drm.xml`: https://gitlab.freedesktop.org/mesa/mesa/-/blob/mesa-25.3.0/src/egl/wayland/wayland-drm/wayland-drm.xml
 
 
 ## wslay
