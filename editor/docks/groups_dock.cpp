@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  register_module_types.h                                               */
+/*  groups_dock.cpp                                                       */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,16 +28,30 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#pragma once
+#include "groups_dock.h"
 
-#include "core/extension/gdextension_interface.gen.h"
+#include "editor/settings/editor_command_palette.h"
+#include "editor/themes/editor_scale.h"
 
-enum ModuleInitializationLevel {
-	MODULE_INITIALIZATION_LEVEL_CORE = GDEXTENSION_INITIALIZATION_CORE,
-	MODULE_INITIALIZATION_LEVEL_SERVERS = GDEXTENSION_INITIALIZATION_SERVERS,
-	MODULE_INITIALIZATION_LEVEL_SCENE = GDEXTENSION_INITIALIZATION_SCENE,
-	MODULE_INITIALIZATION_LEVEL_EDITOR = GDEXTENSION_INITIALIZATION_EDITOR
-};
+void GroupsDock::set_selection(const Vector<Node *> &p_nodes) {
+	groups->set_selection(p_nodes);
+}
 
-void initialize_modules(ModuleInitializationLevel p_level);
-void uninitialize_modules(ModuleInitializationLevel p_level);
+GroupsDock::GroupsDock() {
+	singleton = this;
+	set_name(TTRC("Groups"));
+	set_icon_name("Groups");
+	set_dock_shortcut(ED_SHORTCUT_AND_COMMAND("docks/open_groups", TTRC("Open Groups Dock")));
+	set_default_slot(DockConstants::DOCK_SLOT_RIGHT_UL);
+
+	VBoxContainer *main_vb = memnew(VBoxContainer);
+	add_child(main_vb);
+
+	groups = memnew(GroupsEditor);
+	main_vb->add_child(groups);
+	groups->set_v_size_flags(SIZE_EXPAND_FILL);
+}
+
+GroupsDock::~GroupsDock() {
+	singleton = nullptr;
+}

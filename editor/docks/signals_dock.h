@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  register_module_types.h                                               */
+/*  signals_dock.h                                                        */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -30,14 +30,24 @@
 
 #pragma once
 
-#include "core/extension/gdextension_interface.gen.h"
+#include "editor/docks/editor_dock.h"
 
-enum ModuleInitializationLevel {
-	MODULE_INITIALIZATION_LEVEL_CORE = GDEXTENSION_INITIALIZATION_CORE,
-	MODULE_INITIALIZATION_LEVEL_SERVERS = GDEXTENSION_INITIALIZATION_SERVERS,
-	MODULE_INITIALIZATION_LEVEL_SCENE = GDEXTENSION_INITIALIZATION_SCENE,
-	MODULE_INITIALIZATION_LEVEL_EDITOR = GDEXTENSION_INITIALIZATION_EDITOR
+class ConnectionsDock;
+
+class SignalsDock : public EditorDock {
+	GDCLASS(SignalsDock, EditorDock);
+
+	ConnectionsDock *connections = nullptr;
+
+	static inline SignalsDock *singleton = nullptr;
+
+public:
+	static SignalsDock *get_singleton() { return singleton; }
+
+	void set_object(Object *p_object);
+
+	void update_lists();
+
+	SignalsDock();
+	~SignalsDock();
 };
-
-void initialize_modules(ModuleInitializationLevel p_level);
-void uninitialize_modules(ModuleInitializationLevel p_level);
