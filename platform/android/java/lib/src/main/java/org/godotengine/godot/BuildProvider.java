@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  credits_roll.h                                                        */
+/*  BuildProvider.java                                                    */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,44 +28,54 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#pragma once
+package org.godotengine.godot;
 
-#include "scene/main/canvas_layer.h"
+import org.godotengine.godot.variant.Callable;
 
-class Label;
-class VBoxContainer;
-class Font;
+import androidx.annotation.NonNull;
 
-class CreditsRoll : public CanvasLayer {
-	GDCLASS(CreditsRoll, CanvasLayer);
+/**
+ * Provides an environment for executing build commands.
+ */
+public interface BuildProvider {
+	/**
+	 * Connects to the build environment.
+	 *
+	 * @param callback The callback to call when connected
+	 * @return Whether or not connecting is possible
+	 */
+	boolean buildEnvConnect(@NonNull Callable callback);
 
-	enum class LabelSize {
-		NORMAL,
-		HEADER,
-		BIG_HEADER,
-	};
+	/**
+	 * Disconnects from the build environment.
+	 */
+	void buildEnvDisconnect();
 
-	int font_size_normal = 0;
-	int font_size_header = 0;
-	int font_size_big_header = 0;
-	Ref<Font> bold_font;
+	/**
+	 * Executes a command via the build environment.
+	 *
+	 * @param buildTool      The build tool to execute (for example, "gradle")
+	 * @param arguments      The argument for the command
+	 * @param projectPath    The working directory to use when executing the command
+	 * @param buildDir       The build directory within the project
+	 * @param outputCallback The callback to call for each line of output from the command
+	 * @param resultCallback The callback to call when the command is finished running
+	 * @return A positive job id, if successful; otherwise, a negative number
+	 */
+	int buildEnvExecute(String buildTool, @NonNull String[] arguments, @NonNull String projectPath, @NonNull String buildDir, @NonNull Callable outputCallback, @NonNull Callable resultCallback);
 
-	bool mouse_enabled = false;
-	VBoxContainer *content = nullptr;
-	Label *project_manager = nullptr;
+	/**
+	 * Cancels a command executed via the build environment.
+	 *
+	 * @param jobId The job id returned from buildEnvExecute()
+	 */
+	void buildEnvCancel(int jobId);
 
-	Label *_create_label(const String &p_with_text, LabelSize p_size = LabelSize::NORMAL);
-	void _create_nothing(int p_size = -1);
-	String _build_string(const char *const *p_from) const;
-	void _visibility_changed();
-
-	virtual void input(const Ref<InputEvent> &p_event) override;
-
-protected:
-	void _notification(int p_what);
-
-public:
-	void roll_credits();
-
-	CreditsRoll();
-};
+	/**
+	 * Requests that a project be cleaned up via the build environment.
+	 *
+	 * @param projectPath The working directory to use when executing the command
+	 * @param buildDir    The build directory within the project
+	 */
+	void buildEnvCleanProject(@NonNull String projectPath, @NonNull String buildDir, @NonNull Callable callback);
+}

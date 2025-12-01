@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  credits_roll.h                                                        */
+/*  android_editor_gradle_runner.h                                        */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -30,42 +30,48 @@
 
 #pragma once
 
-#include "scene/main/canvas_layer.h"
+#ifdef ANDROID_ENABLED
 
-class Label;
-class VBoxContainer;
-class Font;
+#include "core/object/object.h"
 
-class CreditsRoll : public CanvasLayer {
-	GDCLASS(CreditsRoll, CanvasLayer);
+class ConfirmationDialog;
+class RichTextLabel;
 
-	enum class LabelSize {
-		NORMAL,
-		HEADER,
-		BIG_HEADER,
+class AndroidEditorGradleRunner : public Object {
+	GDCLASS(AndroidEditorGradleRunner, Object);
+
+	RichTextLabel *output_label = nullptr;
+	ConfirmationDialog *output_dialog = nullptr;
+
+	enum State {
+		STATE_IDLE,
+		STATE_BUILDING,
+		STATE_CLEANING,
 	};
+	State state = STATE_IDLE;
 
-	int font_size_normal = 0;
-	int font_size_header = 0;
-	int font_size_big_header = 0;
-	Ref<Font> bold_font;
+	String project_path;
+	String build_path;
+	String output_path;
+	List<String> gradle_build_args;
+	List<String> gradle_copy_args;
+	int64_t job_id;
 
-	bool mouse_enabled = false;
-	VBoxContainer *content = nullptr;
-	Label *project_manager = nullptr;
+	void _android_gradle_build_connect();
+	void _android_gradle_build_disconnect();
+	void _android_gradle_build_output(int p_type, const String &p_line);
+	void _android_gradle_build_build();
+	void _android_gradle_build_build_callback(int p_exit_code);
+	void _android_gradle_build_copy();
+	void _android_gradle_build_copy_callback(int p_exit_code);
+	void _android_gradle_build_clean_project(bool p_was_successful);
+	void _android_gradle_build_clean_project_callback();
 
-	Label *_create_label(const String &p_with_text, LabelSize p_size = LabelSize::NORMAL);
-	void _create_nothing(int p_size = -1);
-	String _build_string(const char *const *p_from) const;
-	void _visibility_changed();
-
-	virtual void input(const Ref<InputEvent> &p_event) override;
-
-protected:
-	void _notification(int p_what);
+	void _android_gradle_build_failed(const String &p_msg = String());
+	void _android_gradle_build_cancel();
 
 public:
-	void roll_credits();
-
-	CreditsRoll();
+	void run_gradle(const String &p_project_path, const String &p_build_path, const String &p_output_path, const List<String> &p_gradle_build_args, const List<String> &p_gradle_copy_args);
 };
+
+#endif // ANDROID_ENABLED

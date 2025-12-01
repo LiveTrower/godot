@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  credits_roll.h                                                        */
+/*  GradleBuildProvider.kt                                                */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,44 +28,68 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#pragma once
+package org.godotengine.editor.buildprovider
 
-#include "scene/main/canvas_layer.h"
+import android.content.Context
+import org.godotengine.godot.BuildProvider
+import org.godotengine.godot.GodotHost
+import org.godotengine.godot.variant.Callable
 
-class Label;
-class VBoxContainer;
-class Font;
+internal class GradleBuildProvider(
+	val context: Context,
+	val host: GodotHost,
+) : BuildProvider {
 
-class CreditsRoll : public CanvasLayer {
-	GDCLASS(CreditsRoll, CanvasLayer);
+	val gradleBuildEnvironmentClient = GradleBuildEnvironmentClient(context)
 
-	enum class LabelSize {
-		NORMAL,
-		HEADER,
-		BIG_HEADER,
-	};
+	val godot get() = host.godot
 
-	int font_size_normal = 0;
-	int font_size_header = 0;
-	int font_size_big_header = 0;
-	Ref<Font> bold_font;
+	override fun buildEnvConnect(callback: Callable): Boolean {
+		return gradleBuildEnvironmentClient.connect {
+			godot?.runOnRenderThread {
+				callback.call()
+			}
+		}
+	}
 
-	bool mouse_enabled = false;
-	VBoxContainer *content = nullptr;
-	Label *project_manager = nullptr;
+	override fun buildEnvDisconnect() {
+		gradleBuildEnvironmentClient.disconnect()
+	}
 
-	Label *_create_label(const String &p_with_text, LabelSize p_size = LabelSize::NORMAL);
-	void _create_nothing(int p_size = -1);
-	String _build_string(const char *const *p_from) const;
-	void _visibility_changed();
+	override fun buildEnvExecute(
+		buildTool: String,
+		arguments: Array<String>,
+		projectPath: String,
+		buildDir: String,
+		outputCallback: Callable,
+		resultCallback: Callable
+	): Int {
+		if (buildTool != "gradle") {
+			return -1;
+		}
+		val outputCb: (Int, String) -> Unit = { outputType, line ->
+			godot?.runOnRenderThread {
+				outputCallback.call(outputType, line)
+			}
+		}
+		val resultCb: (Int) -> Unit = { exitCode ->
+			godot?.runOnRenderThread {
+				resultCallback.call(exitCode)
+			}
+		}
+		return gradleBuildEnvironmentClient.execute(arguments, projectPath, buildDir, outputCb, resultCb)
+	}
 
-	virtual void input(const Ref<InputEvent> &p_event) override;
+	override fun buildEnvCancel(jobId: Int) {
+		gradleBuildEnvironmentClient.cancel(jobId)
+	}
 
-protected:
-	void _notification(int p_what);
-
-public:
-	void roll_credits();
-
-	CreditsRoll();
-};
+	override fun buildEnvCleanProject(projectPath: String, buildDir: String, callback: Callable) {
+		val cb: (Int) -> Unit = { exitCode ->
+			godot?.runOnRenderThread {
+				callback.call()
+			}
+		}
+		gradleBuildEnvironmentClient.cleanProject(projectPath, buildDir, cb)
+	}
+}

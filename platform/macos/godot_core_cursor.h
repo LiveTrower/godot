@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  credits_roll.h                                                        */
+/*  godot_core_cursor.h                                                   */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -30,42 +30,16 @@
 
 #pragma once
 
-#include "scene/main/canvas_layer.h"
+#import <AppKit/AppKit.h>
+#import <Foundation/Foundation.h>
 
-class Label;
-class VBoxContainer;
-class Font;
+constexpr int32_t GDCoreCursorWindowMove = 39;
 
-class CreditsRoll : public CanvasLayer {
-	GDCLASS(CreditsRoll, CanvasLayer);
+// Expose private interface for CoreCursor.
+@interface GodotCoreCursor : NSCursor
 
-	enum class LabelSize {
-		NORMAL,
-		HEADER,
-		BIG_HEADER,
-	};
+@property(readonly, nonatomic) int32_t _coreCursorType;
 
-	int font_size_normal = 0;
-	int font_size_header = 0;
-	int font_size_big_header = 0;
-	Ref<Font> bold_font;
+- (id)initWithType:(int32_t)type;
 
-	bool mouse_enabled = false;
-	VBoxContainer *content = nullptr;
-	Label *project_manager = nullptr;
-
-	Label *_create_label(const String &p_with_text, LabelSize p_size = LabelSize::NORMAL);
-	void _create_nothing(int p_size = -1);
-	String _build_string(const char *const *p_from) const;
-	void _visibility_changed();
-
-	virtual void input(const Ref<InputEvent> &p_event) override;
-
-protected:
-	void _notification(int p_what);
-
-public:
-	void roll_credits();
-
-	CreditsRoll();
-};
+@end
