@@ -3098,63 +3098,67 @@ String VisualShaderNodeVectorCoordinateTransform::generate_code(Shader::Mode p_m
 			matrix = "INV_PROJECTION_MATRIX";
 			code += "		vec3 pos_cs = vec3(" + p_input_vars[0] + ".xy * 2.0 - 1.0, " + p_input_vars[0] + ".z);\n";
 			if (vector_type == VECTOR_TYPE_POSITION) {
-				code += "		vec4 h_pos_ws = " + matrix + " * vec4(pos_cs, 1.0);\n";
-				code += "		h_pos_ws.xyz /= h_pos_ws.w;\n";
+				code += "		vec4 world = " + matrix + " * vec4(pos_cs, 1.0);\n";
+				code += "		world.xyz /= world.w;\n";
 				matrix = "inverse(MODEL_MATRIX) * INV_VIEW_MATRIX";
-				code += vformat("		%s = (" + matrix + " * vec4(h_pos_ws.xyz, 1.0)).xyz;\n", p_output_vars[0]);
+				code += vformat("		%s = (" + matrix + " * vec4(world.xyz, 1.0)).xyz;\n", p_output_vars[0]);
 			} else {
-				code += "		vec4 h_pos_ws = mat3(" + matrix + ") * pos_cs;\n";
+				code += "		vec4 world = mat3(" + matrix + ") * pos_cs;\n";
 				matrix = "inverse(MODEL_MATRIX) * INV_VIEW_MATRIX";
 				if (normalize_output) {
-					code += vformat("		%s = normalize((" + matrix + " * h_pos_ws).xyz);\n", p_output_vars[0]);
+					code += vformat("		%s = normalize((" + matrix + " * world).xyz);\n", p_output_vars[0]);
 				} else {
-					code += vformat("		%s = (" + matrix + " * h_pos_ws).xyz;\n", p_output_vars[0]);
+					code += vformat("		%s = (" + matrix + " * world).xyz;\n", p_output_vars[0]);
 				}
 			}
 		} else if (to_space == SPACE_WORLD) {
 			matrix = "INV_PROJECTION_MATRIX";
 			code += "		vec3 pos_cs = vec3(" + p_input_vars[0] + ".xy * 2.0 - 1.0, " + p_input_vars[0] + ".z);\n";
 			if (vector_type == VECTOR_TYPE_POSITION) {
-				code += "		vec4 h_pos_ws = " + matrix + " * vec4(pos_cs, 1.0);\n";
-				code += "		h_pos_ws.xyz /= h_pos_ws.w;\n";
+				code += "		vec4 world = " + matrix + " * vec4(pos_cs, 1.0);\n";
+				code += "		world.xyz /= world.w;\n";
 				matrix = "INV_VIEW_MATRIX";
-				code += vformat("		%s = (" + matrix + " * vec4(h_pos_ws.xyz, 1.0)).xyz;\n", p_output_vars[0]);
+				code += vformat("		%s = (" + matrix + " * vec4(world.xyz, 1.0)).xyz;\n", p_output_vars[0]);
 			} else {
-				code += "		vec4 h_pos_ws = mat3(" + matrix + ") * pos_cs;\n";
+				code += "		vec4 world = mat3(" + matrix + ") * pos_cs;\n";
 				matrix = "INV_VIEW_MATRIX";
 				if (normalize_output) {
-					code += vformat("		%s = normalize((" + matrix + " * h_pos_ws).xyz);\n", p_output_vars[0]);
+					code += vformat("		%s = normalize((" + matrix + " * world).xyz);\n", p_output_vars[0]);
 				} else {
-					code += vformat("		%s = (" + matrix + " * h_pos_ws).xyz;\n", p_output_vars[0]);
+					code += vformat("		%s = (" + matrix + " * world).xyz;\n", p_output_vars[0]);
 				}
 			}
 		} else if (to_space == SPACE_VIEW) {
 			matrix = "INV_PROJECTION_MATRIX";
 			code += "		vec3 pos_cs = vec3(" + p_input_vars[0] + ".xy * 2.0 - 1.0, " + p_input_vars[0] + ".z);\n";
 			if (vector_type == VECTOR_TYPE_POSITION) {
-				code += "		vec4 h_pos_ws = " + matrix + " * vec4(pos_cs, 1.0);\n";
-				code += "		h_pos_ws.xyz /= h_pos_ws.w;\n";
-				code += vformat("		%s = h_pos_ws.xyz;\n", p_output_vars[0]);
+				code += "		vec4 world = " + matrix + " * vec4(pos_cs, 1.0);\n";
+				code += "		world.xyz /= world.w;\n";
+				code += vformat("		%s = world.xyz;\n", p_output_vars[0]);
 			} else {
-				code += "		vec3 h_pos_ws = mat3(" + matrix + ") * pos_cs;\n";
+				code += "		vec3 world = mat3(" + matrix + ") * pos_cs;\n";
 				matrix = "VIEW_MATRIX";
 				if (normalize_output) {
-					code += vformat("		%s = normalize(mat3(" + matrix + ") * h_pos_ws.xyz);\n", p_output_vars[0]);
+					code += vformat("		%s = normalize(mat3(" + matrix + ") * world.xyz);\n", p_output_vars[0]);
 				} else {
-					code += vformat("		%s = mat3(" + matrix + ") * h_pos_ws.xyz;\n", p_output_vars[0]);
+					code += vformat("		%s = mat3(" + matrix + ") * world.xyz;\n", p_output_vars[0]);
 				}
 			}
 		} else if (to_space == SPACE_TANGENT) {
-			matrix = "INV_PROJECTION_MATRIX";
+			matrix = "INV_VIEW_MATRIX * INV_PROJECTION_MATRIX";
 			code += "		vec3 pos_cs = vec3(" + p_input_vars[0] + ".xy * 2.0 - 1.0, " + p_input_vars[0] + ".z);\n";
-			matrix = "TBN";
 			if (vector_type == VECTOR_TYPE_POSITION) {
-				code += vformat("		%s = " + matrix + " * (pos_cs - position_ws);\n", p_output_vars[0]);
+				code += "		vec4 world = " + matrix + " * vec4(pos_cs, 1.0);\n";
+				code += "		world.xyz /= world.w;\n";
+				matrix = "TBN";
+				code += vformat("		%s = " + matrix + " * (world.xyz - position_ws);\n", p_output_vars[0]);
 			} else {
+				code += "		vec3 world = mat3(" + matrix + ") * pos_cs;\n";
+				matrix = "TBN";
 				if (normalize_output) {
-					code += vformat("		%s = normalize(" + matrix + " * pos_cs);\n", p_output_vars[0]);
+					code += vformat("		%s = normalize(" + matrix + " * world);\n", p_output_vars[0]);
 				} else {
-					code += vformat("		%s = " + matrix + " * pos_cs;\n", p_output_vars[0]);
+					code += vformat("		%s = " + matrix + " * world;\n", p_output_vars[0]);
 				}
 			}
 		} else if (to_space == SPACE_SCREEN) {

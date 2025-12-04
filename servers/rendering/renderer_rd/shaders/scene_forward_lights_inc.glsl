@@ -980,6 +980,7 @@ void reflection_process(uint ref_index, vec3 vertex, hvec3 ref_vec, hvec3 normal
 		blend = pow(blend_axes.x * blend_axes.y * blend_axes.z, half(2.0));
 	}
 
+	vec2 border_size = scene_data_block.data.reflection_atlas_border_size;
 	if (reflections.data[ref_index].intensity > 0.0 && reflection_accum.a < half(1.0)) { // compute reflection
 
 		vec3 local_ref_vec = (reflections.data[ref_index].local_matrix * vec4(ref_vec, 0.0)).xyz;
@@ -1012,7 +1013,9 @@ void reflection_process(uint ref_index, vec3 vertex, hvec3 ref_vec, hvec3 normal
 		hvec4 reflection;
 		half reflection_blend = max(half(0.0), blend - reflection_accum.a);
 
-		reflection.rgb = hvec3(textureLod(samplerCubeArray(reflection_atlas, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(local_ref_vec, reflections.data[ref_index].index), sqrt(roughness) * MAX_ROUGHNESS_LOD).rgb) * REFLECTION_MULTIPLIER;
+		float roughness_lod = sqrt(roughness) * MAX_ROUGHNESS_LOD;
+		vec2 reflection_uv = vec3_to_oct_with_border(local_ref_vec, border_size);
+		reflection.rgb = hvec3(textureLod(sampler2DArray(reflection_atlas, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(reflection_uv, reflections.data[ref_index].index), roughness_lod).rgb) * REFLECTION_MULTIPLIER;
 		reflection.rgb *= half(reflections.data[ref_index].exposure_normalization);
 		reflection.a = reflection_blend;
 
@@ -1037,7 +1040,8 @@ void reflection_process(uint ref_index, vec3 vertex, hvec3 ref_vec, hvec3 normal
 			local_cc_ref_vec = posonbox - reflections.data[ref_index].box_offset;
 		}
 
-		vec3 cc_reflection = textureLod(samplerCubeArray(reflection_atlas, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(local_cc_ref_vec, reflections.data[ref_index].index), cc_perceptual_roughness * MAX_ROUGHNESS_LOD).rgb * sc_luminance_multiplier();
+		vec2 cc_reflection_uv = vec3_to_oct_with_border(local_cc_ref_vec, border_size);
+		vec3 cc_reflection = textureLod(sampler2DArray(reflection_atlas, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(cc_reflection_uv, reflections.data[ref_index].index), cc_perceptual_roughness * MAX_ROUGHNESS_LOD).rgb * sc_luminance_multiplier();
 		cc_reflection *= reflections.data[ref_index].exposure_normalization;
 		if (reflections.data[ref_index].exterior) {
 			cc_reflection = mix(cc_specular_light, cc_reflection, blend);
@@ -1062,7 +1066,8 @@ void reflection_process(uint ref_index, vec3 vertex, hvec3 ref_vec, hvec3 normal
 			local_sh_ref_vec = posonbox - reflections.data[ref_index].box_offset;
 		}
 
-		vec3 sh_reflection = textureLod(samplerCubeArray(reflection_atlas, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(local_sh_ref_vec, reflections.data[ref_index].index), sheen_perceptual_roughness * MAX_ROUGHNESS_LOD).rgb * sc_luminance_multiplier();
+		vec2 sh_reflection_uv = vec3_to_oct_with_border(local_sh_ref_vec, border_size);
+		vec3 sh_reflection = textureLod(sampler2DArray(reflection_atlas, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(sh_reflection_uv, reflections.data[ref_index].index), sheen_perceptual_roughness * MAX_ROUGHNESS_LOD).rgb * sc_luminance_multiplier();
 		sh_reflection *= reflections.data[ref_index].exposure_normalization;
 		if (reflections.data[ref_index].exterior) {
 			sh_reflection = mix(sh_specular_light, sh_reflection, blend);
@@ -1085,7 +1090,9 @@ void reflection_process(uint ref_index, vec3 vertex, hvec3 ref_vec, hvec3 normal
 			hvec4 ambient_out;
 			half ambient_blend = max(half(0.0), blend - ambient_accum.a);
 
-			ambient_out.rgb = hvec3(textureLod(samplerCubeArray(reflection_atlas, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec4(local_amb_vec, reflections.data[ref_index].index), MAX_ROUGHNESS_LOD).rgb);
+			float roughness_lod = MAX_ROUGHNESS_LOD;
+			vec2 ambient_uv = vec3_to_oct_with_border(local_amb_vec, border_size);
+			ambient_out.rgb = hvec3(textureLod(sampler2DArray(reflection_atlas, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(ambient_uv, reflections.data[ref_index].index), roughness_lod).rgb);
 			ambient_out.rgb *= half(reflections.data[ref_index].exposure_normalization);
 			ambient_out.a = ambient_blend;
 			ambient_out.rgb *= ambient_out.a;
