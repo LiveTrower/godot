@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  shader_file_editor_plugin.h                                           */
+/*  register_types.cpp                                                    */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,56 +28,35 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#pragma once
+#include "register_types.h"
 
-#include "editor/docks/editor_dock.h"
-#include "editor/plugins/editor_plugin.h"
-#include "scene/gui/rich_text_label.h"
-#include "servers/rendering/rendering_device_binds.h"
+#include "audio_stream_mp3.h"
 
-class HFlowContainer;
-class ItemList;
+#ifdef TOOLS_ENABLED
+#include "core/config/engine.h"
+#include "editor/editor_node.h"
+#include "resource_importer_mp3.h"
 
-class ShaderFileEditor : public EditorDock {
-	GDCLASS(ShaderFileEditor, EditorDock);
+static void _editor_init() {
+	Ref<ResourceImporterMP3> mp3_import;
+	mp3_import.instantiate();
+	ResourceFormatImporter::get_singleton()->add_importer(mp3_import);
+}
+#endif
 
-	Ref<RDShaderFile> shader_file;
+void initialize_mp3_module(ModuleInitializationLevel p_level) {
+	if (p_level == MODULE_INITIALIZATION_LEVEL_SCENE) {
+		GDREGISTER_CLASS(AudioStreamMP3);
+	}
 
-	HFlowContainer *stage_hb = nullptr;
-	ItemList *versions = nullptr;
-	Button *stages[RD::SHADER_STAGE_MAX];
-	RichTextLabel *error_text = nullptr;
+#ifdef TOOLS_ENABLED
+	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
+		GDREGISTER_CLASS(ResourceImporterMP3);
 
-	void _update_version(const StringName &p_version_txt, const RenderingDevice::ShaderStage p_stage);
-	void _version_selected(int p_stage);
-	void _editor_settings_changed();
+		EditorNode::add_init_callback(_editor_init);
+	}
+#endif
+}
 
-	void _update_options();
-	void _shader_changed();
-
-protected:
-	void _notification(int p_what);
-
-public:
-	static ShaderFileEditor *singleton;
-	void edit(const Ref<RDShaderFile> &p_shader);
-
-	ShaderFileEditor();
-};
-
-class ShaderFileEditorPlugin : public EditorPlugin {
-	GDCLASS(ShaderFileEditorPlugin, EditorPlugin);
-
-	ShaderFileEditor *shader_editor = nullptr;
-
-public:
-	virtual String get_plugin_name() const override { return "ShaderFile"; }
-	bool has_main_screen() const override { return false; }
-	virtual void edit(Object *p_object) override;
-	virtual bool handles(Object *p_object) const override;
-	virtual void make_visible(bool p_visible) override;
-
-	ShaderFileEditor *get_shader_editor() const { return shader_editor; }
-
-	ShaderFileEditorPlugin();
-};
+void uninitialize_mp3_module(ModuleInitializationLevel p_level) {
+}
