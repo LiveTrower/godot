@@ -1685,21 +1685,21 @@ void main() {
 		// Note: We want to use geometric normal for clearcoat reflections/BRDF, ie. we ignore the normal map.
 		cc_ref_vec = reflect(-view, geo_normal);
 		cc_ref_vec = mix(cc_ref_vec, geo_normal, cc_roughness * cc_roughness);
-		cc_ref_vec = scene_data.radiance_inverse_xform * cc_ref_vec;
 
+		hvec3 cc_radiance_ref_vec = hvec3(scene_data.radiance_inverse_xform * vec3(cc_ref_vec));
 		float roughness_lod = mix(0.001, 0.1, sqrt(float(clearcoat_roughness))) * MAX_ROUGHNESS_LOD;
 
 #ifdef USE_RADIANCE_OCTMAP_ARRAY
 		float lod;
 		half blend = half(modf(sqrt(cc_roughness) * MAX_ROUGHNESS_LOD, lod));
 
-		float ref_lod = vec3_to_oct_lod(dFdx(cc_ref_vec), dFdy(cc_ref_vec), scene_data_block.data.radiance_pixel_size);
-		vec2 ref_uv = vec3_to_oct_with_border(cc_ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
+		float ref_lod = vec3_to_oct_lod(dFdx(cc_radiance_ref_vec), dFdy(cc_radiance_ref_vec), scene_data_block.data.radiance_pixel_size);
+		vec2 ref_uv = vec3_to_oct_with_border(cc_radiance_ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
 		hvec3 clearcoat_sample_a = hvec3(textureLod(sampler2DArray(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), cc_ref_uv, lod), ref_lod).rgb);
 		hvec3 clearcoat_sample_b = hvec3(textureLod(sampler2DArray(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), cc_ref_uv, lod + 1), ref_lod).rgb);
 		hvec3 clearcoat_light = mix(clearcoat_sample_a, clearcoat_sample_b, blend);
 #else
-		vec2 ref_uv = vec3_to_oct_with_border(ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
+		vec2 ref_uv = vec3_to_oct_with_border(cc_radiance_ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
 		hvec3 clearcoat_light = hvec3(textureLod(sampler2D(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_uv, roughness_lod).rgb);
 #endif // USE_RADIANCE_OCTMAP_ARRAY
 
@@ -1888,6 +1888,14 @@ void main() {
 	//this saves some VGPRs
 	hvec3 f0 = F0(metallic, specular, albedo);
 
+#ifdef LIGHT_CLEARCOAT_USED
+	// The base layer's f0 is computed assuming an interface from air to an IOR
+	// of 1.5, but the clear coat layer forms an interface from IOR 1.5 to IOR
+	// 1.5. We recompute f0 by first computing its IOR, then reconverting to f0
+	// by using the correct interface
+	f0 = mix(f0, f0_Clear_Coat_To_Surface(f0), clearcoat);
+#endif
+
 #ifndef AMBIENT_LIGHT_DISABLED
 	{
 #if defined(DIFFUSE_TOON)
@@ -1904,12 +1912,14 @@ void main() {
 		// The clearcoat layer assumes an IOR of 1.5 (4% reflectance).
 		// Attenuate underlying diffuse/specular by clearcoat fresnel (ONLY fresnel, hence we don't just invert the BRDF below).
 		half geo_ndotv = max(dot(geo_normal, view), half(0.0001));
-		half cc_attenuation = half(1.0) - clearcoat * SchlickFresnel(half(0.04), half(0.96), geo_ndotv);
+		half F = SchlickFresnel(half(0.04), half(1.0), geo_ndotv) * clearcoat;
+		half cc_attenuation = half(1.0) - F;
+
 		ambient_light *= cc_attenuation;
 		indirect_specular_light *= cc_attenuation;
 
-		half cc_env = BRDF_Aprox_Nonmetal(cc_roughness, geo_ndotv);
-		indirect_specular_light += cc_specular_light * (cc_env * clearcoat);
+		// We don't need a BRDF approximation for clearcoat, so we can use the fresnel directly.
+		indirect_specular_light += cc_specular_light * F;
 #endif
 
 #endif // DIFFUSE_TOON

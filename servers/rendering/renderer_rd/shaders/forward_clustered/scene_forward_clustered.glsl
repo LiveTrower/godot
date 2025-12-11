@@ -1787,21 +1787,21 @@ void fragment_shader(in SceneData scene_data) {
 		// We want to use geometric normal, not normal_map
 		cc_ref_vec = reflect(-view, geo_normal);
 		cc_ref_vec = mix(cc_ref_vec, geo_normal, mix(0.001, 0.1, clearcoat_roughness));
-		cc_ref_vec = scene_data.radiance_inverse_xform * cc_ref_vec;
 
+		vec3 cc_radiance_ref_vec = scene_data.radiance_inverse_xform * cc_ref_vec;
 		float roughness_lod = sqrt(mix(0.001, 0.1, clearcoat_roughness)) * MAX_ROUGHNESS_LOD;
 #ifdef USE_RADIANCE_OCTMAP_ARRAY
 		float lod, blend;
 		blend = modf(roughness_lod, lod);
 
-		float ref_lod = vec3_to_oct_lod(dFdx(cc_ref_vec), dFdy(cc_ref_vec), scene_data_block.data.radiance_pixel_size);
-		vec2 ref_uv = vec3_to_oct_with_border(cc_ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
+		float ref_lod = vec3_to_oct_lod(dFdx(cc_radiance_ref_vec), dFdy(cc_radiance_ref_vec), scene_data_block.data.radiance_pixel_size);
+		vec2 ref_uv = vec3_to_oct_with_border(cc_radiance_ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
 		vec3 clearcoat_sample_a = textureLod(sampler2DArray(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(ref_uv, lod), ref_lod).rgb;
 		vec3 clearcoat_sample_b = textureLod(sampler2DArray(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(ref_uv, lod + 1), ref_lod).rgb;
 		vec3 clearcoat_light = mix(clearcoat_sample_a, clearcoat_sample_b, blend);
 #else
-		vec2 ref_uv = vec3_to_oct_with_border(cc_ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
-		vec3 clearcoat_light = textureLod(sampler2DArray(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_uv, roughness_lod).rgb;
+		vec2 ref_uv = vec3_to_oct_with_border(cc_radiance_ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
+		vec3 clearcoat_light = textureLod(sampler2D(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_uv, roughness_lod).rgb;
 #endif // USE_RADIANCE_OCTMAP_ARRAY
 
 		cc_specular_light += clearcoat_light * scene_data.IBL_exposure_normalization * scene_data.ambient_light_color_energy.a;
@@ -1817,15 +1817,19 @@ void fragment_shader(in SceneData scene_data) {
 		sh_ref_vec = mix(sh_ref_vec, normal, sheen_roughness * sheen_roughness);
 
 		vec3 sh_radiance_ref_vec = scene_data.radiance_inverse_xform * sh_ref_vec;
+		float roughness_lod = sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD;
 #ifdef USE_RADIANCE_OCTMAP_ARRAY
 		float lod, blend;
-		blend = modf(sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD, lod);
-		vec2 ref_uv = vec3_to_oct_with_border(sh_ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
-		vec3 sheen_light = texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(ref_uv, lod)).rgb;
-		sheen_light = mix(sheen_light, texture(samplerCubeArray(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(ref_uv, lod + 1)).rgb, blend);
+		blend = modf(roughness_lod, lod);
+
+		float ref_lod = vec3_to_oct_lod(dFdx(sh_radiance_ref_vec), dFdy(sh_radiance_ref_vec), scene_data_block.data.radiance_pixel_size);
+		vec2 ref_uv = vec3_to_oct_with_border(sh_radiance_ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
+		vec3 sheen_sample_a = textureLod(sampler2DArray(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(ref_uv, lod), ref_lod).rgb;
+		vec3 sheen_sample_b = textureLod(sampler2DArray(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(ref_uv, lod + 1), ref_lod).rgb;
+		vec3 sheen_light = mix(sheen_sample_a, sheen_sample_b, blend);
 #else
-		vec2 ref_uv = vec3_to_oct_with_border(sh_ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
-		vec3 sheen_light = textureLod(samplerCube(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_uv, sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD).rgb;
+		vec2 ref_uv = vec3_to_oct_with_border(sh_radiance_ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
+		vec3 sheen_light = textureLod(sampler2D(radiance_cubemap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_uv, roughness_lod).rgb;
 #endif // USE_RADIANCE_OCTMAP_ARRAY
 		sh_specular_light += sheen_light * scene_data.IBL_exposure_normalization * scene_data.ambient_light_color_energy.a;
 	}
@@ -2297,7 +2301,7 @@ void fragment_shader(in SceneData scene_data) {
 		float geo_ndotv = max(dot(geo_normal, view), 0.0001); // We want to use geometric normal, not normal_map
 		// The clearcoat layer assumes an IOR of 1.5 (4% reflectance).
 		// Attenuate underlying diffuse/specular by clearcoat fresnel (ONLY fresnel, hence we don't just invert the BRDF below).
-		float F = SchlickFresnel(0.04, 0.96, geo_ndotv) * clearcoat;
+		float F = SchlickFresnel(0.04, 1.0, geo_ndotv) * clearcoat;
 		float cc_attenuation = 1.0 - F;
 
 		ambient_light *= cc_attenuation;
@@ -2305,7 +2309,6 @@ void fragment_shader(in SceneData scene_data) {
 
 		// Clearcoat Layer
 		// We don't need DFG for clearcoat, so we can use the fresnel directly.
-		float cc_env = BRDF_Aprox_Nonmetal(clearcoat_roughness, geo_ndotv);
 		indirect_specular_light += cc_specular_light * F;
 #endif
 

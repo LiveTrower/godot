@@ -84,7 +84,7 @@ half clearcoat_lobe(half clearcoat_roughness, half clearcoat, half ccNdotH, half
 	half F = clearcoat * SchlickFresnel(half(0.04), half(0.96), cLdotH);
 	// The clear coat layer assumes an IOR of 1.5 (4% reflectance)
 	attenuation = half(1.0) - F;
-	return clearcoat * D * V * F * ccNdotL;
+	return D * V * F * ccNdotL;
 }
 
 void light_compute(hvec3 N, hvec3 L, hvec3 V, half A, hvec3 light_color, bool is_directional, half attenuation, hvec3 f0, half roughness, half metallic, half specular_amount, hvec3 albedo, inout half alpha, vec2 screen_uv, hvec3 energy_compensation,

@@ -3156,9 +3156,9 @@ String VisualShaderNodeVectorCoordinateTransform::generate_code(Shader::Mode p_m
 				code += "		vec3 world = mat3(" + matrix + ") * pos_cs;\n";
 				matrix = "TBN";
 				if (normalize_output) {
-					code += vformat("		%s = normalize(" + matrix + " * world);\n", p_output_vars[0]);
+					code += vformat("		%s = normalize(world * " + matrix + ");\n", p_output_vars[0]);
 				} else {
-					code += vformat("		%s = " + matrix + " * world;\n", p_output_vars[0]);
+					code += vformat("		%s = world * " + matrix + ";\n", p_output_vars[0]);
 				}
 			}
 		} else if (to_space == SPACE_SCREEN) {
