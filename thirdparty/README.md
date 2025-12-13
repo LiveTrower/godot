@@ -96,7 +96,7 @@ Patches:
 ## brotli
 
 - Upstream: https://github.com/google/brotli
-- Version: 1.1.0 (ed738e842d2fbdf2d6459e39267a633c4a9b2f5d, 2023)
+- Version: 1.2.0 (028fb5a23661f123017c060daa546b55cf4bde29, 2025)
 - License: MIT
 
 Files extracted from upstream source:
@@ -109,13 +109,12 @@ Files extracted from upstream source:
 ## certs
 
 - Upstream: Mozilla, via https://github.com/bagder/ca-bundle
-- Version: git (bcc414c5b5282f9321651bf71dc1e254ae87e3f8, 2025),
-  generated from mozilla-release changeset 60d4997d339bb7ac6d033819ac50dcad4b9be09d
+- Version: git (cc4096bef208d35e2884571046c75a726185c358, 2025)
 - License: MPL 2.0
 
 Files extracted from upstream source:
 
-- `ca-bundle.crt` renamed to `ca-certificates.crt`
+- `ca-bundle.crt`
 
 
 ## clipper2
@@ -539,7 +538,7 @@ Patches:
 ## libjpeg-turbo
 
 - Upstream: https://github.com/libjpeg-turbo/libjpeg-turbo
-- Version: 3.1.0 (20ade4dea9589515a69793e447a6c6220b464535, 2024)
+- Version: 3.1.3 (af9c1c268520a29adf98cad5138dafe612b3d318, 2025)
 - License: BSD-3-Clause and IJG
 
 Files extracted from upstream source:
@@ -1172,7 +1171,7 @@ Patches:
 ## wayland
 
 - Upstream: https://gitlab.freedesktop.org/wayland/wayland
-- Version: 1.22.0 (b2649cb3ee6bd70828a17e50beb16591e6066288, 2023)
+- Version: 1.24.0 (736d12ac67c20c60dc406dc49bb06be878501f86, 2025)
 - License: MIT
 
 Files extracted from upstream source:
@@ -1184,11 +1183,13 @@ Files extracted from upstream source:
 # wayland-protocols
 
 - Upstream: https://gitlab.freedesktop.org/wayland/wayland-protocols
-- Version: 1.45 (54346071a5f211f2c482889f2c8ee3b5ecda63ab, 2025)
+- Version: 1.46 (6141e1154303dadd5c3e480bc4a16e26f1dcb2af, 2025)
 - License: MIT
 
 Files extracted from upstream source:
 
+- `stable/tablet/README`
+- `stable/tablet/tablet-unstable-v2.xml`
 - `stable/viewporter/README`
 - `stable/viewporter/viewporter.xml`
 - `stable/xdg-shell/README`
@@ -1208,8 +1209,6 @@ Files extracted from upstream source:
 - `unstable/primary-selection/primary-selection-unstable-v1.xml`
 - `unstable/relative-pointer/README`
 - `unstable/relative-pointer/relative-pointer-unstable-v1.xml`
-- `unstable/tablet/README`
-- `unstable/tablet/tablet-unstable-v2.xml`
 - `unstable/text-input/README`
 - `unstable/text-input/text-input-unstable-v3.xml`
 - `unstable/xdg-decoration/README`
