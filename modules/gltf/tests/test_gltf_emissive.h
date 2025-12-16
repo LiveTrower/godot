@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  joypad_sdl.h                                                          */
+/*  test_gltf_emissive.h                                                  */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -30,45 +30,39 @@
 
 #pragma once
 
-#include "core/input/input.h"
-#include "core/os/thread.h"
+#include "test_gltf.h"
 
-typedef uint32_t SDL_JoystickID;
-typedef struct SDL_Joystick SDL_Joystick;
-typedef struct SDL_Gamepad SDL_Gamepad;
+#ifdef TOOLS_ENABLED
 
-class JoypadSDL {
-public:
-	JoypadSDL();
-	~JoypadSDL();
+namespace TestGltf {
 
-	static JoypadSDL *get_singleton();
+TEST_CASE("[SceneTree][Node] GLTF emissiveTexture without emissiveFactor uses white emission") {
+	init("gltf_emissive_no_factor", "res://");
 
-	Error initialize();
-	void process_events();
+	Node *loaded = gltf_import("res://emissive_no_factor.gltf");
+	CHECK_MESSAGE(loaded != nullptr, "Failed to load GLB.");
 
-private:
-	class Joypad : public Input::JoypadFeatures {
-	public:
-		bool attached = false;
-		StringName guid;
+	MeshInstance3D *mesh = Object::cast_to<MeshInstance3D>(loaded->find_child("Cube", true, true));
+	CHECK_MESSAGE(mesh != nullptr, "Mesh not found.");
 
-		SDL_JoystickID sdl_instance_idx;
+	Ref<StandardMaterial3D> mat = mesh->get_active_material(0);
+	CHECK_MESSAGE(mat.is_valid(), "Material not found.");
 
-		bool supports_force_feedback = false;
-		uint64_t ff_effect_timestamp = 0;
+	// Emission should be enabled.
+	CHECK(mat->get_feature(BaseMaterial3D::FEATURE_EMISSION));
 
-		virtual bool has_joy_light() const override;
-		virtual bool set_joy_light(const Color &p_color) override;
+	// Emission operator should be MULTIPLY per glTF spec.
+	CHECK(mat->get_emission_operator() == BaseMaterial3D::EMISSION_OP_MULTIPLY);
 
-		SDL_Joystick *get_sdl_joystick() const;
-		SDL_Gamepad *get_sdl_gamepad() const;
-	};
+	// Without emissiveFactor, emission color should be WHITE, not BLACK.
+	Color c = mat->get_emission();
+	CHECK_MESSAGE(c.r > 0.9f, "Emission red should be ~1.0 when emissiveFactor is absent.");
+	CHECK_MESSAGE(c.g > 0.9f, "Emission green should be ~1.0 when emissiveFactor is absent.");
+	CHECK_MESSAGE(c.b > 0.9f, "Emission blue should be ~1.0 when emissiveFactor is absent.");
 
-	static JoypadSDL *singleton;
+	memdelete(loaded);
+}
 
-	Joypad joypads[Input::JOYPADS_MAX];
-	HashMap<SDL_JoystickID, int> sdl_instance_id_to_joypad_id;
+} // namespace TestGltf
 
-	void close_joypad(int p_pad_idx);
-};
+#endif // TOOLS_ENABLED
