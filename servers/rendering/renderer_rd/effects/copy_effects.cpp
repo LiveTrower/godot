@@ -317,6 +317,15 @@ CopyEffects::CopyEffects(BitField<RasterEffects> p_raster_effects) {
 			}
 		}
 	}
+
+	{
+		// Initialize Spherical Harmonics computation.
+		Vector<String> sh_from_octmap_modes;
+		sh_from_octmap_modes.push_back("");
+		sh_from_octmap.shader.initialize(sh_from_octmap_modes);
+		sh_from_octmap.shader_version = sh_from_octmap.shader.version_create();
+		sh_from_octmap.compute_pipeline = RD::get_singleton()->compute_pipeline_create(sh_from_octmap.shader.version_get_shader(sh_from_octmap.shader_version, 0));
+	}
 }
 
 CopyEffects::~CopyEffects() {
@@ -350,6 +359,11 @@ CopyEffects::~CopyEffects() {
 		roughness.compute_shader.version_free(roughness.shader_version);
 	}
 
+	if (RD::get_singleton()->uniform_set_is_valid(sh_from_octmap.uniform_set)) {
+		RD::get_singleton()->free(sh_from_octmap.uniform_set);
+	}
+
+	sh_from_octmap.shader.version_free(sh_from_octmap.shader_version);
 	copy.shader.version_free(copy.shader_version);
 	specular_merge.shader.version_free(specular_merge.shader_version);
 
@@ -1410,4 +1424,41 @@ void CopyEffects::merge_specular(RID p_dest_framebuffer, RID p_specular, RID p_b
 	RD::get_singleton()->draw_list_end();
 
 	RD::get_singleton()->draw_command_end_label();
+}
+
+void CopyEffects::calculate_sh_from_octmap(RID p_src_octmap_texture, RID p_output_storage_buffer, float p_border_size, bool p_compute_l2) {
+	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
+	ERR_FAIL_NULL(uniform_set_cache);
+	MaterialStorage *material_storage = MaterialStorage::get_singleton();
+	ERR_FAIL_NULL(material_storage);
+
+	memset(&sh_from_octmap.push_constant, 0, sizeof(SHfromOctmapPushConstant));
+	sh_from_octmap.push_constant.border_size[0] = p_border_size;
+	sh_from_octmap.push_constant.border_size[1] = 1.0f - p_border_size * 2.0;
+	sh_from_octmap.push_constant.compute_geomerics_l1 = !p_compute_l2;
+
+	RID default_sampler = material_storage->sampler_rd_get_default(RS::CANVAS_ITEM_TEXTURE_FILTER_LINEAR, RS::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
+
+	RD *rd = RD::get_singleton();
+	rd->draw_command_begin_label("Spherical Harmonics from Octmap");
+
+	RD::Uniform u_src_octmap(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 0u, Vector<RID>({ default_sampler, p_src_octmap_texture }));
+	RD::Uniform u_sh_coeffs_output(RD::UNIFORM_TYPE_STORAGE_BUFFER, 1u, p_output_storage_buffer);
+
+	thread_local LocalVector<RD::Uniform> uniforms;
+	uniforms.clear();
+	uniforms.push_back(u_src_octmap);
+	uniforms.push_back(u_sh_coeffs_output);
+
+	RID shader = sh_from_octmap.shader.version_get_shader(sh_from_octmap.shader_version, 0);
+	ERR_FAIL_COND(shader.is_null());
+
+	RD::ComputeListID compute_list = rd->compute_list_begin();
+	rd->compute_list_bind_compute_pipeline(compute_list, sh_from_octmap.compute_pipeline);
+	rd->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache_vec(shader, 0, uniforms), 0);
+	rd->compute_list_set_push_constant(compute_list, &sh_from_octmap.push_constant, sizeof(SHfromOctmapPushConstant));
+	rd->compute_list_dispatch_threads(compute_list, p_compute_l2 ? 2048u : 1024u, 1u, 1u);
+	rd->compute_list_end();
+
+	rd->draw_command_end_label();
 }

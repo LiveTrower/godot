@@ -43,6 +43,7 @@
 #include "servers/rendering/renderer_rd/shaders/effects/octmap_filter_raster.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/octmap_roughness.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/octmap_roughness_raster.glsl.gen.h"
+#include "servers/rendering/renderer_rd/shaders/effects/sh_from_octmap.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/specular_merge.glsl.gen.h"
 #include "servers/rendering/renderer_scene_render.h"
 
@@ -351,6 +352,20 @@ private:
 
 	} specular_merge;
 
+	struct SHfromOctmapPushConstant {
+		float border_size[2];
+		uint32_t compute_geomerics_l1;
+		uint32_t pad;
+	};
+
+	struct SHfromOctmap {
+		SHfromOctmapPushConstant push_constant;
+		ShFromOctmapShaderRD shader; // Compute Shader.
+		RID shader_version;
+		RID compute_pipeline;
+		RID uniform_set;
+	} sh_from_octmap;
+
 	static CopyEffects *singleton;
 
 public:
@@ -392,6 +407,8 @@ public:
 	void octmap_roughness_raster(RID p_source_rd_texture, RID p_dest_framebuffer, uint32_t p_sample_count, float p_roughness, uint32_t p_source_size, uint32_t p_dest_size, float p_border_size);
 
 	void merge_specular(RID p_dest_framebuffer, RID p_specular, RID p_base, RID p_reflection, uint32_t p_view_count);
+
+	void calculate_sh_from_octmap(RID p_src_octmap_texture, RID p_output_storage_buffer, float p_border_size, bool p_compute_l2);
 };
 
 } // namespace RendererRD

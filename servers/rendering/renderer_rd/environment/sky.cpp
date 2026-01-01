@@ -271,9 +271,12 @@ void SkyRD::ReflectionData::clear_reflection_data() {
 	if (downsampled_radiance_octmap.is_valid()) {
 		RD::get_singleton()->free_rid(downsampled_radiance_octmap);
 	}
+	if (sh_coeff_buffer.is_valid()) {
+		RD::get_singleton()->free(sh_coeff_buffer);
+	}
+	sh_coeff_buffer = RID();
 	downsampled_radiance_octmap = RID();
 	downsampled_layer.mipmaps.clear();
-	coefficient_buffer = RID();
 }
 
 void SkyRD::ReflectionData::update_reflection_data(int p_size, int p_mipmaps, bool p_use_array, RID p_base_cube, int p_base_layer, bool p_low_quality, int p_roughness_layers, RD::DataFormat p_texture_format, float p_border_size) {
@@ -369,12 +372,19 @@ void SkyRD::ReflectionData::update_reflection_data(int p_size, int p_mipmaps, bo
 			mmh = MAX(1u, mmh >> 1);
 		}
 	}
+
+	// TODO: This should only be created if using the feature.
+	// Always big enough to cover the L2 variant.
+	sh_coeff_buffer = RD::get_singleton()->storage_buffer_create(sizeof(float) * 7u * 4u);
+	RD::get_singleton()->set_resource_name(sh_coeff_buffer, "Spherical Harmonics Compute Shader's output coefficients");
 }
 
 void SkyRD::ReflectionData::create_reflection_fast_filter(bool p_use_arrays) {
 	RendererRD::CopyEffects *copy_effects = RendererRD::CopyEffects::get_singleton();
 	ERR_FAIL_NULL_MSG(copy_effects, "Effects haven't been initialized");
 	bool use_raster_effect = copy_effects->get_raster_effects().has_flag(RendererRD::CopyEffects::RASTER_EFFECT_OCTMAP);
+
+	copy_effects->calculate_sh_from_octmap(radiance_base_octmap, sh_coeff_buffer, uv_border_size, p_use_arrays);
 
 	if (use_raster_effect) {
 		RD::get_singleton()->draw_command_begin_label("Downsample Radiance Map");
@@ -425,6 +435,10 @@ void SkyRD::ReflectionData::create_reflection_importance_sample(bool p_use_array
 	RendererRD::CopyEffects *copy_effects = RendererRD::CopyEffects::get_singleton();
 	ERR_FAIL_NULL_MSG(copy_effects, "Effects haven't been initialized");
 	bool use_raster_effect = copy_effects->get_raster_effects().has_flag(RendererRD::CopyEffects::RASTER_EFFECT_OCTMAP);
+
+	if (p_base_layer == 1) {
+		copy_effects->calculate_sh_from_octmap(radiance_base_octmap, sh_coeff_buffer, uv_border_size, p_use_arrays);
+	}
 
 	if (use_raster_effect) {
 		if (p_base_layer == 1) {
@@ -1201,6 +1215,16 @@ void SkyRD::setup_sky(const RenderDataRD *p_render_data, const Size2i p_screen_s
 	sky_scene_state.ubo.volumetric_fog_sky_affect = RendererSceneRenderRD::get_singleton()->environment_get_volumetric_fog_sky_affect(p_render_data->environment);
 
 	RD::get_singleton()->buffer_update(sky_scene_state.uniform_buffer, 0, sizeof(SkySceneState::UBO), &sky_scene_state.ubo);
+}
+
+void SkyRD::copy_spherical_harmonics_to_scene_data(RID p_env, RID p_ubo_to_update) {
+	Sky *sky = get_sky(RendererSceneRenderRD::get_singleton()->environment_get_sky(p_env));
+	if (!sky) {
+		// No sky, nothing to copy. The UBO already sends 0s so it will result in black ambient light.
+		return;
+	}
+	RD *rd = RD::get_singleton();
+	rd->buffer_copy(sky->reflection.sh_coeff_buffer, p_ubo_to_update, 0u, RenderSceneDataRD::get_sh_coeffs_offset_bytes(), sizeof(float) * 7u * 4u);
 }
 
 void SkyRD::update_radiance_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_env, const Vector3 &p_global_pos, double p_time, float p_luminance_multiplier, float p_brightness_multiplier) {
