@@ -1937,10 +1937,31 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 			p_theme->set_constant("margin_left", "NoBorderHorizontal", margin);
 			p_theme->set_constant("margin_right", "NoBorderHorizontal", margin);
 
-			p_theme->set_type_variation("NoBorderHorizontalBottom", "MarginContainer");
-			p_theme->set_constant("margin_left", "NoBorderHorizontalBottom", margin);
-			p_theme->set_constant("margin_right", "NoBorderHorizontalBottom", margin);
+			p_theme->set_type_variation("NoBorderHorizontalBottom", "NoBorderHorizontal");
 			p_theme->set_constant("margin_bottom", "NoBorderHorizontalBottom", margin);
+
+			margin *= 2;
+
+			// Used in nested containers.
+			p_theme->set_type_variation("NoBorderHorizontalWide", "MarginContainer");
+			p_theme->set_constant("margin_left", "NoBorderHorizontalWide", margin);
+			p_theme->set_constant("margin_right", "NoBorderHorizontalWide", margin);
+
+			// Same as above, including the bottom.
+			p_theme->set_type_variation("NoBorderHorizontalBottomWide", "NoBorderHorizontalWide");
+			p_theme->set_constant("margin_bottom", "NoBorderHorizontalBottomWide", margin);
+
+			// Used in the asset library. Specifically, the ("bg", "AssetLib") stylebox.
+			p_theme->set_type_variation("NoBorderAssetLib", "NoBorderHorizontal");
+			p_theme->set_constant("margin_bottom", "NoBorderAssetLib", -p_config.base_margin);
+
+			margin = -panel_margin - p_config.base_margin;
+
+			// Same as above, but with the margins adapted for the project manager.
+			p_theme->set_type_variation("NoBorderAssetLibProjectManager", "NoBorderHorizontal");
+			p_theme->set_constant("margin_left", "NoBorderAssetLibProjectManager", margin);
+			p_theme->set_constant("margin_right", "NoBorderAssetLibProjectManager", margin);
+			p_theme->set_constant("margin_bottom", "NoBorderAssetLibProjectManager", margin);
 
 			int bottom_margin = p_theme->get_stylebox(SNAME("BottomPanel"), EditorStringName(EditorStyles))->get_content_margin(SIDE_LEFT);
 			margin = -bottom_margin;
@@ -2354,8 +2375,15 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 	// Animation Editor.
 	{
 		// Timeline general.
+
 		p_theme->set_constant("timeline_v_separation", "AnimationTrackEditor", 0);
 		p_theme->set_constant("track_v_separation", "AnimationTrackEditor", 0);
+
+		int margin = p_theme->get_stylebox(SceneStringName(panel), SNAME("PanelContainer"))->get_content_margin(SIDE_LEFT);
+
+		p_theme->set_type_variation("AnimationTrackMargins", "MarginContainer");
+		p_theme->set_constant("margin_left", "AnimationTrackMargins", margin);
+		p_theme->set_constant("margin_right", "AnimationTrackMargins", margin);
 
 		// AnimationTimelineEdit.
 		// "primary" is used for integer timeline values, "secondary" for decimals.
@@ -2512,6 +2540,18 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 	Ref<StyleBoxFlat> debugger_panel_style = p_config.content_panel_style->duplicate();
 	debugger_panel_style->set_border_width(SIDE_BOTTOM, 0);
 	p_theme->set_stylebox("DebuggerPanel", EditorStringName(EditorStyles), debugger_panel_style);
+
+	// ObjectDB.
+	{
+		Ref<StyleBoxFlat> style_content_wrapper = p_config.panel_container_style->duplicate();
+		style_content_wrapper->set_draw_center(true);
+		style_content_wrapper->set_bg_color(p_config.dark_color_2);
+		p_theme->set_stylebox("ObjectDBContentWrapper", EditorStringName(EditorStyles), style_content_wrapper);
+
+		Ref<StyleBoxFlat> style_title = style_content_wrapper->duplicate();
+		style_title->set_bg_color(p_config.dark_color_3);
+		p_theme->set_stylebox("ObjectDBTitle", EditorStringName(EditorStyles), style_title);
+	}
 
 	// Resource and node editors.
 	{
