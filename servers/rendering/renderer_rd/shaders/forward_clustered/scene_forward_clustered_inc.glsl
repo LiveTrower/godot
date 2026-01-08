@@ -486,10 +486,40 @@ vec3 get_energy_compensation(vec3 f0, float env) {
 }
 
 // Brinck and Maximov 2016, "The Technical Art of Uncharted 4"
-float compute_micro_shadowing(float NoL, float ao, float opacity) {
-	float aperture = 2.0 * ao * ao;
+float compute_micro_shadowing(float NoL, float visibility, float opacity) {
+	// Avoid division by 0.
+	if (visibility == 1.0) {
+		return 1.0;
+	}
+
+	float aperture = 2.0 * visibility * visibility;
 	float microshadow = clamp(NoL + aperture - 1.0, 0.0, 1.0);
 	return mix(1.0, microshadow, opacity);
+}
+
+float compute_micro_shadowing_acti(float NoL, float visibility, float opacity) {
+	// Avoid division by 0.
+	if (visibility == 1.0) {
+		return 1.0;
+	}
+
+	float aperture = inversesqrt(1.0 - min(visibility, 0.9999));
+	float microshadow = clamp(NoL * aperture, 0.0, 1.0);
+	return mix(1.0, microshadow * microshadow, opacity);
+}
+
+float compute_micro_shadowing_analy(float NoL, float visibility, float opacity) {
+	// Avoid divisions by 0.
+	if (fract(visibility) == 0.0f) {
+		return visibility;
+	}
+
+	float xx = visibility * visibility;
+	float ao5 = xx * xx * visibility;
+
+	float cosThetaPrime = sqrt(1.0f - ao5);
+	float micro_shadows = pow(clamp(NoL / cosThetaPrime, 0.0, 1.0), 0.75f * 1.0 / visibility);
+	return mix(1.0, micro_shadows, opacity);
 }
 
 /* Set 2 Skeleton & Instancing (can change per item) */

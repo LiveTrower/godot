@@ -223,7 +223,6 @@ public:
 		FEATURE_REFRACTION,
 		FEATURE_DETAIL,
 		FEATURE_BENT_NORMAL_MAPPING,
-		FEATURE_DUAL_SPECULAR,
 		FEATURE_MICRO_SHADOWS,
 		FEATURE_MAX
 	};
@@ -482,9 +481,6 @@ private:
 		StringName sheen_color;
 		StringName clearcoat;
 		StringName clearcoat_roughness;
-		StringName dual_roughness0;
-		StringName dual_roughness1;
-		StringName dual_lobe_mix;
 		StringName anisotropy;
 		StringName heightmap_scale;
 		StringName subsurface_scattering_strength;
@@ -564,9 +560,6 @@ private:
 	Color sheen_color;
 	float clearcoat = 0.0f;
 	float clearcoat_roughness = 0.0f;
-	float dual_roughness0 = 0.0f;
-	float dual_roughness1 = 0.0f;
-	float dual_lobe_mix = 0.0f;
 	float anisotropy = 0.0f;
 	float heightmap_scale = 0.0f;
 	float subsurface_scattering_strength = 0.0f;
@@ -713,15 +706,6 @@ public:
 
 	void set_clearcoat_roughness(float p_clearcoat_roughness);
 	float get_clearcoat_roughness() const;
-
-	void set_dual_roughness0(float p_dual_roughness0);
-	float get_dual_roughness0() const;
-
-	void set_dual_roughness1(float p_dual_roughness1);
-	float get_dual_roughness1() const;
-
-	void set_dual_lobe_mix(float p_dual_lobe_mix);
-	float get_dual_lobe_mix() const;
 
 	void set_anisotropy(float p_anisotropy);
 	float get_anisotropy() const;

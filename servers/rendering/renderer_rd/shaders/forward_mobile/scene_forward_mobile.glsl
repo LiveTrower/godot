@@ -1141,9 +1141,6 @@ void main() {
 	vec3 sheen_color_highp = vec3(0.0);
 	float clearcoat_highp = 0.0;
 	float clearcoat_roughness_highp = 0.0;
-	float dual_roughness0_highp = 0.0;
-	float dual_roughness1_highp = 0.0;
-	float dual_lobe_mix_highp = 0.0;
 	float anisotropy_highp = 0.0;
 	vec2 anisotropy_flow_highp = vec2(1.0, 0.0);
 #ifdef PREMUL_ALPHA_USED
@@ -1285,9 +1282,6 @@ void main() {
 	hvec3 sheen_color = hvec3(sheen_color_highp);
 	half clearcoat = half(clearcoat_highp);
 	half clearcoat_roughness = half(clearcoat_roughness_highp);
-	half dual_roughness0 = half(dual_roughness0_highp);
-	half dual_roughness1 = half(dual_roughness1_highp);
-	half dual_lobe_mix = half(dual_lobe_mix_highp);
 	half anisotropy = half(anisotropy_highp);
 	hvec2 anisotropy_flow = hvec2(anisotropy_flow_highp);
 	half ao = half(ao_highp);
@@ -1573,21 +1567,6 @@ void main() {
 		half filteredRoughness2 = min(half(1.0), roughness2 + kernelRoughness2);
 		roughness = sqrt(filteredRoughness2);
 	}
-
-#ifdef LIGHT_DUAL_SPECULAR_USED
-	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
-		half dual_roughness2 = dual_roughness0 * dual_roughness0;
-		half filteredDualRoughness2 = min(half(1.0), dual_roughness2 + kernelRoughness2);
-		dual_roughness0 = sqrt(filteredDualRoughness2);
-		dual_roughness2 = dual_roughness1 * dual_roughness1;
-		filteredDualRoughness2 = min(half(1.0), dual_roughness2 + kernelRoughness2);
-		dual_roughness1 = sqrt(filteredDualRoughness2);
-	}
-	dual_roughness0 = max(clamp(roughness * dual_roughness0, half(0), half(1)), half(0.02));
-	dual_roughness1 = clamp(roughness * dual_roughness1, half(0), half(1));
-	half avg_roughness = mix(dual_roughness0, dual_roughness1, dual_lobe_mix);
-	roughness = clamp(roughness * avg_roughness, half(0), half(1));
-#endif // LIGHT_DUAL_SPECULAR_USED
 
 #endif // NORMAL_USED
 	//apply energy conservation
@@ -2175,9 +2154,6 @@ void main() {
 #ifdef LIGHT_CLEARCOAT_USED
 					clearcoat, clearcoat_roughness, geo_normal,
 #endif // LIGHT_CLEARCOAT_USED
-#ifdef LIGHT_DUAL_SPECULAR_USED
-					avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix,
-#endif
 #ifdef LIGHT_ANISOTROPY_USED
 					binormal, tangent, anisotropy,
 #endif
@@ -2219,9 +2195,6 @@ void main() {
 #ifdef LIGHT_CLEARCOAT_USED
 				clearcoat, clearcoat_roughness, geo_normal,
 #endif // LIGHT_CLEARCOAT_USED
-#ifdef LIGHT_DUAL_SPECULAR_USED
-				avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix,
-#endif
 #ifdef LIGHT_ANISOTROPY_USED
 				binormal, tangent, anisotropy,
 #endif
@@ -2259,9 +2232,6 @@ void main() {
 #ifdef LIGHT_CLEARCOAT_USED
 				clearcoat, clearcoat_roughness, geo_normal,
 #endif // LIGHT_CLEARCOAT_USED
-#ifdef LIGHT_DUAL_SPECULAR_USED
-				avg_roughness, dual_roughness0, dual_roughness1, dual_lobe_mix,
-#endif
 #ifdef LIGHT_ANISOTROPY_USED
 				binormal, tangent, anisotropy,
 #endif

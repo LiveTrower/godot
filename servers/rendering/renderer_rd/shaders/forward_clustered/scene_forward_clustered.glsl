@@ -1229,9 +1229,6 @@ void fragment_shader(in SceneData scene_data) {
 	vec3 sheen_color = vec3(0.0);
 	float clearcoat = 0.0;
 	float clearcoat_roughness = 0.0;
-	float dual_roughness0 = 0.0;
-	float dual_roughness1 = 0.0;
-	float dual_lobe_mix = 0.0;
 	float anisotropy = 0.0;
 	vec2 anisotropy_flow = vec2(1.0, 0.0);
 	vec3 energy_compensation = vec3(1.0);
@@ -1677,21 +1674,6 @@ void fragment_shader(in SceneData scene_data) {
 		sheen_roughness = sqrt(filteredSheenRoughness2);
 	}
 #endif // LIGHT_SHEEN_USED
-
-#ifdef LIGHT_DUAL_SPECULAR_USED
-	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_ROUGHNESS_LIMITER)) {
-		float dual_roughness2 = dual_roughness0 * dual_roughness0;
-		float filteredDualRoughness2 = min(1.0, dual_roughness2 + kernelRoughness2);
-		dual_roughness0 = sqrt(filteredDualRoughness2);
-		dual_roughness2 = dual_roughness1 * dual_roughness1;
-		filteredDualRoughness2 = min(1.0, dual_roughness2 + kernelRoughness2);
-		dual_roughness1 = sqrt(filteredDualRoughness2);
-	}
-	dual_roughness0 = max(clamp(roughness * dual_roughness0, 0, 1), 0.02);
-	dual_roughness1 = clamp(roughness * dual_roughness1, 0, 1);
-	float avg_roughness = mix(dual_roughness0, dual_roughness1, dual_lobe_mix);
-	roughness = clamp(roughness * avg_roughness, 0, 1);
-#endif // LIGHT_DUAL_SPECULAR_USED
 
 #endif // NORMAL_USED
 	//apply energy conservation
@@ -2713,7 +2695,9 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef MICRO_SHADOWS_USED
 			float NdotL = dot(normal, directional_lights.data[i].direction);
 			// Disable microshadowing when facing away from light.
-			shadow *= NdotL >= 0.0 ? compute_micro_shadowing(NdotL, ao, micro_shadows) : 1.0;
+			//shadow *= NdotL >= 0.0 ? compute_micro_shadowing(NdotL, ao, micro_shadows) : 1.0;
+			//shadow *= compute_micro_shadowing_acti(NdotL, ao, micro_shadows);
+			shadow *= compute_micro_shadowing_analy(NdotL, ao, micro_shadows);
 #endif
 
 			float size_A = sc_use_directional_soft_shadows() ? directional_lights.data[i].size : 0.0;
@@ -2742,9 +2726,6 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
 					clearcoat, clearcoat_roughness, geo_normal,
-#endif
-#ifdef LIGHT_DUAL_SPECULAR_USED
-					dual_roughness0, dual_roughness1, dual_lobe_mix,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 					tangent, anisotropy, binormal,
@@ -2812,9 +2793,6 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef LIGHT_CLEARCOAT_USED
 						clearcoat, clearcoat_roughness, geo_normal,
 #endif
-#ifdef LIGHT_DUAL_SPECULAR_USED
-						dual_roughness0, dual_roughness1, dual_lobe_mix,
-#endif
 #ifdef LIGHT_ANISOTROPY_USED
 						tangent, anisotropy, binormal,
 #endif
@@ -2878,9 +2856,6 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
 						clearcoat, clearcoat_roughness, geo_normal,
-#endif
-#ifdef LIGHT_DUAL_SPECULAR_USED
-						dual_roughness0, dual_roughness1, dual_lobe_mix,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 						tangent, anisotropy, binormal,

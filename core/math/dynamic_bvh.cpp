@@ -67,8 +67,7 @@ void DynamicBVH::_insert_leaf(Node *p_root, Node *p_leaf) {
 			do {
 				p_root = p_root->children[p_leaf->volume.select_by_proximity(
 						p_root->children[0]->volume,
-						p_root->children[1]->volume,
-						tiebreaker)];
+						p_root->children[1]->volume)];
 			} while (!p_root->is_leaf());
 		}
 		Node *prev = p_root->parent;

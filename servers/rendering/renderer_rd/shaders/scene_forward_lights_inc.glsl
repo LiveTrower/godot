@@ -52,20 +52,6 @@ hvec3 isotropic_lobe(half roughness, half metallic, hvec3 f0, half cNdotH, half 
 	return energy_compensation * (D * G * F * cNdotL);
 }
 
-hvec3 dual_specular(half dual_roughness0, half dual_roughness1, half dual_lobe_mix, half metallic, hvec3 f0, half cNdotH, half cNdotL, half cNdotV, half cLdotH, hvec3 normal, hvec3 H, hvec3 energy_compensation) {
-	half alpha_ggx = dual_roughness0 * dual_roughness0;
-	half alpha_ggx2 = dual_roughness1 * dual_roughness1;
-
-	half D = mix(D_GGX(cNdotH, alpha_ggx, normal, H), D_GGX(cNdotH, alpha_ggx2, normal, H), dual_lobe_mix);
-	half G = mix(V_GGX(cNdotL, cNdotV, alpha_ggx), V_GGX(cNdotL, cNdotV, alpha_ggx2), dual_lobe_mix);
-
-	// Calculate Fresnel using specular occlusion term from Filament:
-	// https://google.github.io/filament/Filament.html#lighting/occlusion/specularocclusion
-	half f90 = clamp(dot(f0, hvec3(50.0 * 0.33)), metallic, half(1.0));
-	hvec3 F = SchlickFresnel(f0, f90, cLdotH);
-	return energy_compensation * (D * G * F * cNdotL);
-}
-
 #ifdef LIGHT_SHEEN_USED
 hvec3 sheen_lobe(half sheen_roughness, half sheen, hvec3 sheen_color, half cNdotH, half cNdotV, half cNdotL, out half attenuation) {
 	half alpha_sheen = sheen_roughness * sheen_roughness;
@@ -78,6 +64,7 @@ hvec3 sheen_lobe(half sheen_roughness, half sheen, hvec3 sheen_color, half cNdot
 }
 #endif
 
+#ifdef LIGHT_CLEARCOAT_USED
 half clearcoat_lobe(half clearcoat_roughness, half clearcoat, half ccNdotH, half cLdotH, half ccNdotL, hvec3 vertex_normal, hvec3 H, out half attenuation) {
 	half D = D_GGX(ccNdotH, half(mix(half(0.001), half(0.1), clearcoat_roughness)), vertex_normal, H);
 	half V = V_Kelemen(cLdotH);
@@ -86,6 +73,7 @@ half clearcoat_lobe(half clearcoat_roughness, half clearcoat, half ccNdotH, half
 	attenuation = half(1.0) - F;
 	return D * V * F * ccNdotL;
 }
+#endif
 
 void light_compute(hvec3 N, hvec3 L, hvec3 V, half A, hvec3 light_color, bool is_directional, half attenuation, hvec3 f0, half roughness, half metallic, half specular_amount, hvec3 albedo, inout half alpha, vec2 screen_uv, hvec3 energy_compensation,
 #ifdef LIGHT_BACKLIGHT_USED
@@ -105,9 +93,6 @@ void light_compute(hvec3 N, hvec3 L, hvec3 V, half A, hvec3 light_color, bool is
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
 		half clearcoat, half clearcoat_roughness, hvec3 vertex_normal,
-#endif
-#ifdef LIGHT_DUAL_SPECULAR_USED
-		half dual_roughness0, half dual_roughness1, half dual_lobe_mix,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 		hvec3 T, half anisotropy, hvec3 B,
@@ -243,11 +228,7 @@ void light_compute(hvec3 N, hvec3 L, hvec3 V, half A, hvec3 light_color, bool is
 #if defined(LIGHT_ANISOTROPY_USED)
 			hvec3 specular_brdf_NL = anisotropic_lobe(roughness, metallic, f0, anisotropy, T, B, H, V, L, cNdotH, cNdotL, cNdotV, cLdotH, energy_compensation);
 #else
-#if !defined(LIGHT_DUAL_SPECULAR_USED)
 			hvec3 specular_brdf_NL = isotropic_lobe(roughness, metallic, f0, cNdotH, cNdotL, cNdotV, cLdotH, N, H, energy_compensation);
-#else
-			hvec3 specular_brdf_NL = dual_specular(dual_roughness0, dual_roughness1, dual_lobe_mix, metallic, f0, cNdotH, cNdotL, cNdotV, cLdotH, N, H, energy_compensation);
-#endif // LIGHT_DUAL_SPECULAR_USED
 #endif // LIGHT_ANISOTROPY_USED
 
 			specular_light += specular_brdf_NL * light_color * attenuation * cc_attenuation * sh_attenuation * specular_amount;
@@ -263,9 +244,9 @@ void light_compute(hvec3 N, hvec3 L, hvec3 V, half A, hvec3 light_color, bool is
 #elif defined(DIFFUSE_TOON)
 			diffuse_brdf_NL = Diffuse_Toon(NdotL, roughness);
 #elif defined(DIFFUSE_BURLEY)
-			diffuse_brdf_NL = Normalized_Diffuse_Burley(roughness, cNdotV, cNdotL, cLdotH);
+			diffuse_brdf_NL = Diffuse_Burley(roughness, cNdotV, cNdotL, cLdotH);
 #elif defined(DIFFUSE_CHAN)
-			diffuse_brdf_NL = Diffuse_Chan(roughness, cNdotV, cNdotL, cLdotH, cNdotH);
+			diffuse_brdf_NL = Diffuse_Chan(roughness, cNdotL, cLdotH, cNdotH);
 #else
 			// lambert
 			diffuse_brdf_NL = Diffuse_Lambert(cNdotL);
@@ -463,9 +444,6 @@ void light_process_omni(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
 		half clearcoat, half clearcoat_roughness, hvec3 vertex_normal,
-#endif
-#ifdef LIGHT_DUAL_SPECULAR_USED
-		half dual_roughness0, half dual_roughness1, half dual_lobe_mix,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 		hvec3 tangent, half anisotropy, hvec3 binormal,
@@ -733,9 +711,6 @@ void light_process_omni(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 #ifdef LIGHT_CLEARCOAT_USED
 			clearcoat, clearcoat_roughness, vertex_normal,
 #endif
-#ifdef LIGHT_DUAL_SPECULAR_USED
-			dual_roughness0, dual_roughness1, dual_lobe_mix,
-#endif
 #ifdef LIGHT_ANISOTROPY_USED
 			tangent, anisotropy, binormal,
 #endif
@@ -772,9 +747,6 @@ void light_process_spot(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
 		half clearcoat, half clearcoat_roughness, hvec3 vertex_normal,
-#endif
-#ifdef LIGHT_DUAL_SPECULAR_USED
-		half dual_roughness0, half dual_roughness1, half dual_lobe_mix,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 		hvec3 tangent, half anisotropy, hvec3 binormal,
@@ -946,9 +918,6 @@ void light_process_spot(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
 			clearcoat, clearcoat_roughness, vertex_normal,
-#endif
-#ifdef LIGHT_DUAL_SPECULAR_USED
-			dual_roughness0, dual_roughness1, dual_lobe_mix,
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 			tangent, anisotropy, binormal,

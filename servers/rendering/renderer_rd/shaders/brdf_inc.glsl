@@ -35,11 +35,11 @@ half V_GGX_anisotropic(half alpha_x, half alpha_y, half TdotV, half TdotL, half 
 }
 
 hvec3 SchlickFresnel(hvec3 f0, half f90, half u) {
-	return f0 + (f90 - f0) * pow5(1.0 - u);
+	return f0 + (f90 - f0) * pow5(half(1.0) - u);
 }
 
 half SchlickFresnel(half f0, half f90, half u) {
-	return f0 + (f90 - f0) * pow5(1.0 - u);
+	return f0 + (f90 - f0) * pow5(half(1.0) - u);
 }
 
 hvec3 F0(half metallic, half specular, hvec3 albedo) {
@@ -80,15 +80,15 @@ half Diffuse_Lambert(half NoL) {
 
 // Energy conserving lambert wrap shader.
 // https://web.archive.org/web/20210228210901/http://blog.stevemcauley.com/2011/12/03/energy-conserving-wrapped-diffuse/
-half Diffuse_Lambert_Wrap(half NoL, half roughness) {
+half Diffuse_Lambert_Wrap(half roughness, half NoL) {
 	half op_roughness = half(1.0) + roughness;
 	return max(half(0.0), (NoL + roughness) / (op_roughness * op_roughness)) * half(1.0 / M_PI);
 }
 
-half Diffuse_Burley(half LoH, half NoV, half NoL, half roughness) {
+half Diffuse_Burley(half roughness, half NoV, half NoL, half LoH) {
 	half FD90_minus_1 = half(2.0) * LoH * LoH * roughness - half(0.5);
-	half FdV = half(1.0) + FD90_minus_1 * pow5(NoV);
-	half FdL = half(1.0) + FD90_minus_1 * pow5(NoL);
+	half FdV = half(1.0) + FD90_minus_1 * pow5(half(1.0) - NoV);
+	half FdL = half(1.0) + FD90_minus_1 * pow5(half(1.0) - NoL);
 	return half(1.0 / M_PI) * FdV * FdL * NoL;
 }
 
@@ -109,30 +109,19 @@ half Diffuse_Toon(half NoL, half roughness) {
 	return smoothstep(-roughness, max(roughness, half(0.01)), NoL) * half(1.0 / M_PI);
 }
 
-// [ Chan 2018, "Material Advances in Call of Duty: WWII" ]
-half Diffuse_Chan(half roughness, half NoV, half NoL, half LoH, half NoH) {
-	half a2 = roughness * roughness;
-
-	// a2 = 2 / ( 1 + exp2( 18 * g )
-	half g = saturate(half(1.0 / 18.0) * log2(half(2) * rcp(a2) - half(1)));
-
-	half F0 = LoH + pow5(half(1) - LoH);
-	half FdV = half(1 - 0.75) * pow5(half(1) - NoV);
-	half FdL = half(1 - 0.75) * pow5(half(1) - NoL);
-
-	// Rough (F0) to smooth (FdV * FdL) response interpolation
-	half Fd = mix(F0, FdV * FdL, saturate(half(2.2) * g - half(0.5)));
-
-	// Retro reflectivity contribution.
-	half Fb = (half(34.5 * g - 59) * g + half(24.5)) * LoH * exp2(-max(half(73.2) * g - half(21.2), half(8.9)) * sqrt(NoH));
-
-	half Lobe = half(1 / M_PI) * (Fd + Fb) * NoL;
-
-	// We clamp the BRDF lobe value to an arbitrary value of 1 to get some practical benefits at high roughness:
-	// - This is to avoid too bright edges when using normal map on a mesh and the local bases, L, N and V ends up in an top emisphere setup.
-	// - This maintains the full proper rough look of a sphere when not using normal maps.
-	// - This also fixes the furnace test returning too much energy at the edge of a mesh.
-	return min(half(1.0), Lobe);
+// [ Chan 2024, "Multiscattering Diffuse and Specular BRDFs", Unpublished manuscript ]
+half Diffuse_Chan(half roughness, half NoL, half LoH, half NoH) {
+	half Alpha = roughness * roughness;
+	// The original writeup uses an FSmooth term inspired by Burley diffuse to balance energy between spec/diffuse.
+	// However in our implementation the energy balance between diffuse and spec is handled externally, so we stick
+	// to a plain lambertian for the Roughness=0 limit.
+	half FSmooth = half(1.0);
+	half Scale = max(half(0.55) - half(0.2) * roughness, half(1.25) - half(1.6) * roughness);
+	const float Bias = saturate(half(4.0) * Alpha);
+	const float FRough = Scale * (NoH + Bias) * rcp(NoH + half(0.025)) * LoH * LoH;
+	const float DiffuseSS = mix(FSmooth, FRough, roughness);
+	const float DiffuseMS = Alpha * half(0.38);
+	return half(1.0 / M_PI) * (DiffuseSS + DiffuseMS) * NoL;
 }
 
 // https://dl.acm.org/doi/pdf/10.1145/192161.192213
