@@ -2382,7 +2382,7 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 	{
 		// Timeline general.
 
-		p_theme->set_constant("timeline_v_separation", "AnimationTrackEditor", 0);
+		p_theme->set_constant("timeline_v_separation", "AnimationTrackEditor", p_config.base_margin * EDSCALE);
 		p_theme->set_constant("track_v_separation", "AnimationTrackEditor", 0);
 
 		int margin = p_theme->get_stylebox(SceneStringName(panel), SNAME("PanelContainer"))->get_content_margin(SIDE_LEFT);
@@ -2533,6 +2533,35 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 
 		p_theme->set_type_variation("EditorHelpBitContent", "RichTextLabel");
 		p_theme->set_stylebox(CoreStringName(normal), "EditorHelpBitContent", editor_help_content_style);
+	}
+
+	// EditorHelpBitTooltipTitle.
+	{
+		Ref<StyleBoxFlat> style = p_theme->get_stylebox(CoreStringName(normal), "EditorHelpBitTitle")->duplicate();
+		style->set_bg_color(style->get_bg_color().lerp(p_config.mono_color_inv, 0.25));
+		if (!p_config.dark_theme) {
+			style->set_border_width_all(Math::round(2 * EDSCALE));
+			style->set_border_color(p_config.mono_color * Color(1, 1, 1, 0.15));
+		}
+		style->set_corner_radius_all(0);
+
+		p_theme->set_type_variation("EditorHelpBitTooltipTitle", "EditorHelpBitTitle");
+		p_theme->set_stylebox(CoreStringName(normal), "EditorHelpBitTooltipTitle", style);
+	}
+
+	// EditorHelpBitTooltipContent.
+	{
+		Ref<StyleBoxFlat> style = p_theme->get_stylebox(CoreStringName(normal), "EditorHelpBitContent")->duplicate();
+		style->set_bg_color(style->get_bg_color().lerp(p_config.mono_color_inv, 0.25));
+		if (!p_config.dark_theme) {
+			style->set_border_width_all(Math::round(2 * EDSCALE));
+			style->set_border_width(SIDE_TOP, 0);
+			style->set_border_color(p_config.mono_color * Color(1, 1, 1, 0.15));
+		}
+		style->set_corner_radius_all(0);
+
+		p_theme->set_type_variation("EditorHelpBitTooltipContent", "EditorHelpBitContent");
+		p_theme->set_stylebox(CoreStringName(normal), "EditorHelpBitTooltipContent", style);
 	}
 
 	// Asset Library.
