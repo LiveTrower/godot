@@ -269,7 +269,6 @@ private:
 		OctmapDownsamplerShaderRD compute_shader;
 		OctmapDownsamplerRasterShaderRD raster_shader;
 		RID shader_version;
-		PipelineDeferredRD compute_pipelines[DOWNSAMPLER_MODE_COMPUTE_MAX];
 		PipelineCacheRD raster_pipelines[DOWNSAMPLER_MODE_RASTER_MAX];
 	} octmap_downsampler;
 

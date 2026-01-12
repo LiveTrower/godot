@@ -2172,7 +2172,7 @@ void main() {
 			break;
 		}
 
-		light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, hvec3(1.0), half(1.0),
+		light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, hvec3(1.0),
 #ifdef LIGHT_BACKLIGHT_USED
 				backlight,
 #endif
@@ -2209,7 +2209,7 @@ void main() {
 			break;
 		}
 
-		light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, hvec3(1.0), half(1.0),
+		light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, hvec3(1.0),
 #ifdef LIGHT_BACKLIGHT_USED
 				backlight,
 #endif
