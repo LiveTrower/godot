@@ -43,7 +43,6 @@
 #include "servers/rendering/renderer_rd/shaders/effects/octmap_filter_raster.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/octmap_roughness.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/octmap_roughness_raster.glsl.gen.h"
-#include "servers/rendering/renderer_rd/shaders/effects/sh_from_octmap.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/specular_merge.glsl.gen.h"
 #include "servers/rendering/renderer_scene_render.h"
 
@@ -257,11 +256,10 @@ private:
 	};
 
 	enum OctmapDownsamplerMode {
-		DOWNSAMPLER_MODE_FLAG_HIGH_QUALITY = (1 << 0),
-		DOWNSAMPLER_MODE_FLAG_RGB10_A2 = (1 << 1),
+		DOWNSAMPLER_MODE_FLAG_RGB10_A2 = (1 << 0),
 
-		DOWNSAMPLER_MODE_COMPUTE_MAX = ((DOWNSAMPLER_MODE_FLAG_HIGH_QUALITY | DOWNSAMPLER_MODE_FLAG_RGB10_A2) + 1),
-		DOWNSAMPLER_MODE_RASTER_MAX = (DOWNSAMPLER_MODE_FLAG_HIGH_QUALITY + 1),
+		DOWNSAMPLER_MODE_COMPUTE_MAX = (DOWNSAMPLER_MODE_FLAG_RGB10_A2 + 1),
+		DOWNSAMPLER_MODE_RASTER_MAX = 1,
 	};
 
 	struct OctmapDownsampler {
@@ -269,7 +267,8 @@ private:
 		OctmapDownsamplerShaderRD compute_shader;
 		OctmapDownsamplerRasterShaderRD raster_shader;
 		RID shader_version;
-		PipelineCacheRD raster_pipelines[DOWNSAMPLER_MODE_RASTER_MAX];
+		PipelineDeferredRD compute_pipelines[DOWNSAMPLER_MODE_COMPUTE_MAX];
+		PipelineCacheRD raster_pipeline;
 	} octmap_downsampler;
 
 	enum OctmapFilterMode {
@@ -360,20 +359,6 @@ private:
 
 	} specular_merge;
 
-	struct SHfromOctmapPushConstant {
-		float border_size[2];
-		uint32_t compute_geomerics_l1;
-		uint32_t pad;
-	};
-
-	struct SHfromOctmap {
-		SHfromOctmapPushConstant push_constant;
-		ShFromOctmapShaderRD shader; // Compute Shader.
-		RID shader_version;
-		RID compute_pipeline;
-		RID uniform_set;
-	} sh_from_octmap;
-
 	static CopyEffects *singleton;
 
 public:
@@ -407,16 +392,14 @@ public:
 
 	void copy_cubemap_to_dp(RID p_source_rd_texture, RID p_dst_framebuffer, const Rect2 &p_rect, const Vector2 &p_dst_size, float p_z_near, float p_z_far, bool p_dp_flip);
 	void copy_cubemap_to_octmap(RID p_source_rd_texture, RID p_dst_framebuffer, float p_border_size);
-	void octmap_downsample(RID p_source_octmap, RID p_dest_octmap, const Size2i &p_size, bool p_use_filter_quality, float p_border_size);
-	void octmap_downsample_raster(RID p_source_octmap, RID p_dest_framebuffer, const Size2i &p_size, bool p_use_filter_quality, float p_border_size);
+	void octmap_downsample(RID p_source_octmap, RID p_dest_octmap, const Size2i &p_size, float p_border_size);
+	void octmap_downsample_raster(RID p_source_octmap, RID p_dest_framebuffer, const Size2i &p_size, float p_border_size);
 	void octmap_filter(RID p_source_octmap, const Vector<RID> &p_dest_octmap, bool p_use_array, float p_border_size);
 	void octmap_filter_raster(RID p_source_octmap, RID p_dest_framebuffer, uint32_t p_mip_level, float p_border_size);
 	void octmap_roughness(RID p_source_rd_texture, RID p_dest_texture, uint32_t p_sample_count, float p_roughness, uint32_t p_source_size, uint32_t p_dest_size, float p_border_size);
 	void octmap_roughness_raster(RID p_source_rd_texture, RID p_dest_framebuffer, uint32_t p_sample_count, float p_roughness, uint32_t p_source_size, uint32_t p_dest_size, float p_border_size);
 
 	void merge_specular(RID p_dest_framebuffer, RID p_specular, RID p_base, RID p_reflection, uint32_t p_view_count);
-
-	void calculate_sh_from_octmap(RID p_src_octmap_texture, RID p_output_storage_buffer, float p_border_size, bool p_compute_l2);
 };
 
 } // namespace RendererRD

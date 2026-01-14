@@ -271,12 +271,9 @@ void SkyRD::ReflectionData::clear_reflection_data() {
 	if (downsampled_radiance_octmap.is_valid()) {
 		RD::get_singleton()->free_rid(downsampled_radiance_octmap);
 	}
-	if (sh_coeff_buffer.is_valid()) {
-		RD::get_singleton()->free(sh_coeff_buffer);
-	}
-	sh_coeff_buffer = RID();
 	downsampled_radiance_octmap = RID();
 	downsampled_layer.mipmaps.clear();
+	coefficient_buffer = RID();
 }
 
 void SkyRD::ReflectionData::update_reflection_data(int p_size, int p_mipmaps, bool p_use_array, RID p_base_cube, int p_base_layer, bool p_low_quality, int p_roughness_layers, RD::DataFormat p_texture_format, float p_border_size) {
@@ -343,7 +340,7 @@ void SkyRD::ReflectionData::update_reflection_data(int p_size, int p_mipmaps, bo
 	tf.format = p_texture_format;
 	tf.width = p_low_quality ? 160 : p_size >> 1; // Always 160x160 when using REALTIME.
 	tf.height = p_low_quality ? 160 : p_size >> 1;
-	tf.mipmaps = p_low_quality ? 7 : mipmaps - 1;
+	tf.mipmaps = p_low_quality ? 5 : mipmaps - 1;
 	tf.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT;
 	if (!use_raster_effect) {
 		tf.usage_bits |= RD::TEXTURE_USAGE_STORAGE_BIT;
@@ -372,11 +369,6 @@ void SkyRD::ReflectionData::update_reflection_data(int p_size, int p_mipmaps, bo
 			mmh = MAX(1u, mmh >> 1);
 		}
 	}
-
-	// TODO: This should only be created if using the feature.
-	// Always big enough to cover the L2 variant.
-	sh_coeff_buffer = RD::get_singleton()->storage_buffer_create(sizeof(float) * 7u * 4u);
-	RD::get_singleton()->set_resource_name(sh_coeff_buffer, "Spherical Harmonics Compute Shader's output coefficients");
 }
 
 void SkyRD::ReflectionData::create_reflection_fast_filter(bool p_use_arrays) {
@@ -384,14 +376,12 @@ void SkyRD::ReflectionData::create_reflection_fast_filter(bool p_use_arrays) {
 	ERR_FAIL_NULL_MSG(copy_effects, "Effects haven't been initialized");
 	bool use_raster_effect = copy_effects->get_raster_effects().has_flag(RendererRD::CopyEffects::RASTER_EFFECT_OCTMAP);
 
-	copy_effects->calculate_sh_from_octmap(radiance_base_octmap, sh_coeff_buffer, uv_border_size, p_use_arrays);
-
 	if (use_raster_effect) {
 		RD::get_singleton()->draw_command_begin_label("Downsample Radiance Map");
-		copy_effects->octmap_downsample_raster(radiance_base_octmap, downsampled_layer.mipmaps[0].framebuffer, downsampled_layer.mipmaps[0].size, true, uv_border_size);
+		copy_effects->octmap_downsample_raster(radiance_base_octmap, downsampled_layer.mipmaps[0].framebuffer, downsampled_layer.mipmaps[0].size, uv_border_size);
 
 		for (uint32_t i = 1; i < downsampled_layer.mipmaps.size(); i++) {
-			copy_effects->octmap_downsample_raster(downsampled_layer.mipmaps[i - 1].view, downsampled_layer.mipmaps[i].framebuffer, downsampled_layer.mipmaps[i].size, true, uv_border_size);
+			copy_effects->octmap_downsample_raster(downsampled_layer.mipmaps[i - 1].view, downsampled_layer.mipmaps[i].framebuffer, downsampled_layer.mipmaps[i].size, uv_border_size);
 		}
 		RD::get_singleton()->draw_command_end_label(); // Downsample Radiance
 
@@ -409,10 +399,10 @@ void SkyRD::ReflectionData::create_reflection_fast_filter(bool p_use_arrays) {
 		RD::get_singleton()->draw_command_end_label(); // Filter radiance
 	} else {
 		RD::get_singleton()->draw_command_begin_label("Downsample Radiance Map");
-		copy_effects->octmap_downsample(radiance_base_octmap, downsampled_layer.mipmaps[0].view, downsampled_layer.mipmaps[0].size, true, uv_border_size);
+		copy_effects->octmap_downsample(radiance_base_octmap, downsampled_layer.mipmaps[0].view, downsampled_layer.mipmaps[0].size, uv_border_size);
 
 		for (uint32_t i = 1; i < downsampled_layer.mipmaps.size(); i++) {
-			copy_effects->octmap_downsample(downsampled_layer.mipmaps[i - 1].view, downsampled_layer.mipmaps[i].view, downsampled_layer.mipmaps[i].size, true, uv_border_size);
+			copy_effects->octmap_downsample(downsampled_layer.mipmaps[i - 1].view, downsampled_layer.mipmaps[i].view, downsampled_layer.mipmaps[i].size, uv_border_size);
 		}
 		RD::get_singleton()->draw_command_end_label(); // Downsample Radiance
 		Vector<RID> views;
@@ -436,17 +426,13 @@ void SkyRD::ReflectionData::create_reflection_importance_sample(bool p_use_array
 	ERR_FAIL_NULL_MSG(copy_effects, "Effects haven't been initialized");
 	bool use_raster_effect = copy_effects->get_raster_effects().has_flag(RendererRD::CopyEffects::RASTER_EFFECT_OCTMAP);
 
-	if (p_base_layer == 1) {
-		copy_effects->calculate_sh_from_octmap(radiance_base_octmap, sh_coeff_buffer, uv_border_size, p_use_arrays);
-	}
-
 	if (use_raster_effect) {
 		if (p_base_layer == 1) {
 			RD::get_singleton()->draw_command_begin_label("Downsample Radiance Map");
-			copy_effects->octmap_downsample_raster(radiance_base_octmap, downsampled_layer.mipmaps[0].framebuffer, downsampled_layer.mipmaps[0].size, false, uv_border_size);
+			copy_effects->octmap_downsample_raster(radiance_base_octmap, downsampled_layer.mipmaps[0].framebuffer, downsampled_layer.mipmaps[0].size, uv_border_size);
 
 			for (uint32_t i = 1; i < downsampled_layer.mipmaps.size(); i++) {
-				copy_effects->octmap_downsample_raster(downsampled_layer.mipmaps[i - 1].view, downsampled_layer.mipmaps[i].framebuffer, downsampled_layer.mipmaps[i].size, false, uv_border_size);
+				copy_effects->octmap_downsample_raster(downsampled_layer.mipmaps[i - 1].view, downsampled_layer.mipmaps[i].framebuffer, downsampled_layer.mipmaps[i].size, uv_border_size);
 			}
 			RD::get_singleton()->draw_command_end_label(); // Downsample Radiance
 		}
@@ -474,10 +460,10 @@ void SkyRD::ReflectionData::create_reflection_importance_sample(bool p_use_array
 	} else {
 		if (p_base_layer == 1) {
 			RD::get_singleton()->draw_command_begin_label("Downsample Radiance Map");
-			copy_effects->octmap_downsample(radiance_base_octmap, downsampled_layer.mipmaps[0].view, downsampled_layer.mipmaps[0].size, false, uv_border_size);
+			copy_effects->octmap_downsample(radiance_base_octmap, downsampled_layer.mipmaps[0].view, downsampled_layer.mipmaps[0].size, uv_border_size);
 
 			for (uint32_t i = 1; i < downsampled_layer.mipmaps.size(); i++) {
-				copy_effects->octmap_downsample(downsampled_layer.mipmaps[i - 1].view, downsampled_layer.mipmaps[i].view, downsampled_layer.mipmaps[i].size, false, uv_border_size);
+				copy_effects->octmap_downsample(downsampled_layer.mipmaps[i - 1].view, downsampled_layer.mipmaps[i].view, downsampled_layer.mipmaps[i].size, uv_border_size);
 			}
 			RD::get_singleton()->draw_command_end_label(); // Downsample Radiance
 		}
@@ -504,10 +490,10 @@ void SkyRD::ReflectionData::update_reflection_mipmaps(int p_start, int p_end) {
 			Size2i size = layers[i].mipmaps[j + 1].size;
 			if (use_raster_effect) {
 				RID framebuffer = layers[i].mipmaps[j + 1].framebuffer;
-				copy_effects->octmap_downsample_raster(view, framebuffer, size, false, uv_border_size);
+				copy_effects->octmap_downsample_raster(view, framebuffer, size, uv_border_size);
 			} else {
 				RID texture = layers[i].mipmaps[j + 1].view;
-				copy_effects->octmap_downsample(view, texture, size, false, uv_border_size);
+				copy_effects->octmap_downsample(view, texture, size, uv_border_size);
 			}
 		}
 	}
@@ -1215,16 +1201,6 @@ void SkyRD::setup_sky(const RenderDataRD *p_render_data, const Size2i p_screen_s
 	sky_scene_state.ubo.volumetric_fog_sky_affect = RendererSceneRenderRD::get_singleton()->environment_get_volumetric_fog_sky_affect(p_render_data->environment);
 
 	RD::get_singleton()->buffer_update(sky_scene_state.uniform_buffer, 0, sizeof(SkySceneState::UBO), &sky_scene_state.ubo);
-}
-
-void SkyRD::copy_spherical_harmonics_to_scene_data(RID p_env, RID p_ubo_to_update) {
-	Sky *sky = get_sky(RendererSceneRenderRD::get_singleton()->environment_get_sky(p_env));
-	if (!sky) {
-		// No sky, nothing to copy. The UBO already sends 0s so it will result in black ambient light.
-		return;
-	}
-	RD *rd = RD::get_singleton();
-	rd->buffer_copy(sky->reflection.sh_coeff_buffer, p_ubo_to_update, 0u, RenderSceneDataRD::get_sh_coeffs_offset_bytes(), sizeof(float) * 7u * 4u);
 }
 
 void SkyRD::update_radiance_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_env, const Vector3 &p_global_pos, double p_time, float p_luminance_multiplier, float p_brightness_multiplier) {

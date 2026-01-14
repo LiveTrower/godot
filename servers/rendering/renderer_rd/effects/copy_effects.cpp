@@ -166,27 +166,15 @@ CopyEffects::CopyEffects(BitField<RasterEffects> p_raster_effects) {
 
 	{
 		// Initialize octmap downsampler.
-		Vector<String> downsampler_modes;
-		if (raster_effects.has_flag(RASTER_EFFECT_OCTMAP)) {
-			for (int i = 0; i < DOWNSAMPLER_MODE_RASTER_MAX; i++) {
-				String mode;
-				if (i & DOWNSAMPLER_MODE_FLAG_HIGH_QUALITY) {
-					mode += "\n#define USE_HIGH_QUALITY\n";
-				}
-				downsampler_modes.push_back(mode);
-			}
 
-			octmap_downsampler.raster_shader.initialize(downsampler_modes);
+		if (raster_effects.has_flag(RASTER_EFFECT_OCTMAP)) {
+			octmap_downsampler.raster_shader.initialize({ "" });
 			octmap_downsampler.shader_version = octmap_downsampler.raster_shader.version_create();
-			for (int i = 0; i < DOWNSAMPLER_MODE_RASTER_MAX; i++) {
-				octmap_downsampler.raster_pipelines[i].setup(octmap_downsampler.raster_shader.version_get_shader(octmap_downsampler.shader_version, i), RD::RENDER_PRIMITIVE_TRIANGLES, RD::PipelineRasterizationState(), RD::PipelineMultisampleState(), RD::PipelineDepthStencilState(), RD::PipelineColorBlendState::create_disabled(), 0);
-			}
+			octmap_downsampler.raster_pipeline.setup(octmap_downsampler.raster_shader.version_get_shader(octmap_downsampler.shader_version, 0), RD::RENDER_PRIMITIVE_TRIANGLES, RD::PipelineRasterizationState(), RD::PipelineMultisampleState(), RD::PipelineDepthStencilState(), RD::PipelineColorBlendState::create_disabled(), 0);
 		} else {
+			Vector<String> downsampler_modes;
 			for (int i = 0; i < DOWNSAMPLER_MODE_COMPUTE_MAX; i++) {
 				String mode;
-				if (i & DOWNSAMPLER_MODE_FLAG_HIGH_QUALITY) {
-					mode += "\n#define USE_HIGH_QUALITY\n";
-				}
 				if (i & DOWNSAMPLER_MODE_FLAG_RGB10_A2) {
 					mode += "\n#define OCTMAP_FORMAT rgb10_a2\n";
 				} else {
@@ -356,15 +344,6 @@ CopyEffects::CopyEffects(BitField<RasterEffects> p_raster_effects) {
 			}
 		}
 	}
-
-	{
-		// Initialize Spherical Harmonics computation.
-		Vector<String> sh_from_octmap_modes;
-		sh_from_octmap_modes.push_back("");
-		sh_from_octmap.shader.initialize(sh_from_octmap_modes);
-		sh_from_octmap.shader_version = sh_from_octmap.shader.version_create();
-		sh_from_octmap.compute_pipeline = RD::get_singleton()->compute_pipeline_create(sh_from_octmap.shader.version_get_shader(sh_from_octmap.shader_version, 0));
-	}
 }
 
 CopyEffects::~CopyEffects() {
@@ -400,11 +379,6 @@ CopyEffects::~CopyEffects() {
 		roughness.compute_shader.version_free(roughness.shader_version);
 	}
 
-	if (RD::get_singleton()->uniform_set_is_valid(sh_from_octmap.uniform_set)) {
-		RD::get_singleton()->free(sh_from_octmap.uniform_set);
-	}
-
-	sh_from_octmap.shader.version_free(sh_from_octmap.shader_version);
 	copy.shader.version_free(copy.shader_version);
 	specular_merge.shader.version_free(specular_merge.shader_version);
 
@@ -1166,7 +1140,7 @@ void CopyEffects::copy_cubemap_to_octmap(RID p_source_rd_texture, RID p_dst_fram
 	RD::get_singleton()->draw_list_end();
 }
 
-void CopyEffects::octmap_downsample(RID p_source_octmap, RID p_dest_octmap, const Size2i &p_size, bool p_use_filter_quality, float p_border_size) {
+void CopyEffects::octmap_downsample(RID p_source_octmap, RID p_dest_octmap, const Size2i &p_size, float p_border_size) {
 	ERR_FAIL_COND_MSG(raster_effects.has_flag(RASTER_EFFECT_OCTMAP), "Can't use compute based octmap downsample.");
 
 	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
@@ -1184,9 +1158,6 @@ void CopyEffects::octmap_downsample(RID p_source_octmap, RID p_dest_octmap, cons
 	RD::Uniform u_dest_octmap(RD::UNIFORM_TYPE_IMAGE, 0, Vector<RID>({ p_dest_octmap }));
 
 	int mode = 0;
-	if (!p_use_filter_quality || filter.use_high_quality) {
-		mode |= DOWNSAMPLER_MODE_FLAG_HIGH_QUALITY;
-	}
 
 	RD::TextureFormat texture_format = RD::get_singleton()->texture_get_format(p_dest_octmap);
 	switch (texture_format.format) {
@@ -1219,7 +1190,7 @@ void CopyEffects::octmap_downsample(RID p_source_octmap, RID p_dest_octmap, cons
 	RD::get_singleton()->compute_list_end();
 }
 
-void CopyEffects::octmap_downsample_raster(RID p_source_octmap, RID p_dest_framebuffer, const Size2i &p_size, bool p_use_filter_quality, float p_border_size) {
+void CopyEffects::octmap_downsample_raster(RID p_source_octmap, RID p_dest_framebuffer, const Size2i &p_size, float p_border_size) {
 	ERR_FAIL_COND_MSG(!raster_effects.has_flag(RASTER_EFFECT_OCTMAP), "Can't use raster based octmap downsample.");
 
 	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
@@ -1235,16 +1206,11 @@ void CopyEffects::octmap_downsample_raster(RID p_source_octmap, RID p_dest_frame
 
 	RD::Uniform u_source_cubemap(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 0, Vector<RID>({ default_sampler, p_source_octmap }));
 
-	int mode = 0;
-	if (!p_use_filter_quality || filter.use_high_quality) {
-		mode |= DOWNSAMPLER_MODE_FLAG_HIGH_QUALITY;
-	}
-
-	RID shader = octmap_downsampler.raster_shader.version_get_shader(octmap_downsampler.shader_version, mode);
+	RID shader = octmap_downsampler.raster_shader.version_get_shader(octmap_downsampler.shader_version, 0);
 	ERR_FAIL_COND(shader.is_null());
 
 	RD::DrawListID draw_list = RD::get_singleton()->draw_list_begin(p_dest_framebuffer, RD::DRAW_IGNORE_COLOR_ALL);
-	RD::get_singleton()->draw_list_bind_render_pipeline(draw_list, octmap_downsampler.raster_pipelines[mode].get_render_pipeline(RD::INVALID_ID, RD::get_singleton()->framebuffer_get_format(p_dest_framebuffer)));
+	RD::get_singleton()->draw_list_bind_render_pipeline(draw_list, octmap_downsampler.raster_pipeline.get_render_pipeline(RD::INVALID_ID, RD::get_singleton()->framebuffer_get_format(p_dest_framebuffer)));
 	RD::get_singleton()->draw_list_bind_uniform_set(draw_list, uniform_set_cache->get_cache(shader, 0, u_source_cubemap), 0);
 
 	RD::get_singleton()->draw_list_set_push_constant(draw_list, &octmap_downsampler.push_constant, sizeof(OctmapDownsamplerPushConstant));
@@ -1389,7 +1355,7 @@ void CopyEffects::octmap_roughness(RID p_source_rd_texture, RID p_dest_texture, 
 
 	// Remap to perceptual-roughness^2 to create more detail in lower mips and match the mapping of octmap_filter.
 	roughness.push_constant.roughness = p_roughness * p_roughness;
-	roughness.push_constant.sample_count = p_sample_count;
+	roughness.push_constant.sample_count = MIN(p_sample_count, 64u);
 	roughness.push_constant.source_size = p_source_size;
 	roughness.push_constant.dest_size = p_dest_size;
 	roughness.push_constant.use_direct_write = p_roughness == 0.0;
@@ -1446,7 +1412,7 @@ void CopyEffects::octmap_roughness_raster(RID p_source_rd_texture, RID p_dest_fr
 	memset(&roughness.push_constant, 0, sizeof(OctmapRoughnessPushConstant));
 
 	roughness.push_constant.roughness = p_roughness * p_roughness; // Shader expects roughness, not perceptual roughness, so multiply before passing in.
-	roughness.push_constant.sample_count = p_sample_count;
+	roughness.push_constant.sample_count = MAX(uint32_t(float(p_sample_count * 4u) * roughness.push_constant.roughness), 4u);
 	roughness.push_constant.source_size = p_source_size;
 	roughness.push_constant.dest_size = p_dest_size;
 	roughness.push_constant.use_direct_write = p_roughness == 0.0;
@@ -1522,41 +1488,4 @@ void CopyEffects::merge_specular(RID p_dest_framebuffer, RID p_specular, RID p_b
 	RD::get_singleton()->draw_list_end();
 
 	RD::get_singleton()->draw_command_end_label();
-}
-
-void CopyEffects::calculate_sh_from_octmap(RID p_src_octmap_texture, RID p_output_storage_buffer, float p_border_size, bool p_compute_l2) {
-	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
-	ERR_FAIL_NULL(uniform_set_cache);
-	MaterialStorage *material_storage = MaterialStorage::get_singleton();
-	ERR_FAIL_NULL(material_storage);
-
-	memset(&sh_from_octmap.push_constant, 0, sizeof(SHfromOctmapPushConstant));
-	sh_from_octmap.push_constant.border_size[0] = p_border_size;
-	sh_from_octmap.push_constant.border_size[1] = 1.0f - p_border_size * 2.0;
-	sh_from_octmap.push_constant.compute_geomerics_l1 = !p_compute_l2;
-
-	RID default_sampler = material_storage->sampler_rd_get_default(RS::CANVAS_ITEM_TEXTURE_FILTER_LINEAR, RS::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
-
-	RD *rd = RD::get_singleton();
-	rd->draw_command_begin_label("Spherical Harmonics from Octmap");
-
-	RD::Uniform u_src_octmap(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 0u, Vector<RID>({ default_sampler, p_src_octmap_texture }));
-	RD::Uniform u_sh_coeffs_output(RD::UNIFORM_TYPE_STORAGE_BUFFER, 1u, p_output_storage_buffer);
-
-	thread_local LocalVector<RD::Uniform> uniforms;
-	uniforms.clear();
-	uniforms.push_back(u_src_octmap);
-	uniforms.push_back(u_sh_coeffs_output);
-
-	RID shader = sh_from_octmap.shader.version_get_shader(sh_from_octmap.shader_version, 0);
-	ERR_FAIL_COND(shader.is_null());
-
-	RD::ComputeListID compute_list = rd->compute_list_begin();
-	rd->compute_list_bind_compute_pipeline(compute_list, sh_from_octmap.compute_pipeline);
-	rd->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache_vec(shader, 0, uniforms), 0);
-	rd->compute_list_set_push_constant(compute_list, &sh_from_octmap.push_constant, sizeof(SHfromOctmapPushConstant));
-	rd->compute_list_dispatch_threads(compute_list, p_compute_l2 ? 2048u : 1024u, 1u, 1u);
-	rd->compute_list_end();
-
-	rd->draw_command_end_label();
 }

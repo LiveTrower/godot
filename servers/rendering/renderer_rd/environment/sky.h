@@ -208,8 +208,7 @@ public:
 		RID radiance_base_octmap;
 		RID downsampled_radiance_octmap;
 		DownsampleLayer downsampled_layer;
-
-		RID sh_coeff_buffer; // STORAGE buffer where the shader will store the calculated coefficients.
+		RID coefficient_buffer;
 
 		bool dirty = true;
 		float uv_border_size = 0.0; // Border size in UV space.
@@ -304,7 +303,6 @@ public:
 	~SkyRD();
 
 	void setup_sky(const RenderDataRD *p_render_data, const Size2i p_screen_size);
-	void copy_spherical_harmonics_to_scene_data(RID p_env, RID p_ubo_to_update);
 	void update_radiance_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_env, const Vector3 &p_global_pos, double p_time, float p_luminance_multiplier = 1.0, float p_brightness_multiplier = 1.0);
 	void update_res_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_env, double p_time, float p_luminance_multiplier = 1.0, float p_brightness_multiplier = 1.0);
 	void draw_sky(RD::DrawListID p_draw_list, Ref<RenderSceneBuffersRD> p_render_buffers, RID p_env, RID p_fb, double p_time, float p_luminance_multiplier = 1.0, float p_brightness_multiplier = 1.0);
