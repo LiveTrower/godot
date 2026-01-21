@@ -2094,6 +2094,7 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 			"DISABLE_LAYER", // GH-104154 (fpsmon).
 			"DISABLE_MANGOHUD", // GH-57403.
 			"DISABLE_VKBASALT",
+			"DISABLE_FOSSILIZE", // GH-115139.
 		};
 
 #if defined(WINDOWS_ENABLED) || defined(LINUXBSD_ENABLED)
@@ -4725,11 +4726,18 @@ int Main::start() {
 	GDExtensionManager::get_singleton()->startup();
 
 	if (minimum_time_msec) {
-		uint64_t minimum_time = 1000 * minimum_time_msec;
-		uint64_t elapsed_time = OS::get_singleton()->get_ticks_usec();
-		if (elapsed_time < minimum_time) {
-			OS::get_singleton()->delay_usec(minimum_time - elapsed_time);
+		int64_t minimum_time = 1000 * minimum_time_msec;
+		uint64_t prev_time = OS::get_singleton()->get_ticks_usec();
+		while (minimum_time > 0) {
+			DisplayServer::get_singleton()->process_events();
+			OS::get_singleton()->delay_usec(100);
+
+			uint64_t next_time = OS::get_singleton()->get_ticks_usec();
+			minimum_time -= (next_time - prev_time);
+			prev_time = next_time;
 		}
+	} else {
+		DisplayServer::get_singleton()->process_events();
 	}
 
 	OS::get_singleton()->benchmark_end_measure("Startup", "Main::Start");
