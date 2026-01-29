@@ -992,6 +992,7 @@ Patches:
 - `0004-errno-include.patch` ([GH-108354](https://github.com/godotengine/godot/pull/108354))
 - `0005-fix-libudev-dbus.patch` ([GH-108373](https://github.com/godotengine/godot/pull/108373))
 - `0006-fix-cs-environ.patch` ([GH-109283](https://github.com/godotengine/godot/pull/109283))
+- `0007-shield-duplicate-macos.patch` ([GH-115510](https://github.com/godotengine/godot/pull/115510))
 
 
 ## spirv-cross
@@ -1091,7 +1092,7 @@ Patches:
 ## ufbx
 
 - Upstream: https://github.com/ufbx/ufbx
-- Version: 0.20.0 (a63ff0a47485328880b3300e7bcdf01413343a45, 2025)
+- Version: 0.21.2 (6ecd6177af59c82ec363356ac36c3a4245b85321, 2025)
 - License: MIT
 
 Files extracted from upstream source:
