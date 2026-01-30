@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  texture_3d_editor_plugin.h                                            */
+/*  drawable_texture_2d.h                                                 */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -30,79 +30,66 @@
 
 #pragma once
 
-#include "editor/inspector/editor_inspector.h"
-#include "editor/plugins/editor_plugin.h"
-#include "scene/gui/spin_box.h"
+#include "scene/resources/atlas_texture.h"
+#include "scene/resources/image_texture.h"
 #include "scene/resources/material.h"
-#include "scene/resources/shader.h"
-#include "scene/resources/texture.h"
 
-class ColorChannelSelector;
+class DrawableTexture2D : public Texture2D {
+	GDCLASS(DrawableTexture2D, Texture2D);
+	RES_BASE_EXTENSION("tex");
 
-class Texture3DEditor : public Control {
-	GDCLASS(Texture3DEditor, Control);
+public:
+	enum DrawableFormat {
+		DRAWABLE_FORMAT_RGBA8,
+		DRAWABLE_FORMAT_RGBA8_SRGB,
+		DRAWABLE_FORMAT_RGBAH,
+		DRAWABLE_FORMAT_RGBAF,
+	};
 
-	struct ThemeCache {
-		Color outline_color;
-	} theme_cache;
+private:
+	mutable RID texture;
+	int width = 64;
+	int height = 64;
+	bool mipmaps = false;
+	DrawableFormat format = DRAWABLE_FORMAT_RGBA8;
 
-	SpinBox *layer = nullptr;
-	Label *info = nullptr;
-	Ref<Texture3D> texture;
+	Color base_color = Color(1, 1, 1, 1);
 
-	static inline Ref<Shader> texture_shader;
-	Ref<ShaderMaterial> texture_material;
+	RID default_material;
 
-	Control *texture_rect = nullptr;
-
-	ColorChannelSelector *channel_selector = nullptr;
-
-	bool setting = false;
-
-	void _draw_outline();
-
-	void _layer_changed(double) {
-		if (!setting) {
-			_update_material(false);
-		}
-	}
-
-	void _texture_changed();
-
-	void _texture_rect_update_area();
-	void _texture_rect_draw();
-
-	void _update_material(bool p_texture_changed);
-	void _update_gui();
-
-	void on_selected_channels_changed();
+	void _initialize();
 
 protected:
-	void _notification(int p_what);
+	static void _bind_methods();
 
 public:
-	static void init_shaders();
-	static void finish_shaders();
+	void set_width(int p_width);
+	int get_width() const override;
+	void set_height(int p_height);
+	int get_height() const override;
 
-	void edit(Ref<Texture3D> p_texture);
+	void set_format(DrawableFormat p_format);
+	DrawableFormat get_format() const;
+	void set_use_mipmaps(bool p_mipmaps);
+	bool get_use_mipmaps() const;
 
-	Texture3DEditor();
-	~Texture3DEditor();
+	virtual RID get_rid() const override;
+
+	virtual void draw(RID p_canvas_item, const Point2 &p_pos, const Color &p_modulate = Color(1, 1, 1), bool p_transpose = false) const override;
+	virtual void draw_rect(RID p_canvas_item, const Rect2 &p_rect, bool p_tile = false, const Color &p_modulate = Color(1, 1, 1), bool p_transpose = false) const override;
+	virtual void draw_rect_region(RID p_canvas_item, const Rect2 &p_rect, const Rect2 &p_src_rect, const Color &p_modulate = Color(1, 1, 1), bool p_transpose = false, bool p_clip_uv = true) const override;
+
+	void setup(int p_width, int p_height, DrawableFormat p_format, const Color &p_modulate = Color(1, 1, 1, 1), bool p_use_mipmaps = false);
+
+	void blit_rect(const Rect2i p_rect, const Ref<Texture2D> &p_source, const Color &p_modulate = Color(1, 1, 1, 1), int p_mipmap = 0, const Ref<Material> &p_material = Ref<Material>());
+	void blit_rect_multi(const Rect2i p_rect, const TypedArray<Texture2D> &p_sources, const TypedArray<DrawableTexture2D> &p_extra_targets, const Color &p_modulate = Color(1, 1, 1, 1), int p_mipmap = 0, const Ref<Material> &p_material = Ref<Material>());
+
+	virtual Ref<Image> get_image() const override;
+
+	void generate_mipmaps();
+
+	DrawableTexture2D();
+	~DrawableTexture2D();
 };
 
-class EditorInspectorPlugin3DTexture : public EditorInspectorPlugin {
-	GDCLASS(EditorInspectorPlugin3DTexture, EditorInspectorPlugin);
-
-public:
-	virtual bool can_handle(Object *p_object) override;
-	virtual void parse_begin(Object *p_object) override;
-};
-
-class Texture3DEditorPlugin : public EditorPlugin {
-	GDCLASS(Texture3DEditorPlugin, EditorPlugin);
-
-public:
-	virtual String get_plugin_name() const override { return "Texture3D"; }
-
-	Texture3DEditorPlugin();
-};
+VARIANT_ENUM_CAST(DrawableTexture2D::DrawableFormat)

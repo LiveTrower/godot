@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  texture_3d_editor_plugin.h                                            */
+/*  blit_material.h                                                       */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -30,79 +30,43 @@
 
 #pragma once
 
-#include "editor/inspector/editor_inspector.h"
-#include "editor/plugins/editor_plugin.h"
-#include "scene/gui/spin_box.h"
 #include "scene/resources/material.h"
-#include "scene/resources/shader.h"
-#include "scene/resources/texture.h"
 
-class ColorChannelSelector;
+class BlitMaterial : public Material {
+	GDCLASS(BlitMaterial, Material);
 
-class Texture3DEditor : public Control {
-	GDCLASS(Texture3DEditor, Control);
+public:
+	enum BlendMode {
+		BLEND_MODE_MIX,
+		BLEND_MODE_ADD,
+		BLEND_MODE_SUB,
+		BLEND_MODE_MUL,
+		BLEND_MODE_DISABLED
+	};
 
-	struct ThemeCache {
-		Color outline_color;
-	} theme_cache;
+private:
+	static Mutex shader_mutex;
+	static RID shader_cache[5];
+	static void _update_shader(BlendMode p_blend);
+	mutable bool shader_set = false;
 
-	SpinBox *layer = nullptr;
-	Label *info = nullptr;
-	Ref<Texture3D> texture;
-
-	static inline Ref<Shader> texture_shader;
-	Ref<ShaderMaterial> texture_material;
-
-	Control *texture_rect = nullptr;
-
-	ColorChannelSelector *channel_selector = nullptr;
-
-	bool setting = false;
-
-	void _draw_outline();
-
-	void _layer_changed(double) {
-		if (!setting) {
-			_update_material(false);
-		}
-	}
-
-	void _texture_changed();
-
-	void _texture_rect_update_area();
-	void _texture_rect_draw();
-
-	void _update_material(bool p_texture_changed);
-	void _update_gui();
-
-	void on_selected_channels_changed();
+	BlendMode blend_mode = BLEND_MODE_MIX;
 
 protected:
-	void _notification(int p_what);
+	static void _bind_methods();
 
 public:
-	static void init_shaders();
-	static void finish_shaders();
+	void set_blend_mode(BlendMode p_blend_mode);
+	BlendMode get_blend_mode() const;
 
-	void edit(Ref<Texture3D> p_texture);
+	virtual Shader::Mode get_shader_mode() const override;
+	virtual RID get_shader_rid() const override;
+	virtual RID get_rid() const override;
 
-	Texture3DEditor();
-	~Texture3DEditor();
+	static void cleanup_shader();
+
+	BlitMaterial();
+	virtual ~BlitMaterial();
 };
 
-class EditorInspectorPlugin3DTexture : public EditorInspectorPlugin {
-	GDCLASS(EditorInspectorPlugin3DTexture, EditorInspectorPlugin);
-
-public:
-	virtual bool can_handle(Object *p_object) override;
-	virtual void parse_begin(Object *p_object) override;
-};
-
-class Texture3DEditorPlugin : public EditorPlugin {
-	GDCLASS(Texture3DEditorPlugin, EditorPlugin);
-
-public:
-	virtual String get_plugin_name() const override { return "Texture3D"; }
-
-	Texture3DEditorPlugin();
-};
+VARIANT_ENUM_CAST(BlitMaterial::BlendMode);
