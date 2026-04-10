@@ -307,6 +307,7 @@ public:
 	virtual void light_set_color(RID p_light, const Color &p_color) = 0;
 	virtual void light_set_param(RID p_light, RSE::LightParam p_param, float p_value) = 0;
 	virtual void light_set_shadow(RID p_light, bool p_enabled) = 0;
+	virtual void light_set_screen_space_contact_shadows(RID p_light, bool p_enable) = 0;
 	virtual void light_set_projector(RID p_light, RID p_texture) = 0;
 	virtual void light_set_negative(RID p_light, bool p_enable) = 0;
 	virtual void light_set_cull_mask(RID p_light, uint32_t p_mask) = 0;
@@ -662,6 +663,8 @@ public:
 	virtual void environment_set_ssr_half_size(bool p_half_size) = 0;
 
 	virtual void environment_set_ssr_roughness_quality(RSE::EnvironmentSSRRoughnessQuality p_quality) = 0;
+
+	virtual void environment_set_sscs(RID p_env, bool p_enable, int p_max_steps, float p_bilinear_threshold, float p_shadow_contrast, float p_surface_thickness, bool p_use_precision_offset, bool p_ignore_edge_pixels, bool p_bilinear_sampling_offset_mode, bool p_debug_enabled, int p_debug_type, RSE::EnvironmentSSCSMode p_mode) = 0;
 
 	virtual void environment_set_ssao(RID p_env, bool p_enable, float p_radius, float p_intensity, float p_power, float p_detail, float p_horizon, float p_sharpness, float p_light_affect, float p_ao_channel_affect) = 0;
 

@@ -445,7 +445,7 @@ half get_omni_attenuation(float distance, float inv_range, float decay) {
 	return half(nd * pow(max(distance, 0.0001), -decay));
 }
 
-void light_process_omni(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3 vertex_ddx, vec3 vertex_ddy, hvec3 f0, half roughness, half metallic, float taa_frame_count, hvec3 albedo, inout half alpha, vec2 screen_uv, hvec3 energy_compensation,
+void light_process_omni(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3 vertex_ddx, vec3 vertex_ddy, hvec3 f0, half roughness, half metallic, float taa_frame_count, hvec3 albedo, inout half alpha, vec2 screen_uv, hvec3 energy_compensation, half sscs_shadow,
 #ifdef LIGHT_BACKLIGHT_USED
 		hvec3 backlight,
 #endif
@@ -585,7 +585,6 @@ void light_process_omni(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 				}
 
 				shadow /= half(sc_penumbra_shadow_samples());
-				shadow = mix(half(1.0), shadow, half(omni_lights.data[idx].shadow_opacity));
 
 			} else {
 				//no blockers found, so no shadow
@@ -605,8 +604,11 @@ void light_process_omni(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 			float depth = shadow_len - omni_lights.data[idx].shadow_bias;
 			depth *= omni_lights.data[idx].inv_radius;
 			depth = 1.0 - depth;
-			shadow = mix(half(1.0), sample_omni_pcf_shadow(shadow_atlas, omni_lights.data[idx].soft_shadow_scale / shadow_sample.z, pos, uv_rect, flip_offset, depth, taa_frame_count), half(omni_lights.data[idx].shadow_opacity));
+			shadow = sample_omni_pcf_shadow(shadow_atlas, omni_lights.data[idx].soft_shadow_scale / shadow_sample.z, pos, uv_rect, flip_offset, depth, taa_frame_count);
 		}
+
+		shadow = min(shadow, sscs_shadow);
+		shadow = mix(half(1.0), shadow, half(omni_lights.data[idx].shadow_opacity));
 	}
 #endif
 
@@ -746,7 +748,7 @@ vec2 normal_to_panorama(vec3 n) {
 	return panorama_coords;
 }
 
-void light_process_spot(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3 vertex_ddx, vec3 vertex_ddy, hvec3 f0, half roughness, half metallic, float taa_frame_count, hvec3 albedo, inout half alpha, vec2 screen_uv, hvec3 energy_compensation,
+void light_process_spot(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3 vertex_ddx, vec3 vertex_ddy, hvec3 f0, half roughness, half metallic, float taa_frame_count, hvec3 albedo, inout half alpha, vec2 screen_uv, hvec3 energy_compensation, half sscs_shadow,
 #ifdef LIGHT_BACKLIGHT_USED
 		hvec3 backlight,
 #endif
@@ -850,7 +852,6 @@ void light_process_spot(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 				}
 
 				shadow /= half(sc_penumbra_shadow_samples());
-				shadow = mix(half(1.0), shadow, half(spot_lights.data[idx].shadow_opacity));
 
 			} else {
 				//no blockers found, so no shadow
@@ -859,8 +860,11 @@ void light_process_spot(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 		} else {
 			//hard shadow
 			vec3 shadow_uv = vec3(splane.xy * spot_lights.data[idx].atlas_rect.zw + spot_lights.data[idx].atlas_rect.xy, splane.z);
-			shadow = mix(half(1.0), sample_pcf_shadow(shadow_atlas, spot_lights.data[idx].soft_shadow_scale * scene_data_block.data.shadow_atlas_pixel_size, shadow_uv, taa_frame_count), half(spot_lights.data[idx].shadow_opacity));
+			shadow = sample_pcf_shadow(shadow_atlas, spot_lights.data[idx].soft_shadow_scale * scene_data_block.data.shadow_atlas_pixel_size, shadow_uv, taa_frame_count);
 		}
+
+		shadow = min(shadow, sscs_shadow);
+		shadow = mix(half(1.0), shadow, half(spot_lights.data[idx].shadow_opacity));
 	}
 #endif // SHADOWS_DISABLED
 

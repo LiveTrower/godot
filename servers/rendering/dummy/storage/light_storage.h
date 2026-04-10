@@ -73,6 +73,7 @@ public:
 	virtual void light_set_color(RID p_light, const Color &p_color) override {}
 	virtual void light_set_param(RID p_light, RSE::LightParam p_param, float p_value) override {}
 	virtual void light_set_shadow(RID p_light, bool p_enabled) override {}
+	virtual void light_set_screen_space_contact_shadows(RID p_light, bool p_enabled) override {}
 	virtual void light_set_projector(RID p_light, RID p_texture) override {}
 	virtual void light_set_negative(RID p_light, bool p_enable) override {}
 	virtual void light_set_cull_mask(RID p_light, uint32_t p_mask) override {}
@@ -95,6 +96,7 @@ public:
 	virtual RSE::LightOmniShadowMode light_omni_get_shadow_mode(RID p_light) override { return RSE::LIGHT_OMNI_SHADOW_DUAL_PARABOLOID; }
 
 	virtual bool light_has_shadow(RID p_light) const override { return false; }
+	virtual bool light_has_screen_space_contact_shadows(RID p_light) const override { return false; }
 	virtual bool light_has_projector(RID p_light) const override { return false; }
 
 	virtual RSE::LightType light_get_type(RID p_light) const override { return RSE::LIGHT_OMNI; }

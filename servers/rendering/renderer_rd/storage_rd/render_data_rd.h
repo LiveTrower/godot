@@ -91,6 +91,8 @@ public:
 	LocalVector<int> shadows;
 	LocalVector<int> directional_shadows;
 
+	LocalVector<RID> contact_shadow_lights;
+
 	/* GI info */
 	const RendererSceneRender::RenderSDFGIData *render_sdfgi_regions = nullptr;
 	int render_sdfgi_region_count = 0;

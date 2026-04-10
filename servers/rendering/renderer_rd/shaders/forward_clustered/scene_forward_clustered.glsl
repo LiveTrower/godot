@@ -2520,6 +2520,25 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 
 #undef BIAS_FUNC
+
+					//process sscs
+					if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS) && directional_lights.data[i].sscs_enabled != 0u) {
+						float sscs_shadow = 1.0;
+						if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_BEND)) {
+#ifdef USE_MULTIVIEW
+							float sscs_layer = float(directional_lights.data[i].sscs_slot * 2u + uint(ViewIndex));
+#else
+						float sscs_layer = float(directional_lights.data[i].sscs_slot);
+#endif // USE_MULTIVIEW
+							sscs_shadow = textureLod(sampler2DArray(sscs_buffer, SAMPLER_LINEAR_CLAMP), vec3(screen_uv, sscs_layer), 0.0).r;
+						} else if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_TOMASZ)) {
+							vec3 position_ws = (inv_view_matrix * vec4(vertex, 1.0)).xyz;
+							vec3 light_pos = (inv_view_matrix * vec4(directional_lights.data[i].direction, 0.0)).xyz;
+							sscs_shadow = compute_contact_shadow(position_ws, gl_FragCoord.xy, light_pos, projection_matrix * read_view_matrix, 16u);
+						}
+
+						shadow = min(shadow, sscs_shadow);
+					}
 				} // shadows
 
 				if (i < 4) {
@@ -2709,7 +2728,24 @@ void fragment_shader(in SceneData scene_data) {
 					continue; // Statically baked light and object uses lightmap, skip
 				}
 
-				light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation,
+				//process sscs
+				float sscs_shadow = 1.0;
+				if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS) && omni_lights.data[light_index].sscs_enabled != 0u) {
+					if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_BEND)) {
+#ifdef USE_MULTIVIEW
+						float sscs_layer = float(omni_lights.data[light_index].sscs_slot * 2u + uint(ViewIndex));
+#else
+						float sscs_layer = float(omni_lights.data[light_index].sscs_slot);
+#endif // USE_MULTIVIEW
+						sscs_shadow = textureLod(sampler2DArray(sscs_buffer, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(screen_uv, sscs_layer), 0.0).r;
+					} else if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_TOMASZ)) {
+						vec3 position_ws = (inv_view_matrix * vec4(vertex, 1.0)).xyz;
+						vec3 light_pos = (inv_view_matrix * vec4(omni_lights.data[light_index].position, 1.0)).xyz;
+						sscs_shadow = compute_contact_shadow(position_ws, gl_FragCoord.xy, light_pos - position_ws, projection_matrix * read_view_matrix, 16u);
+					}
+				}
+
+				light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation, sscs_shadow,
 #ifdef LIGHT_BACKLIGHT_USED
 						backlight,
 #endif
@@ -2770,7 +2806,24 @@ void fragment_shader(in SceneData scene_data) {
 					continue; // Statically baked light and object uses lightmap, skip
 				}
 
-				light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation,
+				//process sscs
+				float sscs_shadow = 1.0;
+				if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS) && omni_lights.data[light_index].sscs_enabled != 0u) {
+					if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_BEND)) {
+#ifdef USE_MULTIVIEW
+						float sscs_layer = float(spot_lights.data[light_index].sscs_slot * 2u + uint(ViewIndex));
+#else
+						float sscs_layer = float(spot_lights.data[light_index].sscs_slot);
+#endif // USE_MULTIVIEW
+						sscs_shadow = textureLod(sampler2DArray(sscs_buffer, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(screen_uv, sscs_layer), 0.0).r;
+					} else if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_TOMASZ)) {
+						vec3 position_ws = (inv_view_matrix * vec4(vertex, 1.0)).xyz;
+						vec3 light_pos = (inv_view_matrix * vec4(spot_lights.data[light_index].position, 1.0)).xyz;
+						sscs_shadow = compute_contact_shadow(position_ws, gl_FragCoord.xy, light_pos - position_ws, projection_matrix * read_view_matrix, 16u);
+					}
+				}
+
+				light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation, sscs_shadow,
 #ifdef LIGHT_BACKLIGHT_USED
 						backlight,
 #endif

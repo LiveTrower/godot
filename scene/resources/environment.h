@@ -89,6 +89,11 @@ public:
 		GLOW_BLEND_MODE_MIX,
 	};
 
+	enum SSCSMode {
+		SSCS_MODE_BEND,
+		SSCS_MODE_TOMASZ,
+	};
+
 private:
 	RID environment;
 
@@ -127,6 +132,20 @@ private:
 	float ssr_fade_out = 2.0;
 	float ssr_depth_tolerance = 0.5;
 	void _update_ssr();
+
+	// SSCS
+	bool sscs_enabled = false;
+	bool sscs_debug_enabled = false;
+	int sscs_debug_type = false;
+	SSCSMode sscs_mode = SSCS_MODE_BEND;
+	int sscs_max_steps = 64;
+	float sscs_bilinear_threshold = 0.02f;
+	float sscs_shadow_contrast = 2.0f;
+	float sscs_surface_thickness = 0.005f;
+	bool sscs_use_precision_offset = false;
+	bool sscs_ignore_edge_pixels = false;
+	bool sscs_bilinear_sampling_offset_mode = false;
+	void _update_sscs();
 
 	// SSAO
 	bool ssao_enabled = false;
@@ -290,6 +309,26 @@ public:
 	float get_ssr_fade_out() const;
 	void set_ssr_depth_tolerance(float p_depth_tolerance);
 	float get_ssr_depth_tolerance() const;
+
+	// SSCS
+	void set_sscs_enabled(bool p_enabled);
+	bool is_sscs_enabled() const;
+	void set_sscs_mode(SSCSMode p_mode);
+	SSCSMode get_sscs_mode() const;
+	void set_sscs_max_steps(int p_steps);
+	int get_sscs_max_steps() const;
+	void set_sscs_bilinear_threshold(float p_bilinear_threshold);
+	float get_sscs_bilinear_threshold() const;
+	void set_sscs_shadow_contrast(float p_shadow_contrast);
+	float get_sscs_shadow_contrast() const;
+	void set_sscs_surface_thickness(float p_surface_thickness);
+	float get_sscs_surface_thickness() const;
+	void set_sscs_use_precision_offset(bool p_use_precision_offset);
+	bool get_sscs_use_precision_offset() const;
+	void set_sscs_ignore_edge_pixels(bool p_ignore_edge_pixels);
+	bool get_sscs_ignore_edge_pixels() const;
+	void set_sscs_bilinear_sampling_offset_mode(bool p_bilinear_sampling_offset_mode);
+	bool get_sscs_bilinear_sampling_offset_mode() const;
 
 	// SSAO
 	void set_ssao_enabled(bool p_enabled);
@@ -460,3 +499,4 @@ VARIANT_ENUM_CAST(Environment::ToneMapper)
 VARIANT_ENUM_CAST(Environment::SDFGIYScale)
 VARIANT_ENUM_CAST(Environment::GlowBlendMode)
 VARIANT_ENUM_CAST(Environment::FogMode)
+VARIANT_ENUM_CAST(Environment::SSCSMode)

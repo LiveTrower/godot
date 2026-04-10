@@ -64,6 +64,7 @@ private:
 		Color color = Color(1, 1, 1, 1);
 		RID projector;
 		bool shadow = false;
+		bool contact_shadows = false;
 		bool negative = false;
 		bool reverse_cull = false;
 		RSE::LightBakeMode bake_mode = RSE::LIGHT_BAKE_DYNAMIC;
@@ -158,6 +159,9 @@ private:
 		float volumetric_fog_energy;
 		uint32_t bake_mode;
 		float projector_rect[4];
+		uint32_t sscs_enabled;
+		uint32_t sscs_slot;
+		uint64_t pad;
 	};
 
 	struct LightInstanceDepthSort {
@@ -194,7 +198,8 @@ private:
 		float shadow_opacity;
 		float fade_from;
 		float fade_to;
-		uint32_t pad[2];
+		uint32_t sscs_enabled;
+		uint32_t sscs_slot;
 		uint32_t bake_mode;
 		float volumetric_fog_energy;
 		float shadow_bias[4];
@@ -487,6 +492,7 @@ public:
 	virtual void light_set_color(RID p_light, const Color &p_color) override;
 	virtual void light_set_param(RID p_light, RSE::LightParam p_param, float p_value) override;
 	virtual void light_set_shadow(RID p_light, bool p_enabled) override;
+	virtual void light_set_screen_space_contact_shadows(RID p_light, bool p_enable) override;
 	virtual void light_set_projector(RID p_light, RID p_texture) override;
 	virtual void light_set_negative(RID p_light, bool p_enable) override;
 	virtual void light_set_cull_mask(RID p_light, uint32_t p_mask) override;
@@ -562,6 +568,13 @@ public:
 		ERR_FAIL_NULL_V(light, RSE::LIGHT_DIRECTIONAL);
 
 		return light->shadow;
+	}
+
+	virtual bool light_has_screen_space_contact_shadows(RID p_light) const override {
+		const Light *light = light_owner.get_or_null(p_light);
+		ERR_FAIL_NULL_V(light, RSE::LIGHT_DIRECTIONAL);
+
+		return light->contact_shadows;
 	}
 
 	virtual bool light_has_projector(RID p_light) const override {

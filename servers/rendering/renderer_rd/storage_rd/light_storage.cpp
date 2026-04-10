@@ -233,6 +233,12 @@ void LightStorage::light_set_shadow(RID p_light, bool p_enabled) {
 	light->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_LIGHT);
 }
 
+void LightStorage::light_set_screen_space_contact_shadows(RID p_light, bool p_enable) {
+	Light *light = light_owner.get_or_null(p_light);
+	ERR_FAIL_NULL(light);
+	light->contact_shadows = p_enable;
+}
+
 void LightStorage::light_set_projector(RID p_light, RID p_texture) {
 	TextureStorage *texture_storage = TextureStorage::get_singleton();
 	Light *light = light_owner.get_or_null(p_light);
@@ -620,6 +626,8 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 	omni_light_count = 0;
 	spot_light_count = 0;
 
+	uint32_t sscs_slot = 0;
+
 	r_directional_light_soft_shadows = false;
 
 	for (int i = 0; i < (int)p_lights.size(); i++) {
@@ -677,6 +685,13 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				light_data.shadow_opacity = (p_using_shadows && light->shadow)
 						? light->param[RSE::LIGHT_PARAM_SHADOW_OPACITY]
 						: 0.0;
+
+				light_data.sscs_enabled = light->contact_shadows;
+
+				if (light->shadow && light->contact_shadows) {
+					light_data.sscs_slot = sscs_slot;
+					sscs_slot++;
+				}
 
 				float angular_diameter = light->param[RSE::LIGHT_PARAM_SIZE];
 				if (angular_diameter > 0.0) {
@@ -988,6 +1003,13 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 			light_data.atlas_rect[3] = rect.size.height;
 
 			light_data.soft_shadow_scale = light->param[RSE::LIGHT_PARAM_SHADOW_BLUR];
+
+			light_data.sscs_enabled = light->contact_shadows;
+
+			if (light->shadow && light->contact_shadows) {
+				light_data.sscs_slot = sscs_slot;
+				sscs_slot++;
+			}
 
 			if (type == RSE::LIGHT_OMNI) {
 				Transform3D proj = (inverse_transform * light_transform).inverse();

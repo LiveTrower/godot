@@ -737,6 +737,11 @@ enum EnvironmentFogMode {
 	ENV_FOG_MODE_DEPTH,
 };
 
+enum EnvironmentSSCSMode {
+	ENV_SSCS_MODE_BEND,
+	ENV_SSCS_MODE_TOMASZ,
+};
+
 enum SubSurfaceScatteringQuality {
 	SUB_SURFACE_SCATTERING_QUALITY_DISABLED,
 	SUB_SURFACE_SCATTERING_QUALITY_LOW,

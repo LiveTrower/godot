@@ -28,6 +28,9 @@ struct LightData { //this structure needs to be as packed as possible
 	float volumetric_fog_energy;
 	uint bake_mode;
 	vec4 projector_rect; //projector rect in srgb decal atlas
+	uint sscs_enabled;
+	uint sscs_slot;
+	uint pad;
 };
 
 #define REFLECTION_AMBIENT_DISABLED 0
@@ -67,7 +70,8 @@ struct DirectionalLightData {
 	float shadow_opacity;
 	float fade_from;
 	float fade_to;
-	uvec2 pad;
+	uint sscs_enabled;
+	uint sscs_slot;
 	uint bake_mode;
 	float volumetric_fog_energy;
 	vec4 shadow_bias;

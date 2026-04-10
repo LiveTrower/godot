@@ -185,6 +185,9 @@ layout(set = 0, binding = 2) uniform sampler shadow_sampler;
 #define SCREEN_SPACE_EFFECTS_FLAGS_USE_SSIL (1 << 1)
 #define SCREEN_SPACE_EFFECTS_FLAGS_USE_SSR (1 << 2)
 #define SCREEN_SPACE_EFFECTS_FLAGS_RESOLVE_SSR (1 << 3)
+#define SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS (1 << 4)
+#define SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_BEND (1 << 5)
+#define SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_TOMASZ (1 << 6)
 
 layout(set = 0, binding = 3, std430) restrict readonly buffer OmniLights {
 	LightData data[];
@@ -456,13 +459,49 @@ layout(set = 1, binding = 33) uniform texture3D volumetric_fog_texture;
 layout(set = 1, binding = 34) uniform texture2DArray ssil_buffer;
 layout(set = 1, binding = 35) uniform texture2DArray ssr_buffer;
 layout(set = 1, binding = 36) uniform texture2DArray ssr_mip_level_buffer;
+layout(set = 1, binding = 37) uniform texture2DArray sscs_buffer;
 #else
 layout(set = 1, binding = 34) uniform texture2D ssil_buffer;
 layout(set = 1, binding = 35) uniform texture2D ssr_buffer;
 layout(set = 1, binding = 36) uniform texture2D ssr_mip_level_buffer;
+layout(set = 1, binding = 37) uniform texture2DArray sscs_buffer;
 #endif // USE_MULTIVIEW
 
 #endif
+
+#include "../raymarch_inc.glsl"
+
+#define SSCS_LENGTH 0.3
+#define SSCS_THICKNESS 0.1
+
+vec3 position_world_to_ndc(vec3 world_pos, mat4 proj_view_matrix) {
+	vec4 ndc_pos = proj_view_matrix * vec4(world_pos, 1.0);
+	return ndc_pos.xyz / ndc_pos.w;
+}
+
+float compute_contact_shadow(
+		vec3 world_position,
+		vec2 frag_coord,
+		vec3 light_dir,
+		mat4 proj_view_matrix,
+		uint contact_shadow_steps) {
+	const vec3 magic = vec3(0.06711056f, 0.00583715f, 52.9829189f);
+	float noise = fract(magic.z * fract(dot(frag_coord + (scene_data_block.data.taa_frame_count * 5.588238), magic.xy)));
+
+	DepthRayMarch rm = depth_ray_march_new_from_depth(scene_data_block.data.viewport_size);
+	depth_ray_march_from_cs(rm, position_world_to_ndc(world_position, proj_view_matrix));
+	depth_ray_march_to_ws(rm, position_world_to_ndc(world_position + light_dir * SSCS_LENGTH, proj_view_matrix));
+	rm.linear_steps = contact_shadow_steps;
+	rm.depth_thickness_linear_z = SSCS_THICKNESS;
+	rm.march_behind_surfaces = true;
+	rm.jitter = noise;
+
+	DepthRayMarchResult rm_result = depth_ray_march_march(rm);
+	if (rm_result.hit) {
+		return clamp((rm_result.hit_penetration_frac - 0.5) / (1.0 - 0.5), 0.0, 1.0);
+	}
+	return 1.0;
+}
 
 vec4 normal_roughness_compatibility(vec4 p_normal_roughness) {
 	float roughness = p_normal_roughness.w;

@@ -71,6 +71,7 @@ private:
 	Color color;
 	real_t param[PARAM_MAX] = {};
 	bool shadow = false;
+	bool use_screen_space_contact_shadows = true;
 	bool negative = false;
 	bool reverse_cull = false;
 	uint32_t cull_mask = 0;
@@ -111,6 +112,9 @@ public:
 
 	void set_shadow(bool p_enable);
 	bool has_shadow() const;
+
+	void set_screen_space_contact_shadows(bool p_enable);
+	bool has_screen_space_contact_shadows() const;
 
 	void set_negative(bool p_enable);
 	bool is_negative() const;

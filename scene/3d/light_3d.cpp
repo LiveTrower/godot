@@ -68,6 +68,17 @@ bool Light3D::has_shadow() const {
 	return shadow;
 }
 
+void Light3D::set_screen_space_contact_shadows(bool p_enable) {
+	use_screen_space_contact_shadows = p_enable;
+	RS::get_singleton()->light_set_screen_space_contact_shadows(light, p_enable);
+
+	update_configuration_warnings();
+}
+
+bool Light3D::has_screen_space_contact_shadows() const {
+	return use_screen_space_contact_shadows;
+}
+
 void Light3D::set_negative(bool p_enable) {
 	negative = p_enable;
 	RS::get_singleton()->light_set_negative(light, p_enable);
@@ -347,6 +358,9 @@ void Light3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_shadow", "enabled"), &Light3D::set_shadow);
 	ClassDB::bind_method(D_METHOD("has_shadow"), &Light3D::has_shadow);
 
+	ClassDB::bind_method(D_METHOD("set_screen_space_contact_shadows", "enabled"), &Light3D::set_screen_space_contact_shadows);
+	ClassDB::bind_method(D_METHOD("has_screen_space_contact_shadows"), &Light3D::has_screen_space_contact_shadows);
+
 	ClassDB::bind_method(D_METHOD("set_negative", "enabled"), &Light3D::set_negative);
 	ClassDB::bind_method(D_METHOD("is_negative"), &Light3D::is_negative);
 
@@ -409,6 +423,7 @@ void Light3D::_bind_methods() {
 	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "shadow_transmittance_bias", PROPERTY_HINT_RANGE, "-16,16,0.001"), "set_param", "get_param", PARAM_TRANSMITTANCE_BIAS);
 	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "shadow_opacity", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_param", "get_param", PARAM_SHADOW_OPACITY);
 	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "shadow_blur", PROPERTY_HINT_RANGE, "0,10,0.001"), "set_param", "get_param", PARAM_SHADOW_BLUR);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "shadow_contact_shadows"), "set_screen_space_contact_shadows", "has_screen_space_contact_shadows");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "shadow_caster_mask", PROPERTY_HINT_LAYERS_3D_RENDER), "set_shadow_caster_mask", "get_shadow_caster_mask");
 
 	ADD_GROUP("Distance Fade", "distance_fade_");
@@ -470,6 +485,7 @@ Light3D::Light3D(RSE::LightType p_type) {
 
 	set_color(Color(1, 1, 1, 1));
 	set_shadow(false);
+	set_screen_space_contact_shadows(false);
 	set_negative(false);
 	set_cull_mask(0xFFFFFFFF);
 

@@ -485,6 +485,7 @@ public:
 	FUNC2(light_set_color, RID, const Color &)
 	FUNC3(light_set_param, RID, RSE::LightParam, float)
 	FUNC2(light_set_shadow, RID, bool)
+	FUNC2(light_set_screen_space_contact_shadows, RID, bool)
 	FUNC2(light_set_projector, RID, RID)
 	FUNC2(light_set_negative, RID, bool)
 	FUNC2(light_set_cull_mask, RID, uint32_t)
@@ -853,6 +854,8 @@ public:
 	FUNC6(environment_set_ssr, RID, bool, int, float, float, float)
 	FUNC1(environment_set_ssr_half_size, bool)
 	FUNC1(environment_set_ssr_roughness_quality, RSE::EnvironmentSSRRoughnessQuality)
+
+	FUNC12(environment_set_sscs, RID, bool, int, float, float, float, bool, bool, bool, bool, int, RSE::EnvironmentSSCSMode)
 
 	FUNC10(environment_set_ssao, RID, bool, float, float, float, float, float, float, float, float)
 	FUNC6(environment_set_ssao_quality, RSE::EnvironmentSSAOQuality, bool, float, int, float, float)
