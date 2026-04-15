@@ -1668,29 +1668,28 @@ void main() {
 	hvec3 cc_specular_light = hvec3(0.0);
 	hvec3 cc_ref_vec = hvec3(0.0);
 
-	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_REFLECTION_CUBEMAP)) {
-		// Note: We want to use geometric normal for clearcoat reflections/BRDF, ie. we ignore the normal map.
+	if (sc_scene_use_reflection_cubemap()) {
 		cc_ref_vec = reflect(-view, geo_normal);
-		cc_ref_vec = mix(cc_ref_vec, geo_normal, cc_roughness * cc_roughness);
+		cc_ref_vec = mix(cc_ref_vec, geo_normal, mix(half(0.001), half(0.1), clearcoat_roughness));
 
 		hvec3 cc_radiance_ref_vec = hvec3(scene_data.radiance_inverse_xform * vec3(cc_ref_vec));
-		float roughness_lod = mix(0.001, 0.1, sqrt(float(clearcoat_roughness))) * MAX_ROUGHNESS_LOD;
-
+		float roughness_lod = sqrt(mix(0.001, 0.1, float(clearcoat_roughness))) * MAX_ROUGHNESS_LOD;
 #ifdef USE_RADIANCE_OCTMAP_ARRAY
+
 		float lod;
 		half blend = half(modf(sqrt(cc_roughness) * MAX_ROUGHNESS_LOD, lod));
 
 		float ref_lod = vec3_to_oct_lod(dFdx(cc_radiance_ref_vec), dFdy(cc_radiance_ref_vec), scene_data_block.data.radiance_pixel_size);
 		vec2 ref_uv = vec3_to_oct_with_border(cc_radiance_ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
-		hvec3 clearcoat_sample_a = hvec3(textureLod(sampler2DArray(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(cc_ref_uv, lod), ref_lod).rgb);
-		hvec3 clearcoat_sample_b = hvec3(textureLod(sampler2DArray(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(cc_ref_uv, lod + 1), ref_lod).rgb);
+		hvec3 clearcoat_sample_a = hvec3(textureLod(sampler2DArray(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(ref_uv, lod), ref_lod).rgb);
+		hvec3 clearcoat_sample_b = hvec3(textureLod(sampler2DArray(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(ref_uv, lod + 1), ref_lod).rgb);
 		hvec3 clearcoat_light = mix(clearcoat_sample_a, clearcoat_sample_b, blend);
 #else
 		vec2 ref_uv = vec3_to_oct_with_border(cc_radiance_ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
 		hvec3 clearcoat_light = hvec3(textureLod(sampler2D(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_uv, roughness_lod).rgb);
-#endif // USE_RADIANCE_OCTMAP_ARRAY
 
-		cc_specular_light += clearcoat_light * (scene_data.IBL_exposure_normalization * scene_data.ambient_light_color_energy.a);
+#endif //USE_RADIANCE_OCTMAP_ARRAY
+		cc_specular_light += clearcoat_light * half(scene_data.IBL_exposure_normalization) * half(scene_data.ambient_light_color_energy.a);
 	}
 #endif // LIGHT_CLEARCOAT_USED
 #endif // !AMBIENT_LIGHT_DISABLED
@@ -1815,7 +1814,7 @@ void main() {
 
 			reflection_process(reflection_index, vertex, ref_vec, normal, roughness, ambient_light, indirect_specular_light,
 #ifdef LIGHT_CLEARCOAT_USED
-					cc_specular_light, cc_ref_vec, cc_roughness, cc_reflection_accum,
+					cc_specular_light, cc_ref_vec, mix(half(0.001), half(0.1), clearcoat_roughness), cc_reflection_accum,
 #endif
 #ifdef LIGHT_SHEEN_USED
 					hvec3(1.0), hvec3(1.0), sheen_roughness, sh_reflection_accum,
@@ -1896,10 +1895,11 @@ void main() {
 		indirect_specular_light *= env.x * f0 + env.y * clamp(half(50.0) * f0.g, metallic, half(1.0));
 
 #ifdef LIGHT_CLEARCOAT_USED
+		half geo_NdotV = max(dot(geo_normal, view), half(0.0001)); // We want to use geometric normal, not normal_map
 		// The clearcoat layer assumes an IOR of 1.5 (4% reflectance).
 		// Attenuate underlying diffuse/specular by clearcoat fresnel (ONLY fresnel, hence we don't just invert the BRDF below).
-		half geo_ndotv = max(dot(geo_normal, view), half(0.0001));
-		half F = SchlickFresnel(half(0.04), half(1.0), geo_ndotv) * clearcoat;
+		half NdotV5 = SchlickFresnel(geo_NdotV);
+		half F = mix(half(0.04), half(1.0), NdotV5) * clearcoat;
 		half cc_attenuation = half(1.0) - F;
 
 		ambient_light *= cc_attenuation;
@@ -2237,6 +2237,38 @@ void main() {
 						sheen, sheen_roughness, sheen_color,
 #endif
 */
+#ifdef LIGHT_CLEARCOAT_USED
+				clearcoat, clearcoat_roughness, geo_normal,
+#endif // LIGHT_CLEARCOAT_USED
+#ifdef LIGHT_ANISOTROPY_USED
+				binormal, tangent, anisotropy,
+#endif
+				diffuse_light, direct_specular_light);
+	}
+
+	uint area_light_count = sc_area_lights(8);
+	uvec2 area_indices = instances.data[draw_call.instance_index].area_lights;
+	for (uint i = 0; i < area_light_count; i++) {
+		uint light_index = (i > 3) ? ((area_indices.y >> ((i - 4) * 8)) & 0xFF) : ((area_indices.x >> (i * 8)) & 0xFF);
+		if (i > 0 && light_index == 0xFF) {
+			break;
+		}
+
+		light_process_area(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, hvec3(1.0),
+#ifdef LIGHT_BACKLIGHT_USED
+				backlight,
+#endif
+/*
+#ifdef LIGHT_TRANSMITTANCE_USED
+				transmittance_color,
+				transmittance_depth,
+				transmittance_boost,
+#endif
+*/
+#ifdef LIGHT_RIM_USED
+				rim,
+				rim_tint,
+#endif
 #ifdef LIGHT_CLEARCOAT_USED
 				clearcoat, clearcoat_roughness, geo_normal,
 #endif // LIGHT_CLEARCOAT_USED

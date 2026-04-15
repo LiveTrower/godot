@@ -1091,7 +1091,7 @@ layout(location = 2) out vec2 motion_vector;
 vec4 volumetric_fog_process(vec2 screen_uv, float z) {
 	vec3 fog_pos = vec3(screen_uv, z * implementation_data.volumetric_fog_inv_length);
 	if (fog_pos.z < 0.0) {
-		return vec4(0.0);
+		return vec4(0.0, 0.0, 0.0, 1.0);
 	} else if (fog_pos.z < 1.0) {
 		fog_pos.z = pow(fog_pos.z, implementation_data.volumetric_fog_detail_spread);
 	}
@@ -1551,7 +1551,7 @@ void fragment_shader(in SceneData scene_data) {
 
 	{ // process decals
 
-		uint cluster_decal_offset = cluster_offset + implementation_data.cluster_type_size * 2;
+		uint cluster_decal_offset = cluster_offset + implementation_data.cluster_type_size * 3;
 
 		uint item_min;
 		uint item_max;
@@ -1776,7 +1776,6 @@ void fragment_shader(in SceneData scene_data) {
 	vec3 cc_ref_vec = vec3(0.0);
 
 	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_REFLECTION_CUBEMAP)) {
-		// We want to use geometric normal, not normal_map
 		cc_ref_vec = reflect(-view, geo_normal);
 		cc_ref_vec = mix(cc_ref_vec, geo_normal, mix(0.001, 0.1, clearcoat_roughness));
 
@@ -1794,8 +1793,7 @@ void fragment_shader(in SceneData scene_data) {
 #else
 		vec2 ref_uv = vec3_to_oct_with_border(cc_radiance_ref_vec, vec2(scene_data_block.data.radiance_border_size, 1.0 - scene_data_block.data.radiance_border_size * 2.0));
 		vec3 clearcoat_light = textureLod(sampler2D(radiance_octmap, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), ref_uv, roughness_lod).rgb;
-#endif // USE_RADIANCE_OCTMAP_ARRAY
-
+#endif //USE_RADIANCE_OCTMAP_ARRAY
 		cc_specular_light += clearcoat_light * scene_data.IBL_exposure_normalization * scene_data.ambient_light_color_energy.a;
 	}
 #endif // LIGHT_CLEARCOAT_USED
@@ -2073,16 +2071,16 @@ void fragment_shader(in SceneData scene_data) {
 
 	{ // process reflections
 
-		vec4 reflection_accum = vec4(0.0);
-		vec4 ambient_accum = vec4(0.0);
+		vec4 reflection_accum = vec4(0.0, 0.0, 0.0, 0.0);
+		vec4 ambient_accum = vec4(0.0, 0.0, 0.0, 0.0);
 #ifdef LIGHT_CLEARCOAT_USED
-		vec3 cc_reflection_accum = vec3(0.0);
+		vec3 cc_reflection_accum = vec3(0.0, 0.0, 0.0);
 #endif
 #ifdef LIGHT_SHEEN_USED
-		vec3 sh_reflection_accum = vec3(0.0);
+		vec3 sh_reflection_accum = vec3(0.0, 0.0, 0.0);
 #endif
 
-		uint cluster_reflection_offset = cluster_offset + implementation_data.cluster_type_size * 3;
+		uint cluster_reflection_offset = cluster_offset + implementation_data.cluster_type_size * 4;
 
 		uint item_min;
 		uint item_max;
@@ -2131,7 +2129,7 @@ void fragment_shader(in SceneData scene_data) {
 
 				reflection_process(reflection_index, vertex, ref_vec, normal, roughness, ambient_light, indirect_specular_light,
 #ifdef LIGHT_CLEARCOAT_USED
-						cc_specular_light, cc_ref_vec, clearcoat_roughness, cc_reflection_accum,
+						cc_specular_light, cc_ref_vec, mix(0.001, 0.1, clearcoat_roughness), cc_reflection_accum,
 #endif
 #ifdef LIGHT_SHEEN_USED
 						sh_specular_light, sh_ref_vec, sheen_roughness, sh_reflection_accum,
@@ -2290,10 +2288,11 @@ void fragment_shader(in SceneData scene_data) {
 		indirect_specular_light *= energy_compensation * ((f90 - f0) * envBRDF.x + f0 * envBRDF.y);
 
 #ifdef LIGHT_CLEARCOAT_USED
-		float geo_ndotv = max(dot(geo_normal, view), 0.0001); // We want to use geometric normal, not normal_map
+		float geo_NdotV = max(dot(geo_normal, view), 0.0001); // We want to use geometric normal, not normal_map
 		// The clearcoat layer assumes an IOR of 1.5 (4% reflectance).
 		// Attenuate underlying diffuse/specular by clearcoat fresnel (ONLY fresnel, hence we don't just invert the BRDF below).
-		float F = SchlickFresnel(0.04, 1.0, geo_ndotv) * clearcoat;
+		float NdotV5 = SchlickFresnel(geo_NdotV);
+		float F = mix(0.04, 1.0, NdotV5) * clearcoat;
 		float cc_attenuation = 1.0 - F;
 
 		ambient_light *= cc_attenuation;
@@ -2869,6 +2868,67 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 						tangent, anisotropy, binormal,
+#endif
+						diffuse_light, direct_specular_light);
+			}
+		}
+	}
+
+	{ // area lights
+
+		uint cluster_area_offset = cluster_offset + implementation_data.cluster_type_size * 2;
+
+		uint item_min;
+		uint item_max;
+		uint item_from;
+		uint item_to;
+
+		cluster_get_item_range(cluster_area_offset + implementation_data.max_cluster_element_count_div_32 + cluster_z, item_min, item_max, item_from, item_to);
+
+		item_from = subgroupBroadcastFirst(subgroupMin(item_from));
+		item_to = subgroupBroadcastFirst(subgroupMax(item_to));
+
+		for (uint i = item_from; i < item_to; i++) {
+			uint mask = cluster_buffer.data[cluster_area_offset + i];
+			mask &= cluster_get_range_clip_mask(i, item_min, item_max);
+
+			uint merged_mask = subgroupBroadcastFirst(subgroupOr(mask));
+			while (merged_mask != 0) {
+				uint bit = findMSB(merged_mask);
+				merged_mask &= ~(1u << bit);
+
+				if (((1u << bit) & mask) == 0) { //do not process if not originally here
+					continue;
+				}
+
+				uint light_index = 32 * i + bit;
+
+				if (!bool(area_lights.data[light_index].mask & instances.data[instance_index].layer_mask)) {
+					continue; //not masked
+				}
+
+				if (area_lights.data[light_index].bake_mode == LIGHT_BAKE_STATIC && bool(instances.data[instance_index].flags & INSTANCE_FLAGS_USE_LIGHTMAP)) {
+					continue; // Statically baked light and object uses lightmap, skip
+				}
+
+				light_process_area(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation,
+#ifdef LIGHT_BACKLIGHT_USED
+						backlight,
+#endif
+#ifdef LIGHT_TRANSMITTANCE_USED
+						transmittance_color,
+						transmittance_depth,
+						transmittance_boost,
+#endif
+#ifdef LIGHT_RIM_USED
+						rim,
+						rim_tint,
+#endif
+#ifdef LIGHT_CLEARCOAT_USED
+						clearcoat, clearcoat_roughness, geo_normal,
+#endif
+#ifdef LIGHT_ANISOTROPY_USED
+						binormal, tangent, anisotropy,
 #endif
 						diffuse_light, direct_specular_light);
 			}

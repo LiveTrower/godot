@@ -48,7 +48,9 @@
 #include <dlfcn.h>
 #include <execinfo.h>
 #include <link.h>
+
 #include <csignal>
+#include <cstdio>
 #include <cstdlib>
 
 static void handle_crash(int sig) {
@@ -102,8 +104,36 @@ static void handle_crash(int sig) {
 	// Non glibc systems apparently don't give PIE relocation info.
 	uintptr_t relocation = 0;
 #endif //__GLIBC__
+
+	print_error(vformat("Load address: %x\n", (uint64_t)relocation));
+
 	if (strings) {
+		int ret;
+
 		List<String> args;
+		args.push_back("--version");
+		String exe_name;
+
+		if (exe_name.is_empty()) {
+			String output;
+			// Faster implementation from gimli-rs/addr2line.
+			Error err = OS::get_singleton()->execute(OS::get_singleton()->get_environment("HOME").path_join(String("/.cargo/bin/addr2line")), args, &output, &ret);
+			if (err == OK && ret == 0) {
+				exe_name = OS::get_singleton()->get_environment("HOME").path_join(String("/.cargo/bin/addr2line"));
+			}
+		}
+		if (exe_name.is_empty()) {
+			String output;
+			Error err = OS::get_singleton()->execute(String("llvm-addr2line"), args, &output, &ret);
+			if (err == OK && ret == 0) {
+				exe_name = String("llvm-addr2line");
+			}
+		}
+		if (exe_name.is_empty()) {
+			exe_name = String("addr2line");
+		}
+
+		args.clear();
 		for (size_t i = 0; i < size; i++) {
 			char str[1024];
 			snprintf(str, 1024, "%p", (void *)((uintptr_t)bt_buffer[i] - relocation));
@@ -111,40 +141,46 @@ static void handle_crash(int sig) {
 		}
 		args.push_back("-e");
 		args.push_back(_execpath);
+		args.push_back("-f");
+		args.push_back("-p");
+		args.push_back("-C");
 
 		// Try to get the file/line number using addr2line
-		int ret;
-		String output = "";
-		Error err = OS::get_singleton()->execute(String("addr2line"), args, &output, &ret);
-		Vector<String> addr2line_results;
+		String output;
+		Error err = OS::get_singleton()->execute(exe_name, args, &output, &ret);
 		if (err == OK) {
-			addr2line_results = output.substr(0, output.length() - 1).split("\n", false);
-		}
+			Vector<String> addr2line_results = output.substr(0, output.length() - 1).split("\n", false);
 
-		for (size_t i = 1; i < size; i++) {
-			char fname[1024];
-			Dl_info info;
+			for (size_t i = 1; i < size; i++) {
+				// Simplify printed file paths to remove redundant `/./` sections (e.g. `/opt/godot/./core` -> `/opt/godot/core`).
+				print_error(vformat("[%d] %x - %s", (int64_t)i, (uint64_t)bt_buffer[i], addr2line_results[i].replace("/./", "/")));
+			}
+		} else {
+			// Otherwise fall back to trace symbols.
+			for (size_t i = 1; i < size; i++) {
+				char fname[1024];
+				Dl_info info;
 
-			snprintf(fname, 1024, "%s", strings[i]);
+				snprintf(fname, 1024, "%s", strings[i]);
 
-			// Try to demangle the function name to provide a more readable one
-			if (dladdr(bt_buffer[i], &info) && info.dli_sname) {
-				if (info.dli_sname[0] == '_') {
-					int status = 0;
-					char *demangled = abi::__cxa_demangle(info.dli_sname, nullptr, nullptr, &status);
+				// Try to demangle the function name to provide a more readable one.
+				if (dladdr(bt_buffer[i], &info) && info.dli_sname) {
+					if (info.dli_sname[0] == '_') {
+						int status = 0;
+						char *demangled = abi::__cxa_demangle(info.dli_sname, nullptr, nullptr, &status);
 
-					if (status == 0 && demangled) {
-						snprintf(fname, 1024, "%s", demangled);
-					}
+						if (status == 0 && demangled) {
+							snprintf(fname, 1024, "%s", demangled);
+						}
 
-					if (demangled) {
-						free(demangled);
+						if (demangled) {
+							free(demangled);
+						}
 					}
 				}
-			}
 
-			// Simplify printed file paths to remove redundant `/./` sections (e.g. `/opt/godot/./core` -> `/opt/godot/core`).
-			print_error(vformat("[%d] %s (%s)", (int64_t)i, fname, err == OK ? addr2line_results[i].replace("/./", "/") : ""));
+				print_error(vformat("[%d] %x - %s", (int64_t)i, (uint64_t)bt_buffer[i], fname));
+			}
 		}
 
 		free(strings);
