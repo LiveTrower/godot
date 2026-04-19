@@ -262,24 +262,93 @@ bool hybrid_root_finder_find_root(
 }
 
 struct DepthRayMarchResult {
+	/// True if the raymarch hit something.
 	bool hit;
+
+	/// In case of a hit, the normalized distance to it.
+	///
+	/// In case of a miss, the furthest the ray managed to travel, which could either be
+	/// exceeding the max range, or getting behind a surface further than the depth thickness.
+	///
+	/// Range: `0..=1` as a lerp factor over `ray_start_cs..=ray_end_cs`.
 	float hit_t;
+
+	/// UV corresponding to `hit_t`.
 	vec2 hit_uv;
+
+	/// The distance that the hit point penetrates into the hit surface.
+	/// Will normally be non-zero due to limited precision of the ray march.
+	///
+	/// In case of a miss: undefined.
 	float hit_penetration;
+
+	/// Ditto, within the range `0..DepthRayMarch::depth_thickness_linear_z`
+	///
+	/// In case of a miss: undefined.
 	float hit_penetration_frac;
 };
 
 struct DepthRayMarch {
+	/// Number of steps to be taken at regular intervals to find an initial intersection.
+	/// Must not be zero.
 	uint linear_steps;
+
+	/// Exponent to be applied in the linear part of the march.
+	///
+	/// A value of 1.0 will result in equidistant steps, and higher values will compress
+	/// the earlier steps, and expand the later ones. This might be desirable in order
+	/// to get more detail close to objects in SSR or SSGI.
+	///
+	/// For optimal performance, this should be a small compile-time unsigned integer,
+	/// such as 1 or 2.
 	float linear_march_exponent;
+
+	/// Number of steps in a bisection (binary search) to perform once the linear search
+	/// has found an intersection. Helps narrow down the hit, increasing the chance of
+	/// the secant method finding an accurate hit point.
+	///
+	/// Useful when sampling color, e.g. SSR or SSGI, but pointless for contact shadows.
 	uint bisection_steps;
+
+	/// Approximate the root position using the secant method -- by solving for line-line
+	/// intersection between the ray approach rate and the surface gradient.
+	///
+	/// Useful when sampling color, e.g. SSR or SSGI, but pointless for contact shadows.
 	bool use_secant;
+
+	/// Jitter to apply to the first step of the linear search; 0..=1 range, mapping
+	/// to the extent of a single linear step in the first phase of the search.
+	/// Use 1.0 if you don't want jitter.
 	float jitter;
+
+	/// Clip space coordinates (w=1) of the ray.
 	vec3 ray_start_cs;
 	vec3 ray_end_cs;
+
+	/// Should be used for contact shadows, but not for any color bounce, e.g. SSR.
+	///
+	/// For SSR etc. this can easily create leaks, but with contact shadows it allows the rays
+	/// to pass over invalid occlusions (due to thickness), and find potentially valid ones ahead.
+	///
+	/// Note that this will cause the linear search to potentially miss surfaces,
+	/// because when the ray overshoots and ends up penetrating a surface further than
+	/// `depth_thickness_linear_z`, the ray marcher will just carry on.
+	///
+	/// For this reason, this may require a lot of samples, or high depth thickness,
+	/// so that `depth_thickness_linear_z >= world space ray length / linear_steps`.
 	bool march_behind_surfaces;
+
+	/// If `true`, the ray marcher only performs nearest lookups of the depth buffer,
+	/// resulting in aliasing and false occlusion when marching tiny detail.
+	/// It should work fine for longer traces with fewer rays though.
 	bool use_sloppy_march;
+
+	/// When marching the depth buffer, we only have 2.5D information, and don't know how
+	/// thick surfaces are. We shall assume that the depth buffer fragments are little squares
+	/// with a constant thickness defined by this parameter.
 	float depth_thickness_linear_z;
+
+	/// Size of the depth buffer we're marching in, in pixels.
 	vec2 depth_tex_size;
 };
 
