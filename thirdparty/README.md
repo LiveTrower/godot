@@ -771,7 +771,7 @@ Files extracted from upstream source:
 ## minizip
 
 - Upstream: https://github.com/madler/zlib
-- Version: 1.3.1.2 (570720b0c24f9686c33f35a1b3165c1f568b96be, 2025)
+- Version: 1.3.2 (da607da739fa6047df13e66a2af6b8bec7c2a498, 2026)
 - License: zlib
 
 Files extracted from the upstream source:
@@ -1115,7 +1115,7 @@ Patches:
 ## ufbx
 
 - Upstream: https://github.com/ufbx/ufbx
-- Version: 0.21.2 (6ecd6177af59c82ec363356ac36c3a4245b85321, 2025)
+- Version: 0.21.3 (83bc7cf44f76bc8622de63b809a42b5d557cd733, 2026)
 - License: MIT
 
 Files extracted from upstream source:
@@ -1287,7 +1287,7 @@ Files extracted from upstream source:
 ## zlib
 
 - Upstream: https://github.com/madler/zlib
-- Version: 1.3.1.2 (570720b0c24f9686c33f35a1b3165c1f568b96be, 2025)
+- Version: 1.3.2 (da607da739fa6047df13e66a2af6b8bec7c2a498, 2026)
 - License: zlib
 
 Files extracted from upstream source:
