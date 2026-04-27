@@ -69,7 +69,7 @@ hvec3 sheen_lobe(half sheen_roughness, half sheen, hvec3 sheen_color, half cNdot
 half clearcoat_lobe(half clearcoat_roughness, half clearcoat, half ccNdotH, half cLdotH, half ccNdotL, hvec3 vertex_normal, hvec3 H, out half attenuation) {
 	half D = D_GGX(ccNdotH, half(mix(half(0.001), half(0.1), clearcoat_roughness)), vertex_normal, H);
 	half V = V_Kelemen(cLdotH);
-	half F = clearcoat * SchlickFresnel(half(0.04), half(0.96), cLdotH);
+	half F = clearcoat * SchlickFresnel(half(0.04), half(1.0), cLdotH);
 	// The clear coat layer assumes an IOR of 1.5 (4% reflectance)
 	attenuation = half(1.0) - F;
 	return D * V * F * ccNdotL;
@@ -1260,7 +1260,7 @@ void light_process_area(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 	float cc_specular_ltc = 0.0;
 	vec2 cc_fresnel;
 	ltc_evaluate_specular(vec3(vertex_normal), vec3(eye_vec), sqrt(mix(0.001, 0.1, float(clearcoat_roughness))), points, area_lights.data[idx].projector_rect, max_mipmap, area_light_atlas, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP, ltc_lut1, ltc_lut2, cc_specular_ltc, cc_fresnel, cc_specular_tex_color);
-	half Fr = half(0.04) * max(half(cc_fresnel.x), half(0.0)) + half(1.0 - 0.04) * max(half(cc_fresnel.y), half(0.0)) * clearcoat;
+	half Fr = (half(0.04) * max(half(cc_fresnel.x), half(0.0)) + half(1.0 - 0.04) * max(half(cc_fresnel.y), half(0.0))) * clearcoat;
 	cc_attenuation = half(1.0) - Fr;
 	specular_light += half(cc_specular_ltc) * hvec3(cc_specular_tex_color) * Fr * color * light_attenuation_ltc * specular_amount;
 #endif // LIGHT_CLEARCOAT_USED
@@ -1307,12 +1307,12 @@ void light_process_area(uint idx, vec3 vertex, hvec3 eye_vec, hvec3 normal, vec3
 #endif // LIGHT_CODE_USED
 }
 
-void reflection_process(uint ref_index, vec3 vertex, hvec3 ref_vec, hvec3 normal, half roughness, hvec3 ambient_light, hvec3 specular_light,
+void reflection_process(uint ref_index, vec3 vertex, hvec3 ref_vec, hvec3 normal, half roughness, hvec3 ambient_light,
 #ifdef LIGHT_CLEARCOAT_USED
-		hvec3 cc_specular_light, hvec3 cc_ref_vec, half cc_roughness, inout hvec3 cc_reflection_accum,
+		hvec3 cc_ref_vec, half cc_roughness, inout hvec4 cc_reflection_accum,
 #endif
 #ifdef LIGHT_SHEEN_USED
-		hvec3 sh_specular_light, hvec3 sh_ref_vec, half sheen_roughness, inout hvec3 sh_reflection_accum,
+		hvec3 sh_ref_vec, half sheen_roughness, inout hvec4 sh_reflection_accum,
 #endif
 		inout hvec4 ambient_accum, inout hvec4 reflection_accum) {
 	vec3 box_extents = reflections.data[ref_index].box_extents;
@@ -1377,56 +1377,69 @@ void reflection_process(uint ref_index, vec3 vertex, hvec3 ref_vec, hvec3 normal
 	}
 
 #ifdef LIGHT_CLEARCOAT_USED
-	vec3 local_cc_ref_vec = (reflections.data[ref_index].local_matrix * vec4(cc_ref_vec, 0.0)).xyz;
+	if (reflections.data[ref_index].intensity > 0.0 && cc_reflection_accum.a < half(1.0)) { // compute clearcoat reflection
+		vec3 local_cc_ref_vec = (reflections.data[ref_index].local_matrix * vec4(cc_ref_vec, 0.0)).xyz;
 
-	if (reflections.data[ref_index].box_project) { // Box project.
+		if (reflections.data[ref_index].box_project) { // Box project.
 
-		vec3 nrdir = normalize(local_cc_ref_vec);
-		vec3 rbmax = (box_extents - local_pos) / nrdir;
-		vec3 rbmin = (-box_extents - local_pos) / nrdir;
+			vec3 nrdir = normalize(local_cc_ref_vec);
+			vec3 rbmax = (box_extents - local_pos) / nrdir;
+			vec3 rbmin = (-box_extents - local_pos) / nrdir;
 
-		vec3 rbminmax = mix(rbmin, rbmax, greaterThan(nrdir, vec3(0.0, 0.0, 0.0)));
+			vec3 rbminmax = mix(rbmin, rbmax, greaterThan(nrdir, vec3(0.0, 0.0, 0.0)));
 
-		float fa = min(min(rbminmax.x, rbminmax.y), rbminmax.z);
-		vec3 posonbox = local_pos + nrdir * fa;
-		local_cc_ref_vec = posonbox - reflections.data[ref_index].box_offset;
+			float fa = min(min(rbminmax.x, rbminmax.y), rbminmax.z);
+			vec3 posonbox = local_pos + nrdir * fa;
+			local_cc_ref_vec = posonbox - reflections.data[ref_index].box_offset;
+		}
+
+		hvec4 cc_reflection;
+		half cc_reflection_blend = max(half(0.0), blend - cc_reflection_accum.a);
+
+		float cc_roughness_lod = sqrt(cc_roughness) * MAX_ROUGHNESS_LOD;
+		vec2 cc_reflection_uv = vec3_to_oct_with_border(local_cc_ref_vec, border_size);
+		cc_reflection.rgb = hvec3(textureLod(sampler2DArray(reflection_atlas, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(cc_reflection_uv, reflections.data[ref_index].index), cc_roughness_lod).rgb) * REFLECTION_MULTIPLIER;
+		cc_reflection.rgb *= half(reflections.data[ref_index].exposure_normalization);
+		cc_reflection.a = cc_reflection_blend;
+
+		cc_reflection.rgb *= half(reflections.data[ref_index].intensity);
+		cc_reflection.rgb *= cc_reflection.a;
+
+		cc_reflection_accum += cc_reflection;
 	}
-
-	float cc_roughness_lod = sqrt(cc_roughness) * MAX_ROUGHNESS_LOD;
-	vec2 cc_reflection_uv = vec3_to_oct_with_border(local_cc_ref_vec, border_size);
-	hvec3 cc_reflection = hvec3(textureLod(sampler2DArray(reflection_atlas, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(cc_reflection_uv, reflections.data[ref_index].index), cc_roughness_lod).rgb) * REFLECTION_MULTIPLIER;
-	cc_reflection *= half(reflections.data[ref_index].exposure_normalization);
-	if (reflections.data[ref_index].exterior) {
-		cc_reflection = mix(cc_specular_light, cc_reflection, blend);
-	}
-	cc_reflection *= half(reflections.data[ref_index].intensity) * blend;
-	cc_reflection_accum += cc_reflection;
 #endif // LIGHT_CLEARCOAT_USED
 
 #ifdef LIGHT_SHEEN_USED
-	vec3 local_sh_ref_vec = (reflections.data[ref_index].local_matrix * vec4(sh_ref_vec, 0.0)).xyz;
+	if (reflections.data[ref_index].intensity > 0.0 && sh_reflection_accum.a < half(1.0)) { // compute sheen reflection
+		vec3 local_sh_ref_vec = (reflections.data[ref_index].local_matrix * vec4(sh_ref_vec, 0.0)).xyz;
 
-	if (reflections.data[ref_index].box_project) { // Box project.
+		if (reflections.data[ref_index].box_project) { // Box project.
 
-		vec3 nrdir = normalize(local_sh_ref_vec);
-		vec3 rbmax = (box_extents - local_pos) / nrdir;
-		vec3 rbmin = (-box_extents - local_pos) / nrdir;
+			vec3 nrdir = normalize(local_sh_ref_vec);
+			vec3 rbmax = (box_extents - local_pos) / nrdir;
+			vec3 rbmin = (-box_extents - local_pos) / nrdir;
 
-		vec3 rbminmax = mix(rbmin, rbmax, greaterThan(nrdir, vec3(0.0, 0.0, 0.0)));
+			vec3 rbminmax = mix(rbmin, rbmax, greaterThan(nrdir, vec3(0.0, 0.0, 0.0)));
 
-		float fa = min(min(rbminmax.x, rbminmax.y), rbminmax.z);
-		vec3 posonbox = local_pos + nrdir * fa;
-		local_sh_ref_vec = posonbox - reflections.data[ref_index].box_offset;
+			float fa = min(min(rbminmax.x, rbminmax.y), rbminmax.z);
+			vec3 posonbox = local_pos + nrdir * fa;
+			local_sh_ref_vec = posonbox - reflections.data[ref_index].box_offset;
+		}
+
+		hvec4 sh_reflection;
+		half sh_reflection_blend = max(half(0.0), blend - sh_reflection_accum.a);
+
+		float sh_roughness_lod = sqrt(sheen_roughness) * MAX_ROUGHNESS_LOD;
+		vec2 sh_reflection_uv = vec3_to_oct_with_border(local_sh_ref_vec, border_size);
+		sh_reflection.rgb = hvec3(textureLod(sampler2DArray(reflection_atlas, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(sh_reflection_uv, reflections.data[ref_index].index), sh_roughness_lod).rgb) * REFLECTION_MULTIPLIER;
+		sh_reflection.rgb *= half(reflections.data[ref_index].exposure_normalization);
+		sh_reflection.a = sh_reflection_blend;
+
+		sh_reflection.rgb *= half(reflections.data[ref_index].intensity);
+		sh_reflection.rgb *= sh_reflection.a;
+
+		sh_reflection_accum.rgb += sh_reflection;
 	}
-
-	vec2 sh_reflection_uv = vec3_to_oct_with_border(local_sh_ref_vec, border_size);
-	vec3 sh_reflection = textureLod(sampler2DArray(reflection_atlas, DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(sh_reflection_uv, reflections.data[ref_index].index), sheen_perceptual_roughness * MAX_ROUGHNESS_LOD).rgb * sc_luminance_multiplier();
-	sh_reflection *= reflections.data[ref_index].exposure_normalization;
-	if (reflections.data[ref_index].exterior) {
-		sh_reflection = mix(sh_specular_light, sh_reflection, blend);
-	}
-	sh_reflection *= reflections.data[ref_index].intensity * blend;
-	sh_reflection_accum += sh_reflection;
 #endif // LIGHT_SHEEN_USED
 
 	if (ambient_accum.a >= half(1.0)) {

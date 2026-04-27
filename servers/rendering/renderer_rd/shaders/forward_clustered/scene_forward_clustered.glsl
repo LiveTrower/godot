@@ -2074,10 +2074,10 @@ void fragment_shader(in SceneData scene_data) {
 		vec4 reflection_accum = vec4(0.0, 0.0, 0.0, 0.0);
 		vec4 ambient_accum = vec4(0.0, 0.0, 0.0, 0.0);
 #ifdef LIGHT_CLEARCOAT_USED
-		vec3 cc_reflection_accum = vec3(0.0, 0.0, 0.0);
+		vec4 cc_reflection_accum = vec4(0.0, 0.0, 0.0, 0.0);
 #endif
 #ifdef LIGHT_SHEEN_USED
-		vec3 sh_reflection_accum = vec3(0.0, 0.0, 0.0);
+		vec4 sh_reflection_accum = vec4(0.0, 0.0, 0.0, 0.0);
 #endif
 
 		uint cluster_reflection_offset = cluster_offset + implementation_data.cluster_type_size * 4;
@@ -2123,16 +2123,23 @@ void fragment_shader(in SceneData scene_data) {
 					continue; //not masked
 				}
 
-				if (reflection_accum.a >= 1.0 && ambient_accum.a >= 1.0) {
+				bool accum_complete = reflection_accum.a >= 1.0 && ambient_accum.a >= 1.0;
+#ifdef LIGHT_CLEARCOAT_USED
+				accum_complete = accum_complete && cc_reflection_accum.a >= 1.0;
+#endif
+#ifdef LIGHT_SHEEN_USED
+				accum_complete = accum_complete && sh_reflection_accum.a >= 1.0;
+#endif
+				if (accum_complete) {
 					break;
 				}
 
-				reflection_process(reflection_index, vertex, ref_vec, normal, roughness, ambient_light, indirect_specular_light,
+				reflection_process(reflection_index, vertex, ref_vec, normal, roughness, ambient_light,
 #ifdef LIGHT_CLEARCOAT_USED
-						cc_specular_light, cc_ref_vec, mix(0.001, 0.1, clearcoat_roughness), cc_reflection_accum,
+						cc_ref_vec, mix(0.001, 0.1, clearcoat_roughness), cc_reflection_accum,
 #endif
 #ifdef LIGHT_SHEEN_USED
-						sh_specular_light, sh_ref_vec, sheen_roughness, sh_reflection_accum,
+						sh_ref_vec, sheen_roughness, sh_reflection_accum,
 #endif
 						ambient_accum, reflection_accum);
 			}
@@ -2146,15 +2153,33 @@ void fragment_shader(in SceneData scene_data) {
 			reflection_accum.rgb = indirect_specular_light * (1.0 - reflection_accum.a) + reflection_accum.rgb;
 		}
 
+#ifdef LIGHT_CLEARCOAT_USED
+		if (cc_reflection_accum.a < 1.0) {
+			cc_reflection_accum.rgb = cc_specular_light * (1.0 - cc_reflection_accum.a) + cc_reflection_accum.rgb;
+		}
+#endif
+
+#ifdef LIGHT_SHEEN_USED
+		if (sh_reflection_accum.a < 1.0) {
+			sh_reflection_accum.rgb = sh_specular_light * (1.0 - sh_reflection_accum.a) + sh_reflection_accum.rgb;
+		}
+#endif
+
 		if (reflection_accum.a > 0.0) {
 			indirect_specular_light = reflection_accum.rgb;
-#ifdef LIGHT_CLEARCOAT_USED
-			cc_specular_light = cc_reflection_accum.rgb;
-#endif
-#ifdef LIGHT_SHEEN_USED
-			sh_specular_light = sh_reflection_accum.rgb;
-#endif
 		}
+
+#ifdef LIGHT_CLEARCOAT_USED
+		if (cc_reflection_accum.a > 0.0) {
+			cc_specular_light = cc_reflection_accum.rgb;
+		}
+#endif
+
+#ifdef LIGHT_SHEEN_USED
+		if (sh_reflection_accum.a > 0.0) {
+			sh_specular_light = sh_reflection_accum.rgb;
+		}
+#endif
 
 #if !defined(USE_LIGHTMAP)
 		if (ambient_accum.a > 0.0) {
@@ -2291,8 +2316,7 @@ void fragment_shader(in SceneData scene_data) {
 		float geo_NdotV = max(dot(geo_normal, view), 0.0001); // We want to use geometric normal, not normal_map
 		// The clearcoat layer assumes an IOR of 1.5 (4% reflectance).
 		// Attenuate underlying diffuse/specular by clearcoat fresnel (ONLY fresnel, hence we don't just invert the BRDF below).
-		float NdotV5 = SchlickFresnel(geo_NdotV);
-		float F = mix(0.04, 1.0, NdotV5) * clearcoat;
+		float F = SchlickFresnel(0.04, 1.0, geo_NdotV) * clearcoat;
 		float cc_attenuation = 1.0 - F;
 
 		ambient_light *= cc_attenuation;
