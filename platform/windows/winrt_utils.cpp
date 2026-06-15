@@ -66,7 +66,8 @@ struct DispatcherQueueOptions {
 	DISPATCHERQUEUE_THREAD_APARTMENTTYPE apartmentType;
 };
 
-extern "C" HRESULT __declspec(dllexport) WINAPI CreateDispatcherQueueController(DispatcherQueueOptions options, void *dispatcherQueueController);
+typedef HRESULT(WINAPI *CreateDispatcherQueueControllerPtr)(DispatcherQueueOptions options, void *dispatcherQueueController);
+CreateDispatcherQueueControllerPtr CreateDispatcherQueueController;
 
 #ifndef E_BOUNDS
 #define E_BOUNDS _HRESULT_TYPEDEF_(0x8000000B)
@@ -126,13 +127,30 @@ class WinRTWindowData {
 };
 
 bool WinRTUtils::create_queue() {
+	HMODULE coremessaging = LoadLibraryW(L"coremessaging.dll");
+	if (!coremessaging) {
+		return false;
+	}
+	CreateDispatcherQueueController = (CreateDispatcherQueueControllerPtr)(void *)GetProcAddress(coremessaging, "CreateDispatcherQueueController");
+	if (!CreateDispatcherQueueController) {
+		return false;
+	}
+
 	DispatcherQueueOptions options{ sizeof(options), DQTYPE_THREAD_CURRENT, DQTAT_COM_NONE };
 	HRESULT res = CreateDispatcherQueueController(options, winrt::put_abi(controller));
 	return SUCCEEDED(res);
 }
 
 void WinRTUtils::destroy_queue() {
-	controller.ShutdownQueueAsync();
+	IAsyncAction action = controller.ShutdownQueueAsync();
+	while (action.Status() == AsyncStatus::Started) {
+		MSG msg = {};
+		while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+			TranslateMessage(&msg);
+			DispatchMessageW(&msg);
+		}
+	}
+	ERR_FAIL_COND_MSG(action.Status() == AsyncStatus::Error, "DispatcherQueueController shutdown failed.");
 }
 
 bool WinRTUtils::try_show_onecore_emoji_picker() {

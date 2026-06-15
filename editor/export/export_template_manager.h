@@ -35,12 +35,15 @@
 
 class Button;
 class EditorExportPreset;
+class EditorFileDialog;
 class ItemList;
 class HBoxContainer;
+class Label;
 class OptionButton;
 class Texture2D;
 class Tree;
 class TreeItem;
+class VSplitContainer;
 
 class TemplateDownloader : public HTTPRequest {
 	GDCLASS(TemplateDownloader, HTTPRequest);
@@ -114,7 +117,6 @@ class ExportTemplateManager : public AcceptDialog {
 		WEB_EXTENSIONS_NOTHREADS,
 
 		ANDROID,
-		ANDROID_SOURCE,
 
 		IOS,
 
@@ -189,6 +191,7 @@ class ExportTemplateManager : public AcceptDialog {
 	HashMap<String, int> checked_cache;
 	HashMap<String, bool> folding_cache;
 
+	VSplitContainer *center_split = nullptr;
 	OptionButton *mirrors_list = nullptr;
 	Button *open_mirror = nullptr;
 	ItemList *version_list = nullptr;
@@ -196,8 +199,12 @@ class ExportTemplateManager : public AcceptDialog {
 	Tree *available_templates_tree = nullptr;
 	Button *open_folder_button = nullptr;
 	Button *install_button = nullptr;
+	Button *delete_all_button = nullptr;
+	Button *tpz_button = nullptr;
 	HBoxContainer *offline_container = nullptr;
+	Label *offline_mode_label = nullptr;
 	ConfirmationDialog *confirm_delete = nullptr;
+	EditorFileDialog *tpz_selection_dialog = nullptr;
 
 	void _request_mirrors();
 	void _mirrors_request_completed(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body);
@@ -207,11 +214,14 @@ class ExportTemplateManager : public AcceptDialog {
 	bool _is_online() const;
 	void _force_online_mode();
 	void _open_mirror();
+	void _delete_all();
 	void _delete_confirmed();
+	void _delete_file(const TreeItem *p_item);
+	void _tpz_file_selected(const String &p_file);
 
 	void _initialize_template_data();
+	void _update_version_list();
 	void _update_template_tree();
-	void _update_template_tree_theme(Tree *p_tree);
 	void _fill_template_tree(Tree *p_tree, const HashMap<TemplateID, LocalVector<String>> &p_installed_template_files, bool p_is_current_version);
 	void _update_template_tree_with_folding();
 	void _update_install_button();
@@ -246,7 +256,7 @@ class ExportTemplateManager : public AcceptDialog {
 	void _add_fail_reason_button(TreeItem *p_item, const String &p_filename = String());
 
 	String _get_item_path(TreeItem *p_item) const;
-	bool _item_is_file(TreeItem *p_item) const;
+	bool _item_is_file(const TreeItem *p_item) const;
 	bool _status_is_finished(DownloadStatus p_status) { return p_status == DownloadStatus::COMPLETED || p_status == DownloadStatus::FAILED; }
 	float _get_download_progress(const TreeItem *p_item) const;
 	void _draw_item_progress(TreeItem *p_item, const Rect2 &p_rect);

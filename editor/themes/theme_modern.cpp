@@ -1238,11 +1238,16 @@ void ThemeModern::populate_standard_styles(const Ref<EditorTheme> &p_theme, Edit
 		p_theme->set_constant("line_spacing", "Label", 3 * EDSCALE);
 		p_theme->set_constant("outline_size", "Label", 0);
 
-		// Label with no vertical margins.
+		// Label with different margins.
 
-		p_theme->set_type_variation("LabelVMarginless", "Label");
-		Ref<StyleBoxEmpty> v_marginless_style = EditorThemeManager::make_empty_stylebox(label_style->get_margin(SIDE_LEFT), 0, label_style->get_margin(SIDE_RIGHT), 0);
-		p_theme->set_stylebox(CoreStringName(normal), "Label", v_marginless_style);
+		p_theme->set_type_variation("LabelNoMargin", "Label");
+		p_theme->set_stylebox(CoreStringName(normal), "LabelNoMargin", p_config.base_empty_style);
+
+		p_theme->set_type_variation("LabelNoMarginVertical", "Label");
+		Ref<StyleBoxEmpty> no_v_margin_style = label_style->duplicate();
+		no_v_margin_style->set_content_margin(SIDE_TOP, 0);
+		no_v_margin_style->set_content_margin(SIDE_BOTTOM, 0);
+		p_theme->set_stylebox(CoreStringName(normal), "LabelNoMarginVertical", no_v_margin_style);
 	}
 
 	// SpinBox.
@@ -2048,16 +2053,30 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 			p_theme->set_constant("margin_bottom", "NoBorderHorizontalBottomWide", margin);
 
 			// Used in the asset library. Specifically, the ("bg", "AssetLib") stylebox.
-			p_theme->set_type_variation("NoBorderAssetLib", "NoBorderHorizontal");
-			p_theme->set_constant("margin_bottom", "NoBorderAssetLib", -p_config.base_margin);
 
-			margin = -panel_margin - p_config.base_margin;
+			margin = -p_config.base_margin * EDSCALE;
+
+			p_theme->set_type_variation("NoBorderAssetLib", "MarginContainer");
+			p_theme->set_constant("margin_left", "NoBorderAssetLib", margin);
+			p_theme->set_constant("margin_right", "NoBorderAssetLib", margin);
+			p_theme->set_constant("margin_bottom", "NoBorderAssetLib", margin);
+
+			p_theme->set_type_variation("NoBorderAssetLibHorizontal", "MarginContainer");
+			p_theme->set_constant("margin_left", "NoBorderAssetLibHorizontal", margin);
+			p_theme->set_constant("margin_right", "NoBorderAssetLibHorizontal", margin);
+
+			margin -= panel_margin;
 
 			// Same as above, but with the margins adapted for the project manager.
-			p_theme->set_type_variation("NoBorderAssetLibProjectManager", "NoBorderHorizontal");
+
+			p_theme->set_type_variation("NoBorderAssetLibProjectManager", "MarginContainer");
 			p_theme->set_constant("margin_left", "NoBorderAssetLibProjectManager", margin);
 			p_theme->set_constant("margin_right", "NoBorderAssetLibProjectManager", margin);
 			p_theme->set_constant("margin_bottom", "NoBorderAssetLibProjectManager", margin);
+
+			p_theme->set_type_variation("NoBorderAssetLibProjectManagerHorizontal", "MarginContainer");
+			p_theme->set_constant("margin_left", "NoBorderAssetLibProjectManagerHorizontal", margin);
+			p_theme->set_constant("margin_right", "NoBorderAssetLibProjectManagerHorizontal", margin);
 
 			int bottom_margin = p_theme->get_stylebox(SNAME("BottomPanel"), EditorStringName(EditorStyles))->get_content_margin(SIDE_LEFT);
 			margin = -bottom_margin;
@@ -2565,6 +2584,9 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 		p_theme->set_type_variation("AnimationTrackMargins", "MarginContainer");
 		p_theme->set_constant("margin_left", "AnimationTrackMargins", margin);
 		p_theme->set_constant("margin_right", "AnimationTrackMargins", margin);
+
+		p_theme->set_type_variation("AnimationBezierMargin", "MarginContainer");
+		p_theme->set_constant("margin_left", "AnimationBezierMargin", margin);
 
 		// AnimationTimelineEdit.
 		// "primary" is used for integer timeline values, "secondary" for decimals.
