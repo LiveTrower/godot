@@ -13,21 +13,23 @@ layout(push_constant, std430) uniform Params {
 	ivec2 screen_size;
 	ivec2 light_offset;
 	vec4 light_coordinate;
-	int max_steps;
 	float bilinear_threshold;
 	float shadow_contrast;
 	float surface_thickness;
-	int use_precision_offset;
 	int ignore_edge_pixels;
-	int bilinear_sampling_offset_mode;
+	float depth_begin;
+	float depth_end;
 }
 params;
 
 #define WAVE_SIZE 64
-#define SAMPLE_COUNT 60
-#define READ_COUNT (SAMPLE_COUNT / WAVE_SIZE + 2)
+#ifndef READ_COUNT
+#define READ_COUNT 2
+#endif
+#define SAMPLE_COUNT ((READ_COUNT - 1) * WAVE_SIZE - 1)
 #define HARD_SHADOW_SAMPLES 4
 #define FADE_OUT_SAMPLES 8
+
 // Reverse-Z
 #define DEPTH_NEAR 1.0
 #define DEPTH_FAR 0.0
@@ -35,17 +37,10 @@ params;
 
 shared float DepthData[READ_COUNT * WAVE_SIZE];
 
-void main() {
-	int group_id = int(gl_WorkGroupID.x);
-	int thread_id = int(gl_LocalInvocationID.x);
-	vec4 light = params.light_coordinate;
-
+void organise_groups(vec4 light, in float converging, int group_id, ivec2 group_offset, int thread_id, out bool x_major_axis, out vec2 group_start, out vec2 group_end, out vec2 group_delta, out float pixel_distance, out vec2 pixel_pos) {
 	vec2 light_xy = floor(light.xy) + 0.5;
 	vec2 light_xy_fraction = light.xy - light_xy;
 
-	float direction = -light.w;
-
-	ivec2 group_offset = ivec2(gl_WorkGroupID.yz);
 	ivec2 xy = group_offset * WAVE_SIZE + params.light_offset;
 	ivec2 sign_xy = ivec2(sign(vec2(xy)));
 
@@ -56,35 +51,72 @@ void main() {
 	xy += axis * group_id;
 	vec2 xy_f = vec2(xy);
 
-	//	bool x_major_axis = abs(xy_f.x) > abs(xy_f.y);
-	bool x_major_axis = !horizontal;
+	x_major_axis = abs(xy_f.x) > abs(xy_f.y);
 	float main_axis = x_major_axis ? xy_f.x : xy_f.y;
 
 	float ma_light_frac = x_major_axis ? light_xy_fraction.x : light_xy_fraction.y;
 	ma_light_frac = main_axis > 0.0 ? -ma_light_frac : ma_light_frac;
 
 	float main_axis_start = abs(main_axis) + ma_light_frac;
-	float main_axis_end = main_axis_start - float(WAVE_SIZE);
+	float main_axis_end = max(main_axis_start - float(WAVE_SIZE), 0.0);
 
-	vec2 group_start = xy_f + light_xy;
-	vec2 group_end = mix(light.xy, group_start, main_axis_end / main_axis_start);
-
-	bool start_off = any(lessThan(group_start, vec2(0.0))) || any(greaterThanEqual(group_start, vec2(params.screen_size)));
-	bool end_off = any(lessThan(group_end, vec2(0.0))) || any(greaterThanEqual(group_end, vec2(params.screen_size)));
-	if (start_off && end_off) {
-		return;
-	}
-	if (xy == ivec2(0, 0)) {
-		return;
-	}
+	group_start = xy_f + light_xy;
+	group_end = mix(light.xy, group_start, main_axis_end / main_axis_start);
 
 	// Bake direction into delta so caller can use: pixel_pos += out_delta (same as custom version)
-	float thread_step = float(thread_id ^ (direction > 0.0 ? (WAVE_SIZE - 1) : 0));
+	float thread_step = float(thread_id ^ (converging > 0.0 ? (WAVE_SIZE - 1) : 0));
 
-	vec2 pixel_pos = mix(group_start, group_end, thread_step / float(WAVE_SIZE));
-	float pixel_distance = main_axis_start - thread_step;
+	pixel_pos = mix(group_start, group_end, thread_step / float(WAVE_SIZE));
+	pixel_distance = main_axis_start - thread_step;
+	group_delta = converging * (group_start - group_end);
+}
 
-	vec2 group_delta = direction * (group_start - group_end);
+void organise_groups_orthogonal(vec4 light, int group_id, ivec2 group_offset, int thread_id, out bool x_major_axis, out vec2 group_start, out vec2 group_end, out vec2 group_delta, out float pixel_distance, out vec2 pixel_pos) {
+	ivec2 xy = group_offset * WAVE_SIZE + params.light_offset;
+
+	// Determine group orientation and direction
+	bool horizontal = abs(light.x) > abs(light.y);
+	ivec2 axis = horizontal ? ivec2(0.0, 1.0) : ivec2(1.0, 0.0);
+	x_major_axis = horizontal;
+
+	// Offset groups
+	xy += axis * group_id;
+	vec2 xy_f = vec2(xy);
+
+	group_start = xy_f;
+	group_end = group_start + WAVE_SIZE * light.xy;
+
+	// Bake direction into delta so caller can use: pixel_pos += out_delta (same as custom version)
+	pixel_pos = mix(group_start, group_end, thread_id / float(WAVE_SIZE));
+	pixel_distance = thread_id;
+	group_delta = group_end - group_start;
+}
+
+void main() {
+	int group_id = int(gl_WorkGroupID.x);
+	int thread_id = int(gl_LocalInvocationID.x);
+	ivec2 group_offset = ivec2(gl_WorkGroupID.yz);
+	vec4 light = params.light_coordinate;
+
+	float converging = -(light.w); // 1 converging rays, -1 diverging rays, 0 parrella rays (orthogonal)
+	vec2 group_start, group_end;
+	vec2 pixel_pos;
+	vec2 group_delta;
+	float pixel_distance;
+	bool x_major_axis;
+	if (converging != 0) {
+		organise_groups(light, converging, group_id, group_offset, thread_id, x_major_axis, group_start, group_end, group_delta, pixel_distance, pixel_pos);
+	} else {
+		organise_groups_orthogonal(light, group_id, group_offset, thread_id, x_major_axis, group_start, group_end, group_delta, pixel_distance, pixel_pos);
+	}
+
+	bvec2 group_below_zero = lessThan(max(group_start, group_end), vec2(0.0));
+	bvec2 group_above_screen = greaterThan(min(group_start, group_end), params.screen_size);
+
+	// Groups entirely offscreen can exit early
+	if (any(group_below_zero) || any(group_above_screen)) {
+		return;
+	}
 
 	float sampling_depth[READ_COUNT];
 	float shadowing_depth[READ_COUNT];
@@ -95,7 +127,6 @@ void main() {
 	ivec2 write_xy = ivec2(pixel_pos);
 	const float edge_skip = 1e20;
 	const bool ignore_edge_pixels = params.ignore_edge_pixels > 0;
-	const bool bilinear_sampling_offset_mode = params.bilinear_sampling_offset_mode > 0;
 	for (int i = 0; i < READ_COUNT; i++) {
 		vec2 read_xy = floor(pixel_pos);
 		float minor_axis = x_major_axis ? pixel_pos.y : pixel_pos.x;
@@ -116,27 +147,26 @@ void main() {
 			is_edge = use_point_filter;
 		}
 
-		if (params.bilinear_sampling_offset_mode > 0) {
-			bilinear = use_point_filter ? 0 : bilinear;
-			//both shadow depth and starting depth are the same in this mode, unless shadow skipping edges
-			sampling_depth[i] = mix(depths.x, depths.y, abs(bilinear));
-			shadowing_depth[i] = (ignore_edge_pixels && use_point_filter) ? edge_skip : sampling_depth[i];
+		// The pixel starts sampling at this depth
+		sampling_depth[i] = depths.x;
+
+		float edge_depth = ignore_edge_pixels ? edge_skip : depths.x;
+		// Any sample in this wavefront is possibly interpolated towards the bilinear sample
+		// So use should use a shadowing depth that is further away, based on the difference between the two samples
+		float shadow_depth = depths.x + abs(depths.x - depths.y) * Z_SIGN;
+
+		// Shadows cast from this depth
+		shadowing_depth[i] = use_point_filter ? edge_depth : shadow_depth;
+
+		float stored_depth;
+		if (converging != 0) {
+			sample_distance[i] = pixel_distance + (WAVE_SIZE * i) * converging;
+			stored_depth = (shadowing_depth[i] - light.z) / sample_distance[i];
 		} else {
-			// The pixel starts sampling at this depth
-			sampling_depth[i] = depths.x;
-
-			float edge_depth = ignore_edge_pixels ? edge_skip : depths.x;
-			// Any sample in this wavefront is possibly interpolated towards the bilinear sample
-			// So use should use a shadowing depth that is further away, based on the difference between the two samples
-			float shadow_depth = depths.x + abs(depths.x - depths.y) * Z_SIGN;
-
-			// Shadows cast from this depth
-			shadowing_depth[i] = use_point_filter ? edge_depth : shadow_depth;
+			sample_distance[i] = pixel_distance + (WAVE_SIZE * i);
+			stored_depth = shadowing_depth[i] - light.z * sample_distance[i];
 		}
 
-		sample_distance[i] = pixel_distance + (WAVE_SIZE * i) * direction;
-
-		float stored_depth = (shadowing_depth[i] - light.z) / sample_distance[i];
 		if (i != 0) {
 			stored_depth = sample_distance[i] > 0.0 ? stored_depth : 1e10;
 		}
@@ -149,21 +179,31 @@ void main() {
 	memoryBarrierShared();
 	barrier();
 
-	float depth_scale = min(sample_distance[0] + direction, 1.0 / params.surface_thickness) * sample_distance[0] / depth_thickness_scale[0];
-
-	float start_depth = sampling_depth[0];
-	if (params.use_precision_offset != 0) {
-		start_depth = mix(start_depth, DEPTH_FAR, -1.0 / float(0xFFFF));
+	// Check if pixel is within depth bounds (fade for smooth transition)
+	float near_fade_start = params.depth_begin * 1.05;
+	float far_fade_start = params.depth_end - params.depth_end * 0.05 - 0.0001;
+	if (sampling_depth[0] <= DEPTH_FAR || sampling_depth[0] <= far_fade_start || sampling_depth[0] >= near_fade_start) {
+		return;
 	}
+	float near_fade = 1.0 - smoothstep(params.depth_begin, near_fade_start, sampling_depth[0]);
+	float far_fade = smoothstep(far_fade_start, params.depth_end, sampling_depth[0]);
+	float depth_fade = near_fade * far_fade;
 
-	start_depth = (start_depth - light.z) / sample_distance[0];
-	start_depth = start_depth * depth_scale - Z_SIGN;
+	float depth_scale;
+	float start_depth = sampling_depth[0];
+	if (converging != 0) {
+		depth_scale = (1.0 / params.surface_thickness) * sample_distance[0] / depth_thickness_scale[0];
+		start_depth = (start_depth - light.z) / sample_distance[0];
+		start_depth = start_depth * depth_scale - Z_SIGN;
+	} else {
+		depth_scale = (1.0 / params.surface_thickness) / depth_thickness_scale[0];
+		start_depth = (start_depth - light.z * sample_distance[0]) * depth_scale - Z_SIGN;
+	}
 
 	int sample_index = thread_id + 1;
 	vec4 shadow_value = vec4(1.0);
 	float hard_shadow = 1.0;
 
-	// Hard shadow samples — one sample can fully shadow the pixel
 	for (int i = 0; i < HARD_SHADOW_SAMPLES; i++) {
 		float depth_delta = abs(start_depth - DepthData[sample_index + i] * depth_scale);
 		hard_shadow = min(hard_shadow, depth_delta);
@@ -188,6 +228,6 @@ void main() {
 
 	// Average the 4 buckets, then take the harder of hard_shadow and averaged result
 	float shadow = min(hard_shadow, dot(shadow_value, vec4(0.25)));
-
+	shadow = mix(1.0, shadow, depth_fade);
 	imageStore(output_shadow, write_xy, vec4(shadow, 0.0, 0.0, 0.0));
 }

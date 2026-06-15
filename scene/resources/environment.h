@@ -76,6 +76,12 @@ public:
 		SDFGI_Y_SCALE_100_PERCENT,
 	};
 
+	enum SSCSSampleCount {
+		SSCS_SAMPLE_COUNT_127,
+		SSCS_SAMPLE_COUNT_191,
+		SSCS_SAMPLE_COUNT_255,
+	};
+
 	enum FogMode {
 		FOG_MODE_EXPONENTIAL,
 		FOG_MODE_DEPTH,
@@ -135,16 +141,14 @@ private:
 
 	// SSCS
 	bool sscs_enabled = false;
-	bool sscs_debug_enabled = false;
-	int sscs_debug_type = false;
 	SSCSMode sscs_mode = SSCS_MODE_BEND;
-	int sscs_max_steps = 64;
+	SSCSSampleCount sscs_sample_count = SSCS_SAMPLE_COUNT_191;
 	float sscs_bilinear_threshold = 0.02f;
 	float sscs_shadow_contrast = 2.0f;
-	float sscs_surface_thickness = 0.005f;
-	bool sscs_use_precision_offset = false;
+	float sscs_surface_thickness = 0.01f;
 	bool sscs_ignore_edge_pixels = false;
-	bool sscs_bilinear_sampling_offset_mode = false;
+	float sscs_depth_begin = 0.0f;
+	float sscs_depth_end = 1.0f;
 	void _update_sscs();
 
 	// SSAO
@@ -315,20 +319,20 @@ public:
 	bool is_sscs_enabled() const;
 	void set_sscs_mode(SSCSMode p_mode);
 	SSCSMode get_sscs_mode() const;
-	void set_sscs_max_steps(int p_steps);
-	int get_sscs_max_steps() const;
+	void set_sscs_sample_count(SSCSSampleCount p_quality);
+	SSCSSampleCount get_sscs_sample_count() const;
 	void set_sscs_bilinear_threshold(float p_bilinear_threshold);
 	float get_sscs_bilinear_threshold() const;
 	void set_sscs_shadow_contrast(float p_shadow_contrast);
 	float get_sscs_shadow_contrast() const;
 	void set_sscs_surface_thickness(float p_surface_thickness);
 	float get_sscs_surface_thickness() const;
-	void set_sscs_use_precision_offset(bool p_use_precision_offset);
-	bool get_sscs_use_precision_offset() const;
 	void set_sscs_ignore_edge_pixels(bool p_ignore_edge_pixels);
 	bool get_sscs_ignore_edge_pixels() const;
-	void set_sscs_bilinear_sampling_offset_mode(bool p_bilinear_sampling_offset_mode);
-	bool get_sscs_bilinear_sampling_offset_mode() const;
+	void set_sscs_depth_begin(float p_depth_begin);
+	float get_sscs_depth_begin() const;
+	void set_sscs_depth_end(float p_depth_end);
+	float get_sscs_depth_end() const;
 
 	// SSAO
 	void set_ssao_enabled(bool p_enabled);
@@ -498,5 +502,6 @@ VARIANT_ENUM_CAST(Environment::ReflectionSource)
 VARIANT_ENUM_CAST(Environment::ToneMapper)
 VARIANT_ENUM_CAST(Environment::SDFGIYScale)
 VARIANT_ENUM_CAST(Environment::GlowBlendMode)
-VARIANT_ENUM_CAST(Environment::FogMode)
 VARIANT_ENUM_CAST(Environment::SSCSMode)
+VARIANT_ENUM_CAST(Environment::SSCSSampleCount)
+VARIANT_ENUM_CAST(Environment::FogMode)

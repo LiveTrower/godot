@@ -2545,13 +2545,13 @@ void fragment_shader(in SceneData scene_data) {
 #undef BIAS_FUNC
 
 					//process sscs
-					if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS) && directional_lights.data[i].sscs_enabled != 0u) {
+					if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS) && directional_lights.data[i].sscs_index < scene_data.directional_light_count) {
 						float sscs_shadow = 1.0;
 						if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_BEND)) {
 #ifdef USE_MULTIVIEW
-							float sscs_layer = float(directional_lights.data[i].sscs_slot * 2u + uint(ViewIndex));
+							float sscs_layer = float(directional_lights.data[i].sscs_index * 2u + uint(ViewIndex));
 #else
-						float sscs_layer = float(directional_lights.data[i].sscs_slot);
+						float sscs_layer = float(directional_lights.data[i].sscs_index);
 #endif // USE_MULTIVIEW
 							sscs_shadow = textureLod(sampler2DArray(sscs_buffer, SAMPLER_LINEAR_CLAMP), vec3(screen_uv, sscs_layer), 0.0).r;
 						} else if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_TOMASZ)) {
@@ -2753,12 +2753,12 @@ void fragment_shader(in SceneData scene_data) {
 
 				//process sscs
 				float sscs_shadow = 1.0;
-				if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS) && omni_lights.data[light_index].sscs_enabled != 0u) {
+				if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS) && omni_lights.data[i].sscs_index < item_to) {
 					if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_BEND)) {
 #ifdef USE_MULTIVIEW
-						float sscs_layer = float(omni_lights.data[light_index].sscs_slot * 2u + uint(ViewIndex));
+						float sscs_layer = float(omni_lights.data[light_index].sscs_index * 2u + uint(ViewIndex));
 #else
-						float sscs_layer = float(omni_lights.data[light_index].sscs_slot);
+						float sscs_layer = float(omni_lights.data[light_index].sscs_index);
 #endif // USE_MULTIVIEW
 						sscs_shadow = textureLod(sampler2DArray(sscs_buffer, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(screen_uv, sscs_layer), 0.0).r;
 					} else if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_TOMASZ)) {
@@ -2831,12 +2831,12 @@ void fragment_shader(in SceneData scene_data) {
 
 				//process sscs
 				float sscs_shadow = 1.0;
-				if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS) && omni_lights.data[light_index].sscs_enabled != 0u) {
+				if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS) && spot_lights.data[i].sscs_index < item_to) {
 					if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_BEND)) {
 #ifdef USE_MULTIVIEW
-						float sscs_layer = float(spot_lights.data[light_index].sscs_slot * 2u + uint(ViewIndex));
+						float sscs_layer = float(spot_lights.data[light_index].sscs_index * 2u + uint(ViewIndex));
 #else
-						float sscs_layer = float(spot_lights.data[light_index].sscs_slot);
+						float sscs_layer = float(spot_lights.data[light_index].sscs_index);
 #endif // USE_MULTIVIEW
 						sscs_shadow = textureLod(sampler2DArray(sscs_buffer, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(screen_uv, sscs_layer), 0.0).r;
 					} else if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_TOMASZ)) {
@@ -2909,12 +2909,12 @@ void fragment_shader(in SceneData scene_data) {
 
 				//process sscs
 				float sscs_shadow = 1.0;
-				if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS) && area_lights.data[light_index].sscs_enabled != 0u) {
+				if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS) && area_lights.data[i].sscs_index < item_to) {
 					if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_BEND)) {
 #ifdef USE_MULTIVIEW
-						float sscs_layer = float(area_lights.data[light_index].sscs_slot * 2u + uint(ViewIndex));
+						float sscs_layer = float(area_lights.data[light_index].sscs_index * 2u + uint(ViewIndex));
 #else
-						float sscs_layer = float(area_lights.data[light_index].sscs_slot);
+						float sscs_layer = float(area_lights.data[light_index].sscs_index);
 #endif // USE_MULTIVIEW
 						sscs_shadow = textureLod(sampler2DArray(sscs_buffer, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(screen_uv, sscs_layer), 0.0).r;
 					} else if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_TOMASZ)) {

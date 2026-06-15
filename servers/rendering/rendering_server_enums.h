@@ -735,14 +735,21 @@ enum EnvironmentSDFGIFramesToUpdateLight {
 	ENV_SDFGI_UPDATE_LIGHT_MAX,
 };
 
-enum EnvironmentFogMode {
-	ENV_FOG_MODE_EXPONENTIAL,
-	ENV_FOG_MODE_DEPTH,
-};
-
 enum EnvironmentSSCSMode {
 	ENV_SSCS_MODE_BEND,
 	ENV_SSCS_MODE_TOMASZ,
+};
+
+enum EnvironmentSSCSSampleCount {
+	ENV_SSCS_SAMPLE_COUNT_127,
+	ENV_SSCS_SAMPLE_COUNT_191,
+	ENV_SSCS_SAMPLE_COUNT_255,
+	ENV_SSCS_SAMPLE_COUNT_MAX,
+};
+
+enum EnvironmentFogMode {
+	ENV_FOG_MODE_EXPONENTIAL,
+	ENV_FOG_MODE_DEPTH,
 };
 
 enum SubSurfaceScatteringQuality {

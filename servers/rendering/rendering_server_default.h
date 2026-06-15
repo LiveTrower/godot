@@ -860,7 +860,7 @@ public:
 	FUNC1(environment_set_ssr_half_size, bool)
 	FUNC1(environment_set_ssr_roughness_quality, RSE::EnvironmentSSRRoughnessQuality)
 
-	FUNC12(environment_set_sscs, RID, bool, int, float, float, float, bool, bool, bool, bool, int, RSE::EnvironmentSSCSMode)
+	FUNC10(environment_set_sscs, RID, bool, RSE::EnvironmentSSCSMode, RSE::EnvironmentSSCSSampleCount, float, float, float, bool, float, float)
 
 	FUNC10(environment_set_ssao, RID, bool, float, float, float, float, float, float, float, float)
 	FUNC6(environment_set_ssao_quality, RSE::EnvironmentSSAOQuality, bool, float, int, float, float)

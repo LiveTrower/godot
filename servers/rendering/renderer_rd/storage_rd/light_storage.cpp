@@ -729,8 +729,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 	omni_light_count = 0;
 	spot_light_count = 0;
 	area_light_count = 0;
-
-	uint32_t sscs_slot = 0;
+	uint32_t contact_shadows_count = 0;
 
 	r_directional_light_soft_shadows = false;
 
@@ -789,13 +788,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				light_data.shadow_opacity = (p_using_shadows && light->shadow)
 						? light->param[RSE::LIGHT_PARAM_SHADOW_OPACITY]
 						: 0.0;
-
-				light_data.sscs_enabled = light->contact_shadows;
-
-				if (light->shadow && light->contact_shadows) {
-					light_data.sscs_slot = sscs_slot;
-					sscs_slot++;
-				}
+				light_data.sscs_index = light->contact_shadows ? contact_shadows_count++ : 0xffffffff;
 
 				float angular_diameter = light->param[RSE::LIGHT_PARAM_SIZE];
 				if (angular_diameter > 0.0) {
@@ -1195,12 +1188,8 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 
 			light_data.soft_shadow_scale = light->param[RSE::LIGHT_PARAM_SHADOW_BLUR];
 
-			light_data.sscs_enabled = light->contact_shadows;
-
-			if (light->shadow && light->contact_shadows) {
-				light_data.sscs_slot = sscs_slot;
-				sscs_slot++;
-			}
+			light_data.sscs_index = light->contact_shadows ? contact_shadows_count++ : 0xffffffff;
+			;
 
 			if (type == RSE::LIGHT_OMNI) {
 				Transform3D proj = (inverse_transform * light_transform).inverse();

@@ -335,13 +335,13 @@ Environment::SSCSMode Environment::get_sscs_mode() const {
 	return sscs_mode;
 }
 
-void Environment::set_sscs_max_steps(int p_steps) {
-	sscs_max_steps = p_steps;
+void Environment::set_sscs_sample_count(SSCSSampleCount p_quality) {
+	sscs_sample_count = p_quality;
 	_update_sscs();
 }
 
-int Environment::get_sscs_max_steps() const {
-	return sscs_max_steps;
+Environment::SSCSSampleCount Environment::get_sscs_sample_count() const {
+	return sscs_sample_count;
 }
 
 void Environment::set_sscs_bilinear_threshold(float p_bilinear_threshold) {
@@ -371,15 +371,6 @@ float Environment::get_sscs_surface_thickness() const {
 	return sscs_surface_thickness;
 }
 
-void Environment::set_sscs_use_precision_offset(bool p_use_precision_offset) {
-	sscs_use_precision_offset = p_use_precision_offset;
-	_update_sscs();
-}
-
-bool Environment::get_sscs_use_precision_offset() const {
-	return sscs_use_precision_offset;
-}
-
 void Environment::set_sscs_ignore_edge_pixels(bool p_ignore_edge_pixels) {
 	sscs_ignore_edge_pixels = p_ignore_edge_pixels;
 	_update_sscs();
@@ -389,29 +380,36 @@ bool Environment::get_sscs_ignore_edge_pixels() const {
 	return sscs_ignore_edge_pixels;
 }
 
-void Environment::set_sscs_bilinear_sampling_offset_mode(bool p_bilinear_sampling_offset_mode) {
-	sscs_bilinear_sampling_offset_mode = p_bilinear_sampling_offset_mode;
-	_update_sscs();
-}
-
-bool Environment::get_sscs_bilinear_sampling_offset_mode() const {
-	return sscs_bilinear_sampling_offset_mode;
-}
-
 void Environment::_update_sscs() {
 	RS::get_singleton()->environment_set_sscs(
 			environment,
 			sscs_enabled,
-			sscs_max_steps,
+			RSE::EnvironmentSSCSMode(sscs_mode),
+			RSE::EnvironmentSSCSSampleCount(sscs_sample_count),
 			sscs_bilinear_threshold,
 			sscs_shadow_contrast,
 			sscs_surface_thickness,
-			sscs_use_precision_offset,
 			sscs_ignore_edge_pixels,
-			sscs_bilinear_sampling_offset_mode,
-			sscs_debug_enabled,
-			sscs_debug_type,
-			RSE::EnvironmentSSCSMode(sscs_mode));
+			sscs_depth_begin,
+			sscs_depth_end);
+}
+
+void Environment::set_sscs_depth_begin(float p_depth_begin) {
+	sscs_depth_begin = p_depth_begin;
+	_update_sscs();
+}
+
+float Environment::get_sscs_depth_begin() const {
+	return sscs_depth_begin;
+}
+
+void Environment::set_sscs_depth_end(float p_depth_end) {
+	sscs_depth_end = p_depth_end;
+	_update_sscs();
+}
+
+float Environment::get_sscs_depth_end() const {
+	return sscs_depth_end;
 }
 
 // SSAO
@@ -1441,31 +1439,31 @@ void Environment::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_sscs_enabled"), &Environment::is_sscs_enabled);
 	ClassDB::bind_method(D_METHOD("set_sscs_mode", "mode"), &Environment::set_sscs_mode);
 	ClassDB::bind_method(D_METHOD("get_sscs_mode"), &Environment::get_sscs_mode);
-	ClassDB::bind_method(D_METHOD("set_sscs_max_steps", "max_steps"), &Environment::set_sscs_max_steps);
-	ClassDB::bind_method(D_METHOD("get_sscs_max_steps"), &Environment::get_sscs_max_steps);
+	ClassDB::bind_method(D_METHOD("set_sscs_sample_count", "quality"), &Environment::set_sscs_sample_count);
+	ClassDB::bind_method(D_METHOD("get_sscs_sample_count"), &Environment::get_sscs_sample_count);
 	ClassDB::bind_method(D_METHOD("set_sscs_bilinear_threshold", "bilinear_threshold"), &Environment::set_sscs_bilinear_threshold);
 	ClassDB::bind_method(D_METHOD("get_sscs_bilinear_threshold"), &Environment::get_sscs_bilinear_threshold);
 	ClassDB::bind_method(D_METHOD("set_sscs_shadow_contrast", "shadow_contrast"), &Environment::set_sscs_shadow_contrast);
 	ClassDB::bind_method(D_METHOD("get_sscs_shadow_contrast"), &Environment::get_sscs_shadow_contrast);
 	ClassDB::bind_method(D_METHOD("set_sscs_surface_thickness", "surface_thickness"), &Environment::set_sscs_surface_thickness);
 	ClassDB::bind_method(D_METHOD("get_sscs_surface_thickness"), &Environment::get_sscs_surface_thickness);
-	ClassDB::bind_method(D_METHOD("set_sscs_use_precision_offset", "use_precision_offset"), &Environment::set_sscs_use_precision_offset);
-	ClassDB::bind_method(D_METHOD("get_sscs_use_precision_offset"), &Environment::get_sscs_use_precision_offset);
 	ClassDB::bind_method(D_METHOD("set_sscs_ignore_edge_pixels", "ignore_edge_pixels"), &Environment::set_sscs_ignore_edge_pixels);
 	ClassDB::bind_method(D_METHOD("get_sscs_ignore_edge_pixels"), &Environment::get_sscs_ignore_edge_pixels);
-	ClassDB::bind_method(D_METHOD("set_sscs_bilinear_sampling_offset_mode", "bilinear_sampling_offset_mode"), &Environment::set_sscs_bilinear_sampling_offset_mode);
-	ClassDB::bind_method(D_METHOD("get_sscs_bilinear_sampling_offset_mode"), &Environment::get_sscs_bilinear_sampling_offset_mode);
+	ClassDB::bind_method(D_METHOD("set_sscs_depth_begin", "depth_begin"), &Environment::set_sscs_depth_begin);
+	ClassDB::bind_method(D_METHOD("get_sscs_depth_begin"), &Environment::get_sscs_depth_begin);
+	ClassDB::bind_method(D_METHOD("set_sscs_depth_end", "depth_end"), &Environment::set_sscs_depth_end);
+	ClassDB::bind_method(D_METHOD("get_sscs_depth_end"), &Environment::get_sscs_depth_end);
 
 	ADD_GROUP("SSCS", "sscs_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sscs_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_sscs_enabled", "is_sscs_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "sscs_mode", PROPERTY_HINT_ENUM, "Bend,Tomasz"), "set_sscs_mode", "get_sscs_mode");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "sscs_max_steps", PROPERTY_HINT_RANGE, "0,64,1"), "set_sscs_max_steps", "get_sscs_max_steps");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "sscs_sample_count", PROPERTY_HINT_ENUM, "127 (Low),191 (Medium),255 (High)"), "set_sscs_sample_count", "get_sscs_sample_count");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sscs_bilinear_threshold", PROPERTY_HINT_RANGE, "0.0,1.0,0.001"), "set_sscs_bilinear_threshold", "get_sscs_bilinear_threshold");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sscs_shadow_contrast", PROPERTY_HINT_RANGE, "1.0,16.0,0.1"), "set_sscs_shadow_contrast", "get_sscs_shadow_contrast");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sscs_surface_thickness", PROPERTY_HINT_RANGE, "0.001,0.1,0.001"), "set_sscs_surface_thickness", "get_sscs_surface_thickness");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sscs_use_precision_offset"), "set_sscs_use_precision_offset", "get_sscs_use_precision_offset");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sscs_ignore_edge_pixels"), "set_sscs_ignore_edge_pixels", "get_sscs_ignore_edge_pixels");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sscs_bilinear_sampling_offset_mode"), "set_sscs_bilinear_sampling_offset_mode", "get_sscs_bilinear_sampling_offset_mode");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sscs_depth_begin", PROPERTY_HINT_RANGE, "0.0,1.0,0.001"), "set_sscs_depth_begin", "get_sscs_depth_begin");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sscs_depth_end", PROPERTY_HINT_RANGE, "0.0,1.0,0.001"), "set_sscs_depth_end", "get_sscs_depth_end");
 
 	// SSAO
 	ClassDB::bind_method(D_METHOD("set_ssao_enabled", "enabled"), &Environment::set_ssao_enabled);
@@ -1758,6 +1756,10 @@ void Environment::_bind_methods() {
 
 	BIND_ENUM_CONSTANT(FOG_MODE_EXPONENTIAL);
 	BIND_ENUM_CONSTANT(FOG_MODE_DEPTH);
+
+	BIND_ENUM_CONSTANT(SSCS_SAMPLE_COUNT_127);
+	BIND_ENUM_CONSTANT(SSCS_SAMPLE_COUNT_191);
+	BIND_ENUM_CONSTANT(SSCS_SAMPLE_COUNT_255);
 
 	BIND_ENUM_CONSTANT(SDFGI_Y_SCALE_50_PERCENT);
 	BIND_ENUM_CONSTANT(SDFGI_Y_SCALE_75_PERCENT);

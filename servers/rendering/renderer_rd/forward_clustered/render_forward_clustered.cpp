@@ -1521,14 +1521,14 @@ void RenderForwardClustered::_process_sscs(Ref<RenderSceneBuffersRD> p_render_bu
 	RendererRD::LightStorage *light_storage = RendererRD::LightStorage::get_singleton();
 
 	RendererRD::SSEffects::SSCSSettings settings;
-	settings.sscs_mode = environment_get_sscs_mode(p_environment);
-	settings.max_steps = environment_get_sscs_max_steps(p_environment);
+	settings.mode = environment_get_sscs_mode(p_environment);
+	settings.quality = environment_get_sscs_sample_count(p_environment);
 	settings.bilinear_threshold = environment_get_sscs_bilinear_threshold(p_environment);
 	settings.shadow_contrast = environment_get_sscs_shadow_contrast(p_environment);
 	settings.surface_thickness = environment_get_sscs_surface_thickness(p_environment);
-	settings.use_precision_offset = environment_get_sscs_use_precision_offset(p_environment);
 	settings.ignore_edge_pixels = environment_get_sscs_ignore_edge_pixels(p_environment);
-	settings.bilinear_sampling_offset_mode = environment_get_sscs_bilinear_sampling_offset_mode(p_environment);
+	settings.depth_begin = environment_get_sscs_depth_begin(p_environment);
+	settings.depth_end = environment_get_sscs_depth_end(p_environment);
 
 	RENDER_TIMESTAMP("Process SSCS");
 

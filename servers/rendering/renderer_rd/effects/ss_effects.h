@@ -170,14 +170,14 @@ public:
 	};
 
 	struct SSCSSettings {
-		int max_steps = 0;
+		RSE::EnvironmentSSCSMode mode = RSE::ENV_SSCS_MODE_BEND;
+		RSE::EnvironmentSSCSSampleCount quality = RSE::ENV_SSCS_SAMPLE_COUNT_127;
 		float bilinear_threshold = 0.02f;
 		float shadow_contrast = 2.0f;
-		float surface_thickness = 0.005f;
-		bool use_precision_offset = false;
+		float surface_thickness = 0.01f;
 		bool ignore_edge_pixels = false;
-		bool bilinear_sampling_offset_mode = false;
-		RSE::EnvironmentSSCSMode sscs_mode = RSE::ENV_SSCS_MODE_BEND;
+		float depth_begin = 0.0f;
+		float depth_end = 1.0f;
 	};
 
 	void sscs_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSCSRenderBuffers &p_sscs_buffers, const RD::DataFormat p_color_format, uint32_t p_contact_shadow_count);
@@ -523,24 +523,31 @@ private:
 
 	/* Screen Space Shadows */
 
+	enum ScreenSpaceContactShadowsMode {
+		SCREEN_SPACE_CONTACT_SHADOWS_LOW_QUALITY,
+		SCREEN_SPACE_CONTACT_SHADOWS_MEDIUM_QUALITY,
+		SCREEN_SPACE_CONTACT_SHADOWS_HIGH_QUALITY,
+		SCREEN_SPACE_CONTACT_SHADOWS_MAX
+	};
+
 	struct ScreenSpaceContactShadows {
 		ScreenSpaceContactShadowsShaderRD sscs_shader;
 		RID sscs_shader_version;
-		PipelineDeferredRD sscs_pipeline;
+		PipelineDeferredRD sscs_pipelines[SCREEN_SPACE_CONTACT_SHADOWS_MAX];
 		RID border_sampler;
+
 	} sscs;
 
 	struct ScreenSpaceContactShadowsPushConstant {
 		int32_t screen_size[2];
 		int32_t light_offset[2];
 		float light_coordinates[4];
-		int32_t max_steps;
 		float bilinear_threshold;
 		float shadow_contrast;
 		float surface_thickness;
-		uint32_t use_precision_offset;
 		uint32_t ignore_edge_pixels;
-		uint32_t bilinear_sampling_offset_mode;
+		float depth_begin;
+		float depth_end;
 	};
 
 	/* Subsurface scattering */

@@ -167,8 +167,7 @@ private:
 		float volumetric_fog_energy;
 		uint32_t bake_mode;
 		float projector_rect[4];
-		uint32_t sscs_enabled;
-		uint32_t sscs_slot;
+		uint32_t sscs_index;
 		uint64_t pad2;
 	};
 
@@ -212,8 +211,8 @@ private:
 		float shadow_opacity;
 		float fade_from;
 		float fade_to;
-		uint32_t sscs_enabled;
-		uint32_t sscs_slot;
+		uint32_t sscs_index;
+		uint32_t pad;
 		uint32_t bake_mode;
 		float volumetric_fog_energy;
 		float shadow_bias[4];

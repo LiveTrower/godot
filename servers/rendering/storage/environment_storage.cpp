@@ -692,7 +692,7 @@ float RendererEnvironmentStorage::environment_get_ssr_depth_tolerance(RID p_env)
 
 // SSCS
 
-void RendererEnvironmentStorage::environment_set_sscs(RID p_env, bool p_enable, int p_max_steps, float p_bilinear_threshold, float p_shadow_contrast, float p_surface_thickness, bool p_use_precision_offset, bool p_ignore_edge_pixels, bool p_bilinear_sampling_offset_mode, bool p_debug_enabled, int p_debug_type, RSE::EnvironmentSSCSMode p_mode) {
+void RendererEnvironmentStorage::environment_set_sscs(RID p_env, bool p_enable, RSE::EnvironmentSSCSMode p_mode, RSE::EnvironmentSSCSSampleCount p_quality, float p_bilinear_threshold, float p_shadow_contrast, float p_surface_thickness, bool p_ignore_edge_pixels, float p_depth_begin, float p_depth_end) {
 	Environment *env = environment_owner.get_or_null(p_env);
 	ERR_FAIL_NULL(env);
 #ifdef DEBUG_ENABLED
@@ -701,16 +701,14 @@ void RendererEnvironmentStorage::environment_set_sscs(RID p_env, bool p_enable, 
 	}
 #endif
 	env->sscs_enabled = p_enable;
-	env->sscs_debug_enabled = p_debug_enabled;
-	env->sscs_debug_type = p_debug_type;
 	env->sscs_mode = p_mode;
-	env->sscs_max_steps = p_max_steps;
+	env->sscs_sample_count = p_quality;
 	env->sscs_bilinear_threshold = p_bilinear_threshold;
 	env->sscs_shadow_contrast = p_shadow_contrast;
 	env->sscs_surface_thickness = p_surface_thickness;
-	env->sscs_use_precision_offset = p_use_precision_offset;
 	env->sscs_ignore_edge_pixels = p_ignore_edge_pixels;
-	env->sscs_bilinear_sampling_offset_mode = p_bilinear_sampling_offset_mode;
+	env->sscs_depth_begin = p_depth_begin;
+	env->sscs_depth_end = p_depth_end;
 }
 
 bool RendererEnvironmentStorage::environment_get_sscs_enabled(RID p_env) const {
@@ -725,10 +723,10 @@ RSE::EnvironmentSSCSMode RendererEnvironmentStorage::environment_get_sscs_mode(R
 	return env->sscs_mode;
 }
 
-int RendererEnvironmentStorage::environment_get_sscs_max_steps(RID p_env) const {
+RSE::EnvironmentSSCSSampleCount RendererEnvironmentStorage::environment_get_sscs_sample_count(RID p_env) const {
 	Environment *env = environment_owner.get_or_null(p_env);
-	ERR_FAIL_NULL_V(env, 64);
-	return env->sscs_max_steps;
+	ERR_FAIL_NULL_V(env, RSE::ENV_SSCS_SAMPLE_COUNT_191);
+	return env->sscs_sample_count;
 }
 
 float RendererEnvironmentStorage::environment_get_sscs_bilinear_threshold(RID p_env) const {
@@ -745,14 +743,8 @@ float RendererEnvironmentStorage::environment_get_sscs_shadow_contrast(RID p_env
 
 float RendererEnvironmentStorage::environment_get_sscs_surface_thickness(RID p_env) const {
 	Environment *env = environment_owner.get_or_null(p_env);
-	ERR_FAIL_NULL_V(env, 0.005f);
+	ERR_FAIL_NULL_V(env, 0.01f);
 	return env->sscs_surface_thickness;
-}
-
-bool RendererEnvironmentStorage::environment_get_sscs_use_precision_offset(RID p_env) const {
-	Environment *env = environment_owner.get_or_null(p_env);
-	ERR_FAIL_NULL_V(env, false);
-	return env->sscs_use_precision_offset;
 }
 
 bool RendererEnvironmentStorage::environment_get_sscs_ignore_edge_pixels(RID p_env) const {
@@ -761,10 +753,16 @@ bool RendererEnvironmentStorage::environment_get_sscs_ignore_edge_pixels(RID p_e
 	return env->sscs_ignore_edge_pixels;
 }
 
-bool RendererEnvironmentStorage::environment_get_sscs_bilinear_sampling_offset_mode(RID p_env) const {
+float RendererEnvironmentStorage::environment_get_sscs_depth_begin(RID p_env) const {
 	Environment *env = environment_owner.get_or_null(p_env);
-	ERR_FAIL_NULL_V(env, false);
-	return env->sscs_bilinear_sampling_offset_mode;
+	ERR_FAIL_NULL_V(env, 0.0f);
+	return env->sscs_depth_begin;
+}
+
+float RendererEnvironmentStorage::environment_get_sscs_depth_end(RID p_env) const {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, 1.0f);
+	return env->sscs_depth_end;
 }
 
 // SSAO
