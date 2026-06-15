@@ -329,6 +329,7 @@ bool Environment::is_sscs_enabled() const {
 void Environment::set_sscs_mode(SSCSMode p_mode) {
 	sscs_mode = p_mode;
 	_update_sscs();
+	notify_property_list_changed();
 }
 
 Environment::SSCSMode Environment::get_sscs_mode() const {
@@ -1256,6 +1257,13 @@ void Environment::_validate_property(PropertyInfo &p_property) const {
 
 	if (p_property.name == "tonemap_agx_contrast") {
 		if (tone_mapper != TONE_MAPPER_AGX) {
+			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
+		}
+		return;
+	}
+
+	if (p_property.name == "sscs_sample_count" || p_property.name == "sscs_bilinear_threshold" || p_property.name == "sscs_shadow_contrast" || p_property.name == "sscs_ignore_edge_pixels" || p_property.name == "sscs_depth_begin") {
+		if (sscs_mode == SSCS_MODE_TOMASZ) {
 			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 		}
 		return;

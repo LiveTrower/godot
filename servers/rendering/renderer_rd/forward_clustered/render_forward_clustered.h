@@ -328,6 +328,11 @@ private:
 			float volumetric_fog_inv_length;
 			float volumetric_fog_detail_spread;
 			uint32_t volumetric_fog_pad;
+
+			float sscs_thickness;
+			float sscs_length;
+			uint32_t pad3;
+			uint32_t pad4;
 		};
 
 		struct PushConstantUbershader {

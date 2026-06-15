@@ -343,6 +343,11 @@ struct ImplementationData {
 	float volumetric_fog_inv_length;
 	float volumetric_fog_detail_spread;
 	uint volumetric_fog_pad;
+
+	float sscs_thickness;
+	float sscs_length;
+	uint pad3;
+	uint pad4;
 };
 
 layout(set = 1, binding = 1, std140) uniform ImplementationDataBlock {
@@ -508,9 +513,9 @@ float compute_contact_shadow(
 
 	DepthRayMarch rm = depth_ray_march_new_from_depth(scene_data_block.data.viewport_size);
 	depth_ray_march_from_cs(rm, position_world_to_ndc(world_position, proj_view_matrix));
-	depth_ray_march_to_ws(rm, position_world_to_ndc(world_position + light_dir * SSCS_LENGTH, proj_view_matrix));
+	depth_ray_march_to_ws(rm, position_world_to_ndc(world_position + light_dir * implementation_data.sscs_length, proj_view_matrix));
 	rm.linear_steps = contact_shadow_steps;
-	rm.depth_thickness_linear_z = SSCS_THICKNESS;
+	rm.depth_thickness_linear_z = implementation_data.sscs_thickness;
 	rm.march_behind_surfaces = true;
 	rm.jitter = noise;
 
