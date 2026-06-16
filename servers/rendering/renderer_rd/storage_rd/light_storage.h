@@ -175,6 +175,7 @@ private:
 		float depth;
 		LightInstance *light_instance;
 		Light *light;
+		uint32_t sscs_index;
 		bool operator<(const LightInstanceDepthSort &p_sort) const {
 			return depth < p_sort.depth;
 		}

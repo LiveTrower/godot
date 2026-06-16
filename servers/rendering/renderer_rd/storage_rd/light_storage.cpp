@@ -729,6 +729,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 	omni_light_count = 0;
 	spot_light_count = 0;
 	area_light_count = 0;
+
 	uint32_t contact_shadows_count = 0;
 
 	r_directional_light_soft_shadows = false;
@@ -895,6 +896,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				omni_light_sort[omni_light_count].light_instance = light_instance;
 				omni_light_sort[omni_light_count].light = light;
 				omni_light_sort[omni_light_count].depth = distance;
+				omni_light_sort[omni_light_count].sscs_index = light->contact_shadows ? contact_shadows_count++ : 0xffffffff;
 				omni_light_count++;
 			} break;
 			case RSE::LIGHT_SPOT: {
@@ -920,6 +922,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				spot_light_sort[spot_light_count].light_instance = light_instance;
 				spot_light_sort[spot_light_count].light = light;
 				spot_light_sort[spot_light_count].depth = distance;
+				spot_light_sort[spot_light_count].sscs_index = light->contact_shadows ? contact_shadows_count++ : 0xffffffff;
 				spot_light_count++;
 			} break;
 			case RSE::LIGHT_AREA: {
@@ -945,6 +948,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				area_light_sort[area_light_count].light_instance = light_instance;
 				area_light_sort[area_light_count].light = light;
 				area_light_sort[area_light_count].depth = distance;
+				area_light_sort[area_light_count].sscs_index = light->contact_shadows ? contact_shadows_count++ : 0xffffffff;
 				area_light_count++;
 			}
 		}
@@ -971,6 +975,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 
 	for (uint32_t i = 0; i < (omni_light_count + spot_light_count + area_light_count); i++) {
 		uint32_t index;
+		uint32_t sscs_index;
 		LightData *light_data_ptr;
 		RSE::LightType type;
 		LightInstance *light_instance;
@@ -984,6 +989,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 			light_instance = area_light_sort[index].light_instance;
 			light = area_light_sort[index].light;
 			distance = area_light_sort[index].depth;
+			sscs_index = area_light_sort[index].sscs_index;
 		} else if (i >= omni_light_count) {
 			index = i - (omni_light_count);
 			light_data_ptr = &spot_lights[index];
@@ -991,6 +997,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 			light_instance = spot_light_sort[index].light_instance;
 			light = spot_light_sort[index].light;
 			distance = spot_light_sort[index].depth;
+			sscs_index = spot_light_sort[index].sscs_index;
 		} else {
 			index = i;
 			light_data_ptr = &omni_lights[index];
@@ -998,6 +1005,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 			light_instance = omni_light_sort[index].light_instance;
 			light = omni_light_sort[index].light;
 			distance = omni_light_sort[index].depth;
+			sscs_index = omni_light_sort[index].sscs_index;
 		}
 
 		if (using_forward_ids) {
@@ -1188,8 +1196,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 
 			light_data.soft_shadow_scale = light->param[RSE::LIGHT_PARAM_SHADOW_BLUR];
 
-			light_data.sscs_index = light->contact_shadows ? contact_shadows_count++ : 0xffffffff;
-			;
+			light_data.sscs_index = sscs_index;
 
 			if (type == RSE::LIGHT_OMNI) {
 				Transform3D proj = (inverse_transform * light_transform).inverse();
