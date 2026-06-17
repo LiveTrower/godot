@@ -789,7 +789,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				light_data.shadow_opacity = (p_using_shadows && light->shadow)
 						? light->param[RSE::LIGHT_PARAM_SHADOW_OPACITY]
 						: 0.0;
-				light_data.sscs_index = light->contact_shadows ? contact_shadows_count++ : 0xffffffff;
+				light_data.sscs_index = light->shadow && light->contact_shadows ? contact_shadows_count++ : 0xffffffff;
 
 				float angular_diameter = light->param[RSE::LIGHT_PARAM_SIZE];
 				if (angular_diameter > 0.0) {
@@ -881,6 +881,9 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				Transform3D light_transform = light_instance->transform;
 				const real_t distance = p_camera_transform.origin.distance_to(light_transform.origin);
 
+				const bool has_shadows = light->shadow && light->contact_shadows;
+				bool in_sscs_range = true;
+
 				if (light->distance_fade) {
 					const float fade_begin = light->distance_fade_begin;
 					const float fade_length = light->distance_fade_length;
@@ -891,12 +894,19 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 							continue;
 						}
 					}
+
+					if (has_shadows) {
+						if (distance > light->distance_fade_shadow + light->distance_fade_length) {
+							// Out of range, don't render contact shadows to improve performance.
+							in_sscs_range = false;
+						}
+					}
 				}
 
 				omni_light_sort[omni_light_count].light_instance = light_instance;
 				omni_light_sort[omni_light_count].light = light;
 				omni_light_sort[omni_light_count].depth = distance;
-				omni_light_sort[omni_light_count].sscs_index = light->contact_shadows ? contact_shadows_count++ : 0xffffffff;
+				omni_light_sort[omni_light_count].sscs_index = has_shadows && in_sscs_range ? contact_shadows_count++ : 0xffffffff;
 				omni_light_count++;
 			} break;
 			case RSE::LIGHT_SPOT: {
@@ -907,6 +917,9 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				Transform3D light_transform = light_instance->transform;
 				const real_t distance = p_camera_transform.origin.distance_to(light_transform.origin);
 
+				const bool has_shadows = light->shadow && light->contact_shadows;
+				bool in_sscs_range = true;
+
 				if (light->distance_fade) {
 					const float fade_begin = light->distance_fade_begin;
 					const float fade_length = light->distance_fade_length;
@@ -917,12 +930,19 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 							continue;
 						}
 					}
+
+					if (has_shadows) {
+						if (distance > light->distance_fade_shadow + light->distance_fade_length) {
+							// Out of range, don't render contact shadows to improve performance.
+							in_sscs_range = false;
+						}
+					}
 				}
 
 				spot_light_sort[spot_light_count].light_instance = light_instance;
 				spot_light_sort[spot_light_count].light = light;
 				spot_light_sort[spot_light_count].depth = distance;
-				spot_light_sort[spot_light_count].sscs_index = light->contact_shadows ? contact_shadows_count++ : 0xffffffff;
+				spot_light_sort[spot_light_count].sscs_index = has_shadows && in_sscs_range ? contact_shadows_count++ : 0xffffffff;
 				spot_light_count++;
 			} break;
 			case RSE::LIGHT_AREA: {
@@ -932,6 +952,9 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 
 				Transform3D light_transform = light_instance->transform;
 				const real_t distance = p_camera_transform.origin.distance_to(light_transform.origin);
+
+				const bool has_shadows = light->shadow && light->contact_shadows;
+				bool in_sscs_range = true;
 
 				if (light->distance_fade) {
 					const float fade_begin = light->distance_fade_begin;
@@ -943,12 +966,19 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 							continue;
 						}
 					}
+
+					if (has_shadows) {
+						if (distance > light->distance_fade_shadow + light->distance_fade_length) {
+							// Out of range, don't render contact shadows to improve performance.
+							in_sscs_range = false;
+						}
+					}
 				}
 
 				area_light_sort[area_light_count].light_instance = light_instance;
 				area_light_sort[area_light_count].light = light;
 				area_light_sort[area_light_count].depth = distance;
-				area_light_sort[area_light_count].sscs_index = light->contact_shadows ? contact_shadows_count++ : 0xffffffff;
+				area_light_sort[area_light_count].sscs_index = has_shadows && in_sscs_range ? contact_shadows_count++ : 0xffffffff;
 				area_light_count++;
 			}
 		}
@@ -1156,6 +1186,8 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 			light_data.cos_spot_angle = MIN(Math::floor(Math::log2(MAX(MIN(texture_size.x, texture_size.y), 1.0f))), texture_storage->area_light_atlas_get_mipmaps()) - 1.0f; // max mipmaps
 		}
 
+		light_data.sscs_index = sscs_index;
+
 		const bool needs_shadow =
 				p_using_shadows &&
 				owns_shadow_atlas(p_shadow_atlas) &&
@@ -1195,8 +1227,6 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 			light_data.atlas_rect[3] = rect.size.height;
 
 			light_data.soft_shadow_scale = light->param[RSE::LIGHT_PARAM_SHADOW_BLUR];
-
-			light_data.sscs_index = sscs_index;
 
 			if (type == RSE::LIGHT_OMNI) {
 				Transform3D proj = (inverse_transform * light_transform).inverse();

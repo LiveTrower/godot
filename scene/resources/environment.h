@@ -82,6 +82,11 @@ public:
 		SSCS_SAMPLE_COUNT_255,
 	};
 
+	enum SSCSMode {
+		SSCS_MODE_BEND,
+		SSCS_MODE_TOMASZ,
+	};
+
 	enum FogMode {
 		FOG_MODE_EXPONENTIAL,
 		FOG_MODE_DEPTH,
@@ -93,11 +98,6 @@ public:
 		GLOW_BLEND_MODE_SOFTLIGHT,
 		GLOW_BLEND_MODE_REPLACE,
 		GLOW_BLEND_MODE_MIX,
-	};
-
-	enum SSCSMode {
-		SSCS_MODE_BEND,
-		SSCS_MODE_TOMASZ,
 	};
 
 private:

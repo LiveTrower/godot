@@ -1614,12 +1614,35 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 				RID light_rid = p_render_data->lights->operator[](i);
 				RID base = light_storage->light_instance_get_base_light(light_rid);
 
-				// Skip if light doesn't have shadows or screen space contact shadows disabled
-				if (!light_storage->light_has_shadow(base) || !light_storage->light_has_screen_space_contact_shadows(base)) {
+				bool in_sscs_range = true;
+				bool has_shadows =
+						light_storage->light_has_shadow(base) &&
+						light_storage->light_has_screen_space_contact_shadows(base);
+
+				if (light_storage->light_get_type(base) != RSE::LIGHT_DIRECTIONAL) {
+					// Check if contact shadow light is in range (based on distance fade)
+					if (has_shadows && light_storage->light_is_distance_fade_enabled(base)) {
+						Transform3D light_transform = light_storage->light_instance_get_base_transform(light_rid);
+						real_t distance = p_render_data->scene_data->cam_transform.origin.distance_to(light_transform.origin);
+						real_t fade_shadow = light_storage->light_get_distance_fade_shadow(base);
+						real_t fade_length = light_storage->light_get_distance_fade_length(base);
+
+						if (distance > fade_shadow + fade_length) {
+							// Out of range, don't render contact shadows to improve performance.
+							in_sscs_range = false;
+						}
+					}
+				}
+
+				if (!has_shadows) {
 					continue;
 				}
 
-				p_render_data->contact_shadow_lights.push_back(light_rid);
+				if (!in_sscs_range) {
+					p_render_data->contact_shadow_lights.erase(light_rid);
+				} else {
+					p_render_data->contact_shadow_lights.push_back(light_rid);
+				}
 			}
 		}
 
