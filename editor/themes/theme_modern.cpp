@@ -650,6 +650,7 @@ void ThemeModern::populate_standard_styles(const Ref<EditorTheme> &p_theme, Edit
 			p_theme->set_constant("icon_h_separation", "Tree", p_config.base_margin * 1.5 * EDSCALE);
 			p_theme->set_constant("button_margin", "Tree", p_config.base_margin * EDSCALE);
 			p_theme->set_constant("dragging_unfold_wait_msec", "Tree", p_config.dragging_hover_wait_msec);
+			p_theme->set_constant("scroll_max_sticky_items", "Tree", p_config.max_sticky_tree_items);
 			p_theme->set_constant("scroll_border", "Tree", 40 * EDSCALE);
 			p_theme->set_constant("scroll_speed", "Tree", 12);
 			p_theme->set_constant("outline_size", "Tree", 0);
@@ -1238,11 +1239,16 @@ void ThemeModern::populate_standard_styles(const Ref<EditorTheme> &p_theme, Edit
 		p_theme->set_constant("line_spacing", "Label", 3 * EDSCALE);
 		p_theme->set_constant("outline_size", "Label", 0);
 
-		// Label with no vertical margins.
+		// Label with different margins.
 
-		p_theme->set_type_variation("LabelVMarginless", "Label");
-		Ref<StyleBoxEmpty> v_marginless_style = EditorThemeManager::make_empty_stylebox(label_style->get_margin(SIDE_LEFT), 0, label_style->get_margin(SIDE_RIGHT), 0);
-		p_theme->set_stylebox(CoreStringName(normal), "LabelVMarginless", v_marginless_style);
+		p_theme->set_type_variation("LabelNoMargin", "Label");
+		p_theme->set_stylebox(CoreStringName(normal), "LabelNoMargin", p_config.base_empty_style);
+
+		p_theme->set_type_variation("LabelNoMarginVertical", "Label");
+		Ref<StyleBoxEmpty> no_v_margin_style = label_style->duplicate();
+		no_v_margin_style->set_content_margin(SIDE_TOP, 0);
+		no_v_margin_style->set_content_margin(SIDE_BOTTOM, 0);
+		p_theme->set_stylebox(CoreStringName(normal), "LabelNoMarginVertical", no_v_margin_style);
 	}
 
 	// SpinBox.
@@ -1771,6 +1777,7 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 
 		// Bottom panel.
 		Ref<StyleBoxFlat> style_bottom_panel = p_config.content_panel_style->duplicate();
+		style_bottom_panel->set_content_margin_all(p_config.tab_container_style->get_content_margin(SIDE_LEFT));
 		style_bottom_panel->set_border_width(SIDE_BOTTOM, 0);
 		style_bottom_panel->set_corner_radius_all(p_config.corner_radius * EDSCALE);
 		style_bottom_panel->set_corner_radius(CORNER_BOTTOM_LEFT, 0);
@@ -2073,20 +2080,17 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 			p_theme->set_constant("margin_left", "NoBorderAssetLibProjectManagerHorizontal", margin);
 			p_theme->set_constant("margin_right", "NoBorderAssetLibProjectManagerHorizontal", margin);
 
-			int bottom_margin = p_theme->get_stylebox(SNAME("BottomPanel"), EditorStringName(EditorStyles))->get_content_margin(SIDE_LEFT);
-			margin = -bottom_margin;
-
-			// Used in editors residing in the bottom panel.
-			p_theme->set_type_variation("NoBorderBottomPanel", "MarginContainer");
-			p_theme->set_constant("margin_left", "NoBorderBottomPanel", margin);
-			p_theme->set_constant("margin_right", "NoBorderBottomPanel", margin);
-
-			margin = -panel_margin - bottom_margin;
+			int bottom_panel_margin = p_theme->get_stylebox(SNAME("BottomPanel"), EditorStringName(EditorStyles))->get_content_margin(SIDE_LEFT);
+			margin = -panel_margin - bottom_panel_margin;
 
 			// Used in the animation track editor.
 			p_theme->set_type_variation("NoBorderAnimation", "MarginContainer");
 			p_theme->set_constant("margin_left", "NoBorderAnimation", margin);
 			p_theme->set_constant("margin_right", "NoBorderAnimation", margin);
+
+			// Used in the OpenXR action map editor.
+			p_theme->set_type_variation("NoBorderOpenXR", "NoBorderAnimation");
+			p_theme->set_constant("margin_bottom", "NoBorderOpenXR", -panel_margin);
 
 			margin = -p_theme->get_stylebox(SceneStringName(panel), SNAME("AcceptDialog"))->get_content_margin(SIDE_LEFT);
 
@@ -2200,6 +2204,7 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 			p_theme->set_type_variation("TreeSecondary", "Tree");
 			p_theme->set_type_variation("ItemListSecondary", "ItemList");
 			p_theme->set_type_variation("EditorAudioBusEffectsTree", "Tree");
+			p_theme->set_type_variation("EditorAudioBusAddBusPanel", "PanelContainer");
 
 			Ref<StyleBoxFlat> style_sidebar = p_config.base_style->duplicate();
 			style_sidebar->set_bg_color(p_config.surface_low_color);
@@ -2236,6 +2241,8 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 			}
 			p_theme->set_stylebox(SceneStringName(panel), "EditorAudioBusEffectsTree", style_audio_bus_effect_tree);
 			p_theme->set_constant("h_separation", "EditorAudioBusEffectsTree", 0);
+
+			p_theme->set_stylebox(SceneStringName(panel), "EditorAudioBusAddBusPanel", style_audio_bus_effect_tree);
 		}
 
 		// ForegroundPanel.
@@ -2579,6 +2586,9 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 		p_theme->set_type_variation("AnimationTrackMargins", "MarginContainer");
 		p_theme->set_constant("margin_left", "AnimationTrackMargins", margin);
 		p_theme->set_constant("margin_right", "AnimationTrackMargins", margin);
+
+		p_theme->set_type_variation("AnimationBezierMargin", "MarginContainer");
+		p_theme->set_constant("margin_left", "AnimationBezierMargin", margin);
 
 		// AnimationTimelineEdit.
 		// "primary" is used for integer timeline values, "secondary" for decimals.

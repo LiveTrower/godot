@@ -248,7 +248,14 @@ void ResourcePreloaderEditor::_cell_button_pressed(Object *p_item, int p_column,
 }
 
 void ResourcePreloaderEditor::edit(ResourcePreloader *p_preloader) {
+	const Callable update_lib = callable_mp(this, &ResourcePreloaderEditor::_update_library);
+	if (preloader) {
+		preloader->disconnect("_resource_changed", update_lib);
+	}
 	preloader = p_preloader;
+	if (preloader) {
+		preloader->connect("_resource_changed", update_lib);
+	}
 	_update_library();
 }
 
@@ -341,14 +348,8 @@ void ResourcePreloaderEditor::drop_data_fw(const Point2 &p_point, const Variant 
 	}
 }
 
-void ResourcePreloaderEditor::update_layout(EditorDock::DockLayout p_layout) {
-	bool new_horizontal = (p_layout == EditorDock::DOCK_LAYOUT_HORIZONTAL);
-	if (horizontal == new_horizontal) {
-		return;
-	}
-	horizontal = new_horizontal;
-
-	if (horizontal) {
+void ResourcePreloaderEditor::update_layout(EditorDock::DockLayout p_layout, EditorDock::DockSlot p_slot) {
+	if (p_layout == EditorDock::DOCK_LAYOUT_HORIZONTAL && p_slot != EditorDock::DOCK_SLOT_BOTTOM) {
 		mc->set_theme_type_variation("NoBorderHorizontal");
 		tree->set_scroll_hint_mode(Tree::SCROLL_HINT_MODE_BOTH);
 	} else {
@@ -408,6 +409,7 @@ ResourcePreloaderEditor::ResourcePreloaderEditor() {
 	mc->add_child(tree);
 
 	dialog = memnew(AcceptDialog);
+	dialog->set_flag(Window::FLAG_RESIZE_DISABLED, true);
 	dialog->set_title(TTRC("Error!"));
 	dialog->set_ok_button_text(TTRC("Close"));
 	add_child(dialog);

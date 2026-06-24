@@ -1864,8 +1864,8 @@ public:
 private:
 	void _free_pending_resources(int p_frame);
 
-	uint64_t texture_memory = 0;
-	uint64_t buffer_memory = 0;
+	SafeNumeric<uint64_t> texture_memory;
+	SafeNumeric<uint64_t> buffer_memory;
 
 protected:
 	void execute_chained_cmds(bool p_present_swap_chain,
@@ -1947,6 +1947,8 @@ public:
 	String get_device_api_name() const;
 	String get_device_api_version() const;
 	String get_device_pipeline_cache_uuid() const;
+
+	DriverWorkarounds get_driver_workarounds() const;
 
 	uint64_t get_frames_drawn() const { return frames_drawn; }
 

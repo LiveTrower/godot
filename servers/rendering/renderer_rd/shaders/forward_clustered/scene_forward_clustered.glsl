@@ -1513,10 +1513,18 @@ void fragment_shader(in SceneData scene_data) {
 		vec4 res = vec4(0.0);
 		if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_FOG)) {
 			//must use the full blending equation here to blend fogs
-			res.a = fog.a * volumetric_fog.a;
-			res.rgb = fog.rgb * volumetric_fog.a + volumetric_fog.rgb;
+			if (sc_fog_use_legacy_blending()) {
+				res.a = mix(0.0, fog.a, volumetric_fog.a);
+				res.rgb = mix(volumetric_fog.rgb, fog.rgb, volumetric_fog.a);
+			} else {
+				res.a = fog.a * volumetric_fog.a;
+				res.rgb = fog.rgb * volumetric_fog.a + volumetric_fog.rgb;
+			}
 		} else {
 			res = volumetric_fog;
+			if (sc_fog_use_legacy_blending()) {
+				res.rgb *= 1.0 - res.a;
+			}
 		}
 		fog = res;
 	}
@@ -2730,7 +2738,7 @@ void fragment_shader(in SceneData scene_data) {
 			// Disable microshadowing when facing away from light.
 			//shadow *= NdotL >= 0.0 ? compute_micro_shadowing(NdotL, ao, micro_shadows) : 1.0;
 			//shadow *= compute_micro_shadowing_acti(NdotL, ao, micro_shadows);
-			shadow *= compute_micro_shadowing_analy(NdotL, ao, micro_shadows);
+			shadow *= compute_micro_shadowing(NdotL, ao, micro_shadows);
 #endif
 
 			float size_A = sc_use_directional_soft_shadows() ? directional_lights.data[i].size : 0.0;
@@ -2898,7 +2906,7 @@ void fragment_shader(in SceneData scene_data) {
 		}
 	}
 
-	{ // area lights
+	if (sc_cluster_has_area_light()) { // area lights
 
 		uint cluster_area_offset = cluster_offset + implementation_data.cluster_type_size * 2;
 

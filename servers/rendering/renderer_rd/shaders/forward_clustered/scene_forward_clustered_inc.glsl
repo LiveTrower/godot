@@ -138,6 +138,14 @@ bool sc_multimesh_has_custom_data() {
 	return ((sc_packed_1() >> 3) & 1U) != 0;
 }
 
+bool sc_fog_use_legacy_blending() {
+	return ((sc_packed_1() >> 4) & 1U) != 0;
+}
+
+bool sc_cluster_has_area_light() {
+	return ((sc_packed_1() >> 5) & 1U) != 0;
+}
+
 float sc_luminance_multiplier() {
 	// Not used in clustered renderer but we share some code with the mobile renderer that requires this.
 	return 1.0;
@@ -495,35 +503,7 @@ vec3 get_energy_compensation(vec3 f0, float env) {
 	return 1.0 + f0 * (1.0 / env - 1.0);
 }
 
-// Brinck and Maximov 2016, "The Technical Art of Uncharted 4"
 float compute_micro_shadowing(float NoL, float visibility, float opacity) {
-	// Avoid division by 0.
-	if (visibility == 1.0) {
-		return 1.0;
-	}
-
-	float aperture = 2.0 * visibility * visibility;
-	float microshadow = clamp(NoL + aperture - 1.0, 0.0, 1.0);
-	return mix(1.0, microshadow, opacity);
-}
-
-float compute_micro_shadowing_acti(float NoL, float visibility, float opacity) {
-	// Avoid division by 0.
-	if (visibility == 1.0) {
-		return 1.0;
-	}
-
-	float aperture = inversesqrt(1.0 - min(visibility, 0.9999));
-	float microshadow = clamp(NoL * aperture, 0.0, 1.0);
-	return mix(1.0, microshadow * microshadow, opacity);
-}
-
-float compute_micro_shadowing_analy(float NoL, float visibility, float opacity) {
-	// Avoid divisions by 0.
-	if (fract(visibility) == 0.0f) {
-		return visibility;
-	}
-
 	float xx = visibility * visibility;
 	float ao5 = xx * xx * visibility;
 

@@ -434,7 +434,6 @@ void EditorVisualProfiler::_update_frame(bool p_focus_selected) {
 			node = node->get_parent();
 		}
 		ensure_selected->select(0);
-		ensure_selected->set_as_cursor(0);
 		variables->ensure_cursor_is_visible();
 	}
 	updating_frame = false;
@@ -492,7 +491,9 @@ void EditorVisualProfiler::_graph_tex_draw() {
 
 	if (seeking) {
 		int max_frames = frame_metrics.size();
-		int frame = cursor_metric_edit->get_value() - (frame_metrics[last_metric].frame_number - max_frames + 1);
+
+		int64_t first_visible_frame = static_cast<int64_t>(frame_metrics[last_metric].frame_number) - max_frames + 1;
+		int frame = (cursor_metric_edit->get_value() - first_visible_frame);
 		if (frame < 0) {
 			frame = 0;
 		}

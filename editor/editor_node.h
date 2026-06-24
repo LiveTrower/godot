@@ -525,6 +525,7 @@ private:
 	static void _resource_saved(Ref<Resource> p_resource, const String &p_path);
 	static void _resource_loaded(Ref<Resource> p_resource, const String &p_path);
 
+	void _update_system_menu_icons(bool p_dark_mode);
 	void _update_theme(bool p_skip_creation = false);
 	void _build_icon_type_cache();
 	void _enable_pending_addons();
@@ -716,10 +717,10 @@ private:
 	MenuType menu_type = MENU_TYPE_NONE;
 	Vector<PopupMenu *> main_menu_items;
 
-	void _build_file_menu();
-	void _build_project_menu();
-	void _build_settings_menu();
-	void _build_help_menu();
+	void _build_file_menu(bool p_dark_mode);
+	void _build_project_menu(bool p_dark_mode);
+	void _build_settings_menu(bool p_dark_mode);
+	void _build_help_menu(bool p_dark_mode);
 
 	void _update_main_menu_type();
 	void _add_to_main_menu(const String &p_name, PopupMenu *p_menu);
@@ -863,7 +864,8 @@ public:
 	Node *get_edited_scene() { return editor_data.get_edited_scene_root(); }
 
 	String get_preview_locale() const;
-	void set_preview_locale(const String &p_locale);
+	bool is_pseudolocalization_enabled() const;
+	void set_preview_locale(const String &p_locale, bool p_pseudolocalization);
 
 	int new_scene();
 	Error load_scene(const String &p_scene, bool p_ignore_broken_deps = false, bool p_set_inherited = false, bool p_force_open_imported = false, bool p_update_tabs = true);
@@ -943,6 +945,7 @@ public:
 	bool is_scene_open(const String &p_path);
 	bool is_multi_window_enabled() const;
 
+	static void setup_built_in_resource(const Ref<Resource> &p_resource, const String &p_owner_path);
 	void setup_color_picker(ColorPicker *p_picker);
 	void register_hdr_viewport(Viewport *p_viewport);
 
