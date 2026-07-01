@@ -1489,14 +1489,16 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 		} break;
 		case TOOL_TOGGLE_SCENE_UNIQUE_NAME: {
 			// Enabling/disabling based on the same node based on which the checkbox in the menu is checked/unchecked.
-			const List<Node *>::Element *first_selected = editor_selection->get_top_selected_node_list().front();
+			const List<Node *> selection = editor_selection->get_top_selected_node_list();
+			Node *first_selected = selection.front() ? selection.front()->get() : nullptr;
 			if (first_selected == nullptr) {
 				return;
 			}
-			if (first_selected->get() == EditorNode::get_singleton()->get_edited_scene()) {
+			if (first_selected == EditorNode::get_singleton()->get_edited_scene()) {
 				// Exclude Root Node. It should never be unique name in its own scene!
-				editor_selection->remove_node(first_selected->get());
-				first_selected = editor_selection->get_top_selected_node_list().front();
+				editor_selection->remove_node(first_selected);
+				const List<Node *> selection1 = editor_selection->get_top_selected_node_list();
+				first_selected = selection1.front() ? selection1.front()->get() : nullptr;
 				if (first_selected == nullptr) {
 					return;
 				}
@@ -1518,7 +1520,7 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 				return;
 			}
 
-			bool enabling = !first_selected->get()->is_unique_name_in_owner();
+			bool enabling = !first_selected->is_unique_name_in_owner();
 
 			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 
@@ -4042,7 +4044,11 @@ void SceneTreeDock::_tree_rmb(const Vector2 &p_menu_pos) {
 			BEGIN_SECTION()
 			if (can_rename) {
 				menu->add_icon_shortcut(get_editor_theme_icon(SNAME("Rename")), ED_GET_SHORTCUT("scene_tree/rename"), TOOL_RENAME);
+				if (full_selection.size() > 1) {
+					menu->add_shortcut(ED_GET_SHORTCUT("scene_tree/batch_rename"), TOOL_BATCH_RENAME);
+				}
 			}
+
 			if (can_replace) {
 				menu->add_icon_shortcut(get_editor_theme_icon(SNAME("Reload")), ED_GET_SHORTCUT("scene_tree/change_node_type"), TOOL_CHANGE_TYPE);
 			}
@@ -4132,12 +4138,6 @@ void SceneTreeDock::_tree_rmb(const Vector2 &p_menu_pos) {
 		END_SECTION()
 	}
 
-	if (profile_allow_editing && selection.size() > 1) {
-		//this is not a commonly used action, it makes no sense for it to be where it was nor always present.
-		BEGIN_SECTION()
-		menu->add_icon_shortcut(get_editor_theme_icon(SNAME("Rename")), ED_GET_SHORTCUT("scene_tree/batch_rename"), TOOL_BATCH_RENAME);
-		END_SECTION()
-	}
 	BEGIN_SECTION()
 	// Group "open_in_editor" with "show_in_file_system", if it is available.
 	if (is_tool_scene_open_inherited_available) {
@@ -5103,7 +5103,7 @@ SceneTreeDock::SceneTreeDock(Node *p_scene_root, EditorSelection *p_editor_selec
 	tree_menu->connect(SceneStringName(id_pressed), callable_mp(this, &SceneTreeDock::_tool_selected).bind(false));
 
 	button_panel = memnew(PanelContainer);
-	button_panel->set_theme_type_variation("PanelContainerTabbarInner");
+	button_panel->set_theme_type_variation("PanelContainerButtonGroup");
 	main_vbox->add_child(button_panel);
 
 	HBoxContainer *button_hb = memnew(HBoxContainer);

@@ -71,12 +71,12 @@ private:
 	}
 
 public:
-	_FORCE_INLINE_ T *ptr() { return data; }
-	_FORCE_INLINE_ const T *ptr() const { return data; }
+	_FORCE_INLINE_ T *ptr() _LIFETIME_BOUND_ { return data; }
+	_FORCE_INLINE_ const T *ptr() const _LIFETIME_BOUND_ { return data; }
 	_FORCE_INLINE_ U size() const { return count; }
 
-	_FORCE_INLINE_ Span<T> span() const { return Span(data, count); }
-	_FORCE_INLINE_ operator Span<T>() const { return span(); }
+	_FORCE_INLINE_ Span<T> span() const _LIFETIME_BOUND_ { return Span(data, count); }
+	_FORCE_INLINE_ operator Span<T>() const _LIFETIME_BOUND_ { return span(); }
 
 	// Must take a copy instead of a reference (see GH-31736).
 	_FORCE_INLINE_ void push_back(T p_elem) {
@@ -321,16 +321,6 @@ public:
 			}
 		}
 		insert(i, p_val);
-	}
-
-	explicit operator Vector<T>() const {
-		Vector<T> ret;
-		ret.resize(count);
-		T *w = ret.ptrw();
-		if (w) {
-			copy_arr_placement(w, data, count);
-		}
-		return ret;
 	}
 
 	Vector<uint8_t> to_byte_array() const { //useful to pass stuff to gpu or variant

@@ -452,7 +452,7 @@ Error GDScriptAnalyzer::resolve_class_inheritance(GDScriptParser::ClassNode *p_c
 
 #ifdef DEBUG_ENABLED
 			if (!parser->_is_tool && ext_parser->get_parser()->_is_tool) {
-				parser->push_warning(p_class, GDScriptWarning::MISSING_TOOL);
+				parser->push_warning(p_class->extends_start_line, p_class->extends_start_column, p_class->extends_end_line, p_class->extends_end_column, GDScriptWarning::MISSING_TOOL);
 			}
 #endif // DEBUG_ENABLED
 
@@ -486,7 +486,7 @@ Error GDScriptAnalyzer::resolve_class_inheritance(GDScriptParser::ClassNode *p_c
 
 #ifdef DEBUG_ENABLED
 					if (!parser->_is_tool && base_parser->get_parser()->_is_tool) {
-						parser->push_warning(p_class, GDScriptWarning::MISSING_TOOL);
+						parser->push_warning(p_class->extends_start_line, p_class->extends_start_column, p_class->extends_end_line, p_class->extends_end_column, GDScriptWarning::MISSING_TOOL);
 					}
 #endif // DEBUG_ENABLED
 
@@ -513,7 +513,7 @@ Error GDScriptAnalyzer::resolve_class_inheritance(GDScriptParser::ClassNode *p_c
 
 #ifdef DEBUG_ENABLED
 				if (!parser->_is_tool && info_parser->get_parser()->_is_tool) {
-					parser->push_warning(p_class, GDScriptWarning::MISSING_TOOL);
+					parser->push_warning(p_class->extends_start_line, p_class->extends_start_column, p_class->extends_end_line, p_class->extends_end_column, GDScriptWarning::MISSING_TOOL);
 				}
 #endif // DEBUG_ENABLED
 
@@ -1983,7 +1983,7 @@ void GDScriptAnalyzer::resolve_function_signature(GDScriptParser::FunctionNode *
 
 #ifdef DEBUG_ENABLED
 	if (p_function->return_type == nullptr) {
-		parser->push_warning(p_function, GDScriptWarning::UNTYPED_DECLARATION, "Function", function_visible_name);
+		parser->push_warning(p_function->start_line, p_function->start_column, p_function->header_end_line, p_function->header_end_column, GDScriptWarning::UNTYPED_DECLARATION, "Function", function_visible_name);
 	}
 #endif // DEBUG_ENABLED
 

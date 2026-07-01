@@ -381,7 +381,6 @@ private:
 	ConfirmationDialog *pick_main_scene = nullptr;
 	ConfirmationDialog *open_project_settings = nullptr;
 	Button *select_current_scene_button = nullptr;
-	AcceptDialog *accept = nullptr;
 	AcceptDialog *save_accept = nullptr;
 	EditorAbout *about = nullptr;
 	AcceptDialog *warning = nullptr;
@@ -786,7 +785,7 @@ public:
 	static void add_init_callback(EditorNodeInitCallback p_callback) { _init_callbacks.push_back(p_callback); }
 	static void add_build_callback(EditorBuildCallback p_callback);
 
-	static bool immediate_confirmation_dialog(const String &p_text, const String &p_ok_text = TTR("Ok"), const String &p_cancel_text = TTR("Cancel"), uint32_t p_wrap_width = 0);
+	static bool immediate_confirmation_dialog(const String &p_text, const String &p_ok_text = TTRC("OK"), const String &p_cancel_text = TTRC("Cancel"), uint32_t p_wrap_width = 0);
 
 	static bool is_cmdline_mode();
 
@@ -969,9 +968,8 @@ public:
 
 	bool is_object_of_custom_type(const Object *p_object, const StringName &p_class);
 
-	void show_accept(const String &p_text, const String &p_title);
-	void show_save_accept(const String &p_text, const String &p_title);
-	void show_warning(const String &p_text, const String &p_title = TTR("Warning!"));
+	void show_save_accept(const String &p_text, const String &p_ok_text = TTRC("OK"));
+	void show_warning(const String &p_text, const String &p_title = TTRC("Warning!"));
 
 	void _copy_warning(const String &p_str);
 
