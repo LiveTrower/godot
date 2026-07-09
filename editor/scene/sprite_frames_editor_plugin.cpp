@@ -1808,6 +1808,7 @@ void SpriteFramesEditor::edit(Ref<SpriteFrames> p_frames) {
 	if (p_frames.is_null()) {
 		frames.unref();
 		_remove_sprite_node();
+		close();
 		return;
 	}
 
@@ -2042,7 +2043,7 @@ void SpriteFramesEditor::_fetch_sprite_node() {
 	}
 
 	bool show_node_edit = false;
-	if (selected->has_method("get_sprite_frames")) {
+	if (selected && selected->has_method("get_sprite_frames")) {
 		if (frames != selected->call("get_sprite_frames")) {
 			_remove_sprite_node();
 		} else {
