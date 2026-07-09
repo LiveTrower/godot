@@ -1775,7 +1775,15 @@ void SSEffects::sscs_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers
 	uint32_t view_count = p_render_buffers->get_view_count();
 
 	if (p_contact_shadow_count > 0) {
-		p_render_buffers->create_texture(RB_SCOPE_SSCS, RB_SSCS, RD::DATA_FORMAT_R8_UNORM, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_sscs_buffers.size, p_contact_shadow_count * view_count);
+		RD::TextureFormat tf;
+		tf.format = RD::DATA_FORMAT_R8_UNORM;
+		tf.width = p_sscs_buffers.size.width;
+		tf.height = p_sscs_buffers.size.height;
+		tf.array_layers = p_contact_shadow_count * view_count;
+		tf.texture_type = RD::TEXTURE_TYPE_2D_ARRAY;
+		tf.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT;
+
+		p_render_buffers->create_texture_from_format(RB_SCOPE_SSCS, RB_SSCS, tf);
 
 		{
 			RID sscs_texture = p_render_buffers->get_texture(RB_SCOPE_SSCS, RB_SSCS);
