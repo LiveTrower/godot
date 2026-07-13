@@ -2560,6 +2560,8 @@ void fragment_shader(in SceneData scene_data) {
 							sscs_shadow = compute_contact_shadow(position_ws, gl_FragCoord.xy, light_pos, projection_matrix * read_view_matrix, 16u);
 						}
 
+						sscs_shadow = mix(1.0, sscs_shadow, directional_lights.data[i].sscs_opacity);
+
 						shadow = min(shadow, sscs_shadow);
 					}
 				} // shadows

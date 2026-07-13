@@ -260,10 +260,11 @@ void LightStorage::light_set_shadow(RID p_light, bool p_enabled) {
 	light->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_LIGHT);
 }
 
-void LightStorage::light_set_screen_space_contact_shadows(RID p_light, bool p_enable) {
+void LightStorage::light_set_screen_space_contact_shadows(RID p_light, bool p_enable, float p_opacity) {
 	Light *light = light_owner.get_or_null(p_light);
 	ERR_FAIL_NULL(light);
 	light->contact_shadows = p_enable;
+	light->contact_shadow_opacity = p_opacity;
 }
 
 void LightStorage::light_set_projector(RID p_light, RID p_texture) {
@@ -789,7 +790,8 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				light_data.shadow_opacity = (p_using_shadows && light->shadow)
 						? light->param[RSE::LIGHT_PARAM_SHADOW_OPACITY]
 						: 0.0;
-				light_data.sscs_index = light->shadow && light->contact_shadows ? contact_shadows_count++ : 0xffffffff;
+				light_data.sscs_index = light->contact_shadows ? contact_shadows_count++ : 0xffffffff;
+				light_data.sscs_opacity = light->contact_shadows ? light->contact_shadow_opacity : 0.0;
 
 				float angular_diameter = light->param[RSE::LIGHT_PARAM_SIZE];
 				if (angular_diameter > 0.0) {
@@ -881,7 +883,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				Transform3D light_transform = light_instance->transform;
 				const real_t distance = p_camera_transform.origin.distance_to(light_transform.origin);
 
-				const bool has_shadows = light->shadow && light->contact_shadows;
+				const bool has_contact_shadows = light->contact_shadows;
 				bool in_sscs_range = true;
 
 				if (light->distance_fade) {
@@ -895,7 +897,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 						}
 					}
 
-					if (has_shadows) {
+					if (has_contact_shadows) {
 						if (distance > light->distance_fade_shadow + light->distance_fade_length) {
 							// Out of range, don't render contact shadows to improve performance.
 							in_sscs_range = false;
@@ -906,7 +908,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				omni_light_sort[omni_light_count].light_instance = light_instance;
 				omni_light_sort[omni_light_count].light = light;
 				omni_light_sort[omni_light_count].depth = distance;
-				omni_light_sort[omni_light_count].sscs_index = has_shadows && in_sscs_range ? contact_shadows_count++ : 0xffffffff;
+				omni_light_sort[omni_light_count].sscs_index = has_contact_shadows && in_sscs_range ? contact_shadows_count++ : 0xffffffff;
 				omni_light_count++;
 			} break;
 			case RSE::LIGHT_SPOT: {
@@ -917,7 +919,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				Transform3D light_transform = light_instance->transform;
 				const real_t distance = p_camera_transform.origin.distance_to(light_transform.origin);
 
-				const bool has_shadows = light->shadow && light->contact_shadows;
+				const bool has_contact_shadows = light->contact_shadows;
 				bool in_sscs_range = true;
 
 				if (light->distance_fade) {
@@ -931,7 +933,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 						}
 					}
 
-					if (has_shadows) {
+					if (has_contact_shadows) {
 						if (distance > light->distance_fade_shadow + light->distance_fade_length) {
 							// Out of range, don't render contact shadows to improve performance.
 							in_sscs_range = false;
@@ -942,7 +944,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				spot_light_sort[spot_light_count].light_instance = light_instance;
 				spot_light_sort[spot_light_count].light = light;
 				spot_light_sort[spot_light_count].depth = distance;
-				spot_light_sort[spot_light_count].sscs_index = has_shadows && in_sscs_range ? contact_shadows_count++ : 0xffffffff;
+				spot_light_sort[spot_light_count].sscs_index = has_contact_shadows && in_sscs_range ? contact_shadows_count++ : 0xffffffff;
 				spot_light_count++;
 			} break;
 			case RSE::LIGHT_AREA: {
@@ -953,7 +955,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				Transform3D light_transform = light_instance->transform;
 				const real_t distance = p_camera_transform.origin.distance_to(light_transform.origin);
 
-				const bool has_shadows = light->shadow && light->contact_shadows;
+				const bool has_contact_shadows = light->contact_shadows;
 				bool in_sscs_range = true;
 
 				if (light->distance_fade) {
@@ -967,7 +969,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 						}
 					}
 
-					if (has_shadows) {
+					if (has_contact_shadows) {
 						if (distance > light->distance_fade_shadow + light->distance_fade_length) {
 							// Out of range, don't render contact shadows to improve performance.
 							in_sscs_range = false;
@@ -978,7 +980,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				area_light_sort[area_light_count].light_instance = light_instance;
 				area_light_sort[area_light_count].light = light;
 				area_light_sort[area_light_count].depth = distance;
-				area_light_sort[area_light_count].sscs_index = has_shadows && in_sscs_range ? contact_shadows_count++ : 0xffffffff;
+				area_light_sort[area_light_count].sscs_index = has_contact_shadows && in_sscs_range ? contact_shadows_count++ : 0xffffffff;
 				area_light_count++;
 			}
 		}
@@ -1187,6 +1189,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 		}
 
 		light_data.sscs_index = sscs_index;
+		light_data.sscs_opacity = light->contact_shadows ? light->contact_shadow_opacity * shadow_opacity_fade : 0.0;
 
 		const bool needs_shadow =
 				p_using_shadows &&

@@ -71,7 +71,6 @@ private:
 	Color color;
 	real_t param[PARAM_MAX] = {};
 	bool shadow = false;
-	bool use_screen_space_contact_shadows = true;
 	bool negative = false;
 	bool reverse_cull = false;
 	uint32_t cull_mask = 0;
@@ -80,6 +79,8 @@ private:
 	real_t distance_fade_begin = 40.0;
 	real_t distance_fade_shadow = 50.0;
 	real_t distance_fade_length = 10.0;
+	bool use_screen_space_contact_shadows = true;
+	real_t contact_shadow_opacity = 1.0;
 	RSE::LightType type = RSE::LIGHT_DIRECTIONAL;
 	bool editor_only = false;
 	void _update_visibility();
@@ -112,9 +113,6 @@ public:
 	void set_shadow(bool p_enable);
 	bool has_shadow() const;
 
-	void set_screen_space_contact_shadows(bool p_enable);
-	bool has_screen_space_contact_shadows() const;
-
 	void set_negative(bool p_enable);
 	bool is_negative() const;
 
@@ -129,6 +127,12 @@ public:
 
 	void set_distance_fade_length(real_t p_length);
 	real_t get_distance_fade_length() const;
+
+	void set_screen_space_contact_shadows(bool p_enable);
+	bool has_screen_space_contact_shadows() const;
+
+	void set_screen_space_contact_shadows_opacity(float p_opacity);
+	float get_screen_space_contact_shadows_opacity() const;
 
 	void set_cull_mask(uint32_t p_cull_mask);
 	uint32_t get_cull_mask() const;

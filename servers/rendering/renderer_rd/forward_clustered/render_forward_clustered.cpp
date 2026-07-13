@@ -1616,13 +1616,11 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 				RID base = light_storage->light_instance_get_base_light(light_rid);
 
 				bool in_sscs_range = true;
-				bool has_shadows =
-						light_storage->light_has_shadow(base) &&
-						light_storage->light_has_screen_space_contact_shadows(base);
+				bool has_contact_shadows = light_storage->light_has_screen_space_contact_shadows(base);
 
 				if (light_storage->light_get_type(base) != RSE::LIGHT_DIRECTIONAL) {
 					// Check if contact shadow light is in range (based on distance fade)
-					if (has_shadows && light_storage->light_is_distance_fade_enabled(base)) {
+					if (has_contact_shadows && light_storage->light_is_distance_fade_enabled(base)) {
 						Transform3D light_transform = light_storage->light_instance_get_base_transform(light_rid);
 						real_t distance = p_render_data->scene_data->cam_transform.origin.distance_to(light_transform.origin);
 						real_t fade_shadow = light_storage->light_get_distance_fade_shadow(base);
@@ -1635,7 +1633,7 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 					}
 				}
 
-				if (!has_shadows) {
+				if (!has_contact_shadows) {
 					continue;
 				}
 

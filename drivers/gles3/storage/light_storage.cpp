@@ -189,7 +189,7 @@ void LightStorage::light_set_shadow(RID p_light, bool p_enabled) {
 	light->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_LIGHT);
 }
 
-void LightStorage::light_set_screen_space_contact_shadows(RID p_light, bool p_enable) {
+void LightStorage::light_set_screen_space_contact_shadows(RID p_light, bool p_enable, float p_opacity) {
 }
 
 void LightStorage::light_set_projector(RID p_light, RID p_texture) {
