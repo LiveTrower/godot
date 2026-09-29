@@ -2829,7 +2829,18 @@ void fragment_shader(in SceneData scene_data) {
 					continue; // Statically baked light and object uses lightmap, skip
 				}
 
-				light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation,
+				//process sscs
+				float sscs_shadow = 1.0;
+				if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS) && omni_lights.data[light_index].sscs_index != 0xFFFFFFFF) {
+#ifdef USE_MULTIVIEW
+					float sscs_layer = float(omni_lights.data[light_index].sscs_index * 2u + uint(ViewIndex));
+#else
+					float sscs_layer = float(omni_lights.data[light_index].sscs_index);
+#endif // USE_MULTIVIEW
+					sscs_shadow = textureLod(sampler2DArray(sscs_buffer, SAMPLER_LINEAR_CLAMP), vec3(screen_uv, sscs_layer), 0.0).r;
+				}
+
+				light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation, sscs_shadow,
 #ifdef LIGHT_BACKLIGHT_USED
 						backlight,
 #endif
@@ -2890,7 +2901,18 @@ void fragment_shader(in SceneData scene_data) {
 					continue; // Statically baked light and object uses lightmap, skip
 				}
 
-				light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation,
+				//process sscs
+				float sscs_shadow = 1.0;
+				if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS) && spot_lights.data[light_index].sscs_index != 0xFFFFFFFF) {
+#ifdef USE_MULTIVIEW
+					float sscs_layer = float(spot_lights.data[light_index].sscs_index * 2u + uint(ViewIndex));
+#else
+					float sscs_layer = float(spot_lights.data[light_index].sscs_index);
+#endif // USE_MULTIVIEW
+					sscs_shadow = textureLod(sampler2DArray(sscs_buffer, SAMPLER_LINEAR_CLAMP), vec3(screen_uv, sscs_layer), 0.0).r;
+				}
+
+				light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation, sscs_shadow,
 #ifdef LIGHT_BACKLIGHT_USED
 						backlight,
 #endif
@@ -2951,7 +2973,18 @@ void fragment_shader(in SceneData scene_data) {
 					continue; // Statically baked light and object uses lightmap, skip
 				}
 
-				light_process_area(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation,
+				//process sscs
+				float sscs_shadow = 1.0;
+				if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS) && area_lights.data[light_index].sscs_index != 0xFFFFFFFF) {
+#ifdef USE_MULTIVIEW
+					float sscs_layer = float(area_lights.data[light_index].sscs_index * 2u + uint(ViewIndex));
+#else
+					float sscs_layer = float(area_lights.data[light_index].sscs_index);
+#endif // USE_MULTIVIEW
+					sscs_shadow = textureLod(sampler2DArray(sscs_buffer, SAMPLER_LINEAR_CLAMP), vec3(screen_uv, sscs_layer), 0.0).r;
+				}
+
+				light_process_area(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, roughness, metallic, scene_data.taa_frame_count, albedo, alpha, screen_uv, energy_compensation, sscs_shadow,
 #ifdef LIGHT_BACKLIGHT_USED
 						backlight,
 #endif

@@ -1791,7 +1791,7 @@ void SSEffects::sscs_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers
 	}
 }
 
-void SSEffects::screen_space_contact_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSCSRenderBuffers &p_sscs_buffers, const SSCSSettings &p_settings, const Projection *p_projections, Vector3 p_light_direction, uint32_t p_light_index, float p_opacity, float p_blur, float p_taa_frame_count) {
+void SSEffects::screen_space_contact_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSCSRenderBuffers &p_sscs_buffers, const SSCSSettings &p_settings, const Projection *p_projections, Vector3 p_light_direction, uint32_t p_light_index, float p_opacity, float p_blur, real_t p_light_w, float p_taa_frame_count) {
 	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
 	ERR_FAIL_NULL(uniform_set_cache);
 	MaterialStorage *material_storage = MaterialStorage::get_singleton();
@@ -1808,7 +1808,7 @@ void SSEffects::screen_space_contact_shadows(Ref<RenderSceneBuffersRD> p_render_
 	for (uint32_t v = 0; v < view_count; v++) {
 		// Calculate light coordinate in screen space
 		Projection projection = correction * p_projections[v];
-		Vector4 projected_light = projection.xform(Vector4(p_light_direction.x, p_light_direction.y, p_light_direction.z, 0));
+		Vector4 projected_light = projection.xform(Vector4(p_light_direction.x, p_light_direction.y, p_light_direction.z, p_light_w));
 
 		const int wave_size = 64;
 		Vector4 light;

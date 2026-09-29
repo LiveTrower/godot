@@ -167,12 +167,14 @@ private:
 		float volumetric_fog_energy;
 		uint32_t bake_mode;
 		float projector_rect[4];
+		uint32_t sscs_index;
 	};
 
 	struct LightInstanceDepthSort {
 		float depth;
 		LightInstance *light_instance;
 		Light *light;
+		uint32_t sscs_index;
 		bool operator<(const LightInstanceDepthSort &p_sort) const {
 			return depth < p_sort.depth;
 		}
